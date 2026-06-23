@@ -156,15 +156,24 @@ namespace SlimeCorralSpawn.Themes
 
         // ---- Normal maps: dan PROFUNDIDAD (relieve) real bajo la luz a ladrillos/piedra/etc. ----
         private static readonly Dictionary<MatKind, Texture2D> _normalCache = new Dictionary<MatKind, Texture2D>();
+        // Cache de píxeles del albedo para evitar GetPixels() duplicados (normal + height lo necesitan).
+        private static readonly Dictionary<MatKind, Color[]> _albedoPixels = new Dictionary<MatKind, Color[]>();
+        private static Color[] GetAlbedoPixels(MatKind kind)
+        {
+            if (_albedoPixels.TryGetValue(kind, out var p) && p != null) return p;
+            var tex = Get(kind);
+            p = tex.GetPixels();
+            _albedoPixels[kind] = p;
+            return p;
+        }
+        public static void ClearAlbedoPixelCache() { _albedoPixels.Clear(); }
         public static Texture2D GetNormal(MatKind kind)
         {
             if (_normalCache.TryGetValue(kind, out var n) && n != null) return n;
-            // Intentar cargar normal de disco.
             var disk = LoadRawTex(NormalPath(kind));
             if (disk != null) { _normalCache[kind] = disk; return disk; }
-            // Generar, guardar y cachear.
             Texture2D nm;
-            try { nm = BuildNormal(Get(kind), NormalStrength(kind), NormalInvert(kind)); }
+            try { nm = BuildNormal(kind); }
             catch (Exception ex) { ModEntry.LogErrorOnce("TextureFactory.GetNormal." + kind, ex); nm = null; }
             if (nm != null) { _normalCache[kind] = nm; SaveRawTex(NormalPath(kind), nm); }
             return nm;
@@ -205,11 +214,13 @@ namespace SlimeCorralSpawn.Themes
         // Resolución 256×256 (4× más rápida que 512, memoria mínima, el shader interpola igual).
         // Codificado RGB estándar (R=X, G=Y, B=derivado) — compatible con UnpackNormal de HDRP/URP.
         private const int NM = 256;
-        private static Texture2D BuildNormal(Texture2D albedo, float strength, bool invert)
+        private static Texture2D BuildNormal(MatKind kind)
         {
+            bool invert = NormalInvert(kind);
+            float strength = NormalStrength(kind);
             if (invert) strength = -strength;
-            int sw = albedo.width, sh = albedo.height;
-            var src = albedo.GetPixels();
+            Color[] src = GetAlbedoPixels(kind);
+            int sw = S, sh = S;
             float str = Mathf.Abs(strength) * 0.6f;
             float edgeThresh = 0.008f, edgeHardness = 12f;
             var dst = new Color[NM * NM];
@@ -259,10 +270,9 @@ namespace SlimeCorralSpawn.Themes
         // Una textura grayscale 256×256 es ~256KB, ínfimo comparado al beneficio 3D del parallax.
         private static Texture2D BuildHeightMap(MatKind kind)
         {
-            var albedo = Get(kind);
-            var px = albedo.GetPixels();
-            int sw = albedo.width;
+            Color[] px = GetAlbedoPixels(kind);
             bool inv = NormalInvert(kind);
+            int sw = S;
             var dst = new Color[NM * NM];
             for (int y = 0; y < NM; y++)
                 for (int x = 0; x < NM; x++)

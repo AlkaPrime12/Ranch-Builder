@@ -625,19 +625,6 @@ namespace SlimeCorralSpawn.Placement
                 }
                 else { TrySetTexture(m, "_NormalMap", null); try { m.DisableKeyword("_NORMALMAP"); } catch { } }
 
-                // Height map + Parallax Occlusion Mapping (POM): profundidad 3D sin geometría extra.
-                // El height map se genera de la luminancia y se cachea a disco (carga instantánea).
-                Texture2D hm = Themes.TextureFactory.GetHeightMap(kind);
-                if (hm != null)
-                {
-                    TrySetTexture(m, "_HeightMap", hm);
-                    try { if (m.HasProperty("_Parallax")) m.SetFloat("_Parallax", 0.025f); } catch { }
-                    try { if (m.HasProperty("_HeightScale")) m.SetFloat("_HeightScale", 0.025f); } catch { }
-                    try { if (m.HasProperty("_DisplacementMode")) m.SetFloat("_DisplacementMode", 2f); } catch { }
-                    try { m.EnableKeyword("_HEIGHTMAP"); } catch { }
-                }
-                else { TrySetTexture(m, "_HeightMap", null); try { m.DisableKeyword("_HEIGHTMAP"); } catch { } }
-
                 // Anti-"oily": apagar clearcoat/brillo graso heredado del template del juego.
                 try { if (m.HasProperty("_CoatMask")) m.SetFloat("_CoatMask", 0f); } catch { }
                 try { m.DisableKeyword("_MATERIAL_FEATURE_CLEAR_COAT"); } catch { }
