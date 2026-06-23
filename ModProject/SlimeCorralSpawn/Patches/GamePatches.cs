@@ -159,14 +159,25 @@ namespace SlimeCorralSpawn.Patches
 
     public static class LandPlotStartFinalizer
     {
-        // Suprimir TODA excepción de LandPlot.Start: los plots nativos no tiran acá; las NRE vienen
-        // de nuestros plots custom (en reload/scene-change la jerarquía ya no permite identificarlos).
-        public static Exception Finalizer(Exception __exception) => null;
+        // Solo suprimir la excepción si el LandPlot es NUESTRO (custom). Los plots vanilla no deben
+        // tragarse sus errores (encubrirían bugs reales). El NRE ocurre porque el plot se construye
+        // antes de que RegisterLandPlot termine (diferido 2 frames).
+        public static Exception Finalizer(Il2CppLandPlot __instance, Exception __exception)
+        {
+            if (__exception == null) return null;
+            try { if (GamePatches.IsOurLandPlot(__instance)) return null; } catch { }
+            return __exception;
+        }
     }
 
     public static class LandPlotDestroyFinalizer
     {
-        public static Exception Finalizer(Exception __exception) => null;
+        public static Exception Finalizer(Il2CppLandPlot __instance, Exception __exception)
+        {
+            if (__exception == null) return null;
+            try { if (GamePatches.IsOurLandPlot(__instance)) return null; } catch { }
+            return __exception;
+        }
     }
 
     public static class LandPlotUpgradePatch
