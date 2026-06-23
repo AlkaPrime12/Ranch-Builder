@@ -182,8 +182,11 @@ namespace SlimeCorralSpawn
                         try { transp = m.renderQueue >= (int)UnityEngine.Rendering.RenderQueue.Transparent; } catch { }
                         if (transp) { float a = 0.35f; try { if (m.color.a > 0.01f) a = m.color.a; } catch { } cc.a = a; }
                         try { m.color = cc; } catch { }
-                        SetCol(m, "_BaseColor", cc); SetCol(m, "_Color", cc); SetCol(m, "_UnlitColor", cc);
-                        SetCol(m, "_MainColor", cc); SetCol(m, "_TintColor", cc);
+                        try { m.SetColor("_BaseColor", cc); } catch { }
+                        try { m.SetColor("_Color", cc); } catch { }
+                        try { m.SetColor("_UnlitColor", cc); } catch { }
+                        try { m.SetColor("_MainColor", cc); } catch { }
+                        try { m.SetColor("_TintColor", cc); } catch { }
                     }
                     r.materials = mats;
                 }

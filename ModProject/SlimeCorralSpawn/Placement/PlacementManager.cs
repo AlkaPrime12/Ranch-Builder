@@ -602,9 +602,10 @@ namespace SlimeCorralSpawn.Placement
                 if (tpl == null) return null;
                 var m = new Material(tpl);    // clona shader + variante válida => refleja con el cielo/probes
                 Texture2D tex = Themes.TextureFactory.Get(kind);
-                Color soft = Color.Lerp(Color.white, tint, 0.3f);
                 TrySetTexture(m, "_BaseColorMap", tex);
-                TrySetColor(m, "_BaseColor", soft);
+                TrySetColor(m, "_BaseColor", tint);
+                try { m.color = tint; } catch { }
+                TrySetColor(m, "_Color", tint);
                 // Limpiar mapas heredados del template (mask/detail) y poner NUESTRO normal map (relieve/profundidad).
                 TrySetTexture(m, "_MaskMap", null);
                 TrySetTexture(m, "_BentNormalMap", null);
