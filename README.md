@@ -29,7 +29,7 @@
 3. Launch the game
 4. Press **F5** in-game to open the build menu
 
-> First launch generates all textures procedurally (takes a few seconds). Subsequent launches load from disk instantly.
+> ⚠️ **First launch:** The mod generates all 74 textures procedurally on first run. Expect **30–60 seconds of lag** while it builds the cache. This is normal and only happens once. Subsequent runs load instantly.
 
 ---
 
