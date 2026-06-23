@@ -41,6 +41,9 @@ namespace SlimeCorralSpawn
                 LoggerInstance.Msg($"OnUpdate is running. Keyboard available = {InputHelper.KeyboardAvailable}");
             }
 
+            // No procesar nada mientras el juego está en pausa (escape abierto).
+            try { if (UnityEngine.Time.timeScale == 0f) return; } catch { }
+
             // Pre-generar las texturas repartidas en varios frames: el menú de MATERIAL abre sin lag.
             try { Themes.TextureFactory.WarmStep(); }
             catch (Exception ex) { LogErrorOnce("TextureFactory.WarmStep", ex); }
@@ -85,9 +88,6 @@ namespace SlimeCorralSpawn
             catch (Exception ex) { LogErrorOnce("PlotData.UpdateRetry", ex); }
 
             // Re-crear las estructuras custom guardadas cuando el rancho esté cargado.
-            try { UI.StructureManager.UpdateRetry(); }
-            catch (Exception ex) { LogErrorOnce("StructureManager.UpdateRetry", ex); }
-
             // Capturar/guardar el contenido vivo de los plots (cultivos, plorts del silo) cada ~12s.
             try { Plots.PlotData.UpdateContentCapture(); }
             catch (Exception ex) { LogErrorOnce("PlotData.UpdateContentCapture", ex); }
@@ -137,6 +137,9 @@ namespace SlimeCorralSpawn
                 _firstGuiLogged = true;
                 LoggerInstance.Msg("OnGUI is being called by MelonLoader. IMGUI rendering is active.");
             }
+
+            // Saltar toda la UI del mod mientras el juego está en pausa (escape abierto).
+            try { if (UnityEngine.Time.timeScale == 0f) return; } catch { }
 
             try { Placement.PlacementManager.OnGUIStatic(); }
             catch (Exception ex) { LogErrorOnce("PlacementManager.OnGUIStatic", ex); }

@@ -67,7 +67,6 @@ namespace SlimeCorralSpawn.Placement
                 }
                 SlimeCorralSpawn.Plots.PlotData.Register(pd);
                 SlimeCorralSpawn.SaveData.ModDataManager.SavePlot(pd);
-                ModEntry.Instance?.LoggerInstance.Msg($"[RealPlots] Tipo construido guardado: {type} (persistirá al recargar).");
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("RealPlotManager.RegisterBuilt", ex); }
         }
@@ -82,7 +81,6 @@ namespace SlimeCorralSpawn.Placement
                 if (pd.PurchasedUpgrades == null) pd.PurchasedUpgrades = new System.Collections.Generic.List<string>();
                 if (!pd.PurchasedUpgrades.Contains(upgrade)) pd.PurchasedUpgrades.Add(upgrade);
                 SlimeCorralSpawn.SaveData.ModDataManager.SavePlot(pd);
-                ModEntry.Instance?.LoggerInstance.Msg($"[RealPlots] Mejora guardada: {upgrade} (key={plotKey}).");
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("RealPlotManager.AddSavedUpgrade", ex); }
         }
@@ -97,7 +95,6 @@ namespace SlimeCorralSpawn.Placement
                 if (pd == null) return;
                 pd.PlotType = type;
                 SlimeCorralSpawn.SaveData.ModDataManager.SavePlot(pd);
-                ModEntry.Instance?.LoggerInstance.Msg($"[RealPlots] Tipo construido guardado: {type} (key={plotKey}).");
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("RealPlotManager.UpdateSavedType", ex); }
         }
@@ -237,7 +234,6 @@ namespace SlimeCorralSpawn.Placement
                 SlimeCorralSpawn.Plots.PlotData.Register(pd);
                 SlimeCorralSpawn.SaveData.ModDataManager.SavePlot(pd);
 
-                ModEntry.Instance?.LoggerInstance.Msg($"[RealPlots] Plot REAL registrado ({id}) en {pos}, key={uid}.");
                 return true;
             }
             catch (Exception ex)

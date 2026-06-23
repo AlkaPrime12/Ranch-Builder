@@ -48,7 +48,7 @@ namespace SlimeCorralSpawn.Placement
                     }
                     catch (Exception e) { ModEntry.LogErrorOnce("ApplyUpgrade." + u, e); }
                 }
-                if (applied > 0) ModEntry.Instance?.LoggerInstance.Msg($"[Plot] Re-aplicadas {applied} mejoras a key={plotKey}.");
+                // if (applied > 0) ModEntry.Instance?.LoggerInstance.Msg($"[Plot] Re-aplicadas {applied} mejoras a key={plotKey}.");
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("RealPlotFactory.ApplySavedUpgrades", ex); }
         }
@@ -115,7 +115,6 @@ namespace SlimeCorralSpawn.Placement
                                 {
                                     var pde = SlimeCorralSpawn.Plots.PlotData.Find(plotKey);
                                     if (pde != null) pde.ContentReady = true;
-                                    ModEntry.Instance?.LoggerInstance.Msg($"[Plot] LandPlot EMPTY real listo: key={plotKey}");
                                 }
                             }
                             catch (Exception e) { ModEntry.LogErrorOnce("Plot.spawn.inner", e); }
@@ -162,7 +161,6 @@ namespace SlimeCorralSpawn.Placement
                     }
 
                     GameObject newPlot = lpl.Replace(landPlot, targetPrefab);
-                    ModEntry.Instance?.LoggerInstance.Msg($"[Plot] Construido nativo: {plotId} key={plotKey} (intento {attempt + 1})");
 
                     // Re-aplicar las mejoras guardadas + restaurar contenido (persistencia PROPIA, sin tocar
                     // el grafo del RanchModel del juego — eso crasheaba el load).

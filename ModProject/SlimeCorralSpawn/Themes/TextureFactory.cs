@@ -62,7 +62,7 @@ namespace SlimeCorralSpawn.Themes
             if (!File.Exists(path)) return null;
             byte[] bytes = File.ReadAllBytes(path);
             if (bytes.Length < 12) return null;
-            if (bytes[0] != 0x53 || bytes[1] != 0x43 || bytes[2] != 0x02) { TryDelete(path); return null; }
+            if (bytes[0] != 0x53 || bytes[1] != 0x43 || bytes[2] != 0x03) { TryDelete(path); return null; }
             int w = BitConverter.ToInt32(bytes, 4);
             int h = BitConverter.ToInt32(bytes, 8);
             if (w <= 0 || w > 2048 || h <= 0 || h > 2048) { TryDelete(path); return null; }
@@ -90,7 +90,7 @@ namespace SlimeCorralSpawn.Themes
                 float[] floats = new float[pxCount * 4];
                 for (int i = 0; i < pxCount; i++) { int o = i * 4; floats[o] = px[i].r; floats[o + 1] = px[i].g; floats[o + 2] = px[i].b; floats[o + 3] = px[i].a; }
                 var buf = new byte[12 + dataBytes];
-                buf[0] = 0x53; buf[1] = 0x43; buf[2] = 0x02; buf[3] = 0;
+                buf[0] = 0x53; buf[1] = 0x43; buf[2] = 0x03; buf[3] = 0;
                 BitConverter.GetBytes(tex.width).CopyTo(buf, 4);
                 BitConverter.GetBytes(tex.height).CopyTo(buf, 8);
                 Buffer.BlockCopy(floats, 0, buf, 12, dataBytes);
@@ -171,7 +171,7 @@ namespace SlimeCorralSpawn.Themes
         {
             if (_normalCache.TryGetValue(kind, out var n) && n != null) return n;
             var disk = LoadRawTex(NormalPath(kind));
-            if (disk != null) { _normalCache[kind] = disk; return disk; }
+            if (disk != null) { disk.filterMode = FilterMode.Point; _normalCache[kind] = disk; return disk; }
             Texture2D nm;
             try { nm = BuildNormal(kind); }
             catch (Exception ex) { ModEntry.LogErrorOnce("TextureFactory.GetNormal." + kind, ex); nm = null; }
@@ -207,21 +207,45 @@ namespace SlimeCorralSpawn.Themes
             }
         }
 
-        // Normal map por DETECCIÓN DE BORDES (edge-aware). Resolución 512×512 para capturar
-        // grietas finas. El gradiente Sobel se calcula sobre luminancia limpia (sin ruido).
-        // Codificado RGB estándar (R=X, G=Y, B=derivado) — compatible con UnpackNormal de HDRP/URP.
-        private const int HM_RES = 256; // resolución del height map (parallax)
+        // Normal map por DETECCIÓN DE BORDES (edge-aware). Samplea el albedo 512×512 a 256×256
+        // con bloque contiguo top-left (como funcionaba originalmente). Sin ruido, sin stride.
+        // edgeThresh=0.012, edgeHardness=8 capturan las juntas de mortero sin falsos en la cara.
+        private const int NM_RES = 256;
+        private const int HM_RES = 256;
         private static Texture2D BuildNormal(MatKind kind)
         {
             bool invert = NormalInvert(kind);
             float strength = NormalStrength(kind);
             if (invert) strength = -strength;
             Color[] src = GetAlbedoPixels(kind);
-            int w = S, h = S;
-            float str = Mathf.Abs(strength) * 0.6f;
-            float edgeThresh = 0.008f, edgeHardness = 12f;
-            var dst = new Color[w * h];
-            for (int y = 0; y < h; y++)
+            int w = NM_RES, sw = S;
+            float str = Mathf.Abs(strength) * 0.5f;
+            float edgeThresh = 0.018f, edgeHardness = 10f;
+            float[] H = new float[(w + 2) * (w + 2)];
+            for (int y = -1; y <= w; y++)
+            {
+                int sy = (y + w) % w;
+                for (int x = -1; x <= w; x++)
+                {
+                    int sx = (x + w) % w;
+                    H[(y + 1) * (w + 2) + (x + 1)] = Lum(src[sy * sw + sx]);
+                }
+            }
+            // Blur 3×3 sobre el height map antes del Sobel para eliminar ruido de la textura.
+            float[] blur = new float[(w + 2) * (w + 2)];
+            int stride = w + 2;
+            for (int y = 1; y <= w; y++)
+                for (int x = 1; x <= w; x++)
+                {
+                    int c = y * stride + x;
+                    blur[c] = (H[c - stride - 1] + H[c - stride] + H[c - stride + 1]
+                             + H[c - 1]          + H[c]          + H[c + 1]
+                             + H[c + stride - 1] + H[c + stride] + H[c + stride + 1]) / 9f;
+                }
+            for (int y = 0; y <= w + 1; y++) { blur[y * stride] = H[y * stride]; blur[y * stride + w + 1] = H[y * stride + w + 1]; }
+            for (int x = 0; x <= w + 1; x++) { blur[x] = H[x]; blur[(w + 1) * stride + x] = H[(w + 1) * stride + x]; }
+            var dst = new Color[w * w];
+            for (int y = 0; y < w; y++)
             {
                 for (int x = 0; x < w; x++)
                 {
@@ -229,8 +253,7 @@ namespace SlimeCorralSpawn.Themes
                     for (int ky = -1; ky <= 1; ky++)
                         for (int kx = -1; kx <= 1; kx++)
                         {
-                            int sx = (x + kx + w) % w, sy = (y + ky + h) % h;
-                            float hval = Lum(src[sy * w + sx]);
+                            float hval = blur[(y + 1 + ky) * stride + (x + 1 + kx)];
                             float wx = (kx == 0) ? 0f : (kx * (ky == 0 ? 2f : 1f));
                             float wy = (ky == 0) ? 0f : (ky * (kx == 0 ? 2f : 1f));
                             gx += wx * hval;
@@ -250,10 +273,17 @@ namespace SlimeCorralSpawn.Themes
                         dst[y * w + x] = new Color(0.5f, 0.5f, 1f, 1f);
                 }
             }
-            var tex = new Texture2D(w, h, TextureFormat.RGBA32, true, true);
-            tex.wrapMode = TextureWrapMode.Repeat; tex.filterMode = FilterMode.Trilinear; tex.anisoLevel = 6;
+            // Nearest-neighbor upscale 256→512 + Bilinear con mipmaps: las juntas de 2 px sobreviven
+            // a la interpolación, pero no se ve pixelado como con Point.
+            const int OUT = 512;
+            var outPx = new Color[OUT * OUT];
+            for (int y = 0; y < OUT; y++)
+                for (int x = 0; x < OUT; x++)
+                    outPx[y * OUT + x] = dst[(y >> 1) * w + (x >> 1)];
+            var tex = new Texture2D(OUT, OUT, TextureFormat.RGBA32, true, true);
+            tex.wrapMode = TextureWrapMode.Repeat; tex.filterMode = FilterMode.Bilinear; tex.anisoLevel = 6;
             tex.hideFlags = HideFlags.HideAndDontSave;
-            tex.SetPixels(dst); tex.Apply();
+            tex.SetPixels(outPx); tex.Apply();
             return tex;
         }
         private static float Lum(Color c) => c.r * 0.299f + c.g * 0.587f + c.b * 0.114f;

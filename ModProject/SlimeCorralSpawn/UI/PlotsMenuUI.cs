@@ -36,9 +36,7 @@ namespace SlimeCorralSpawn.UI
             StructureCategory.Floor, StructureCategory.Roof, StructureCategory.Stairs, StructureCategory.Fence,
             StructureCategory.Pillar, StructureCategory.Bridge, StructureCategory.Decoration
         };
-        private static readonly string[] CatNames = {
-            "Muros", "Semi-muros", "Puertas", "Ventanas", "Pisos", "Techos", "Escaleras", "Cercas", "Pilares", "Puentes", "Deco"
-        };
+        private static string CatName(int i) => Loc.T("cat_" + CatOrder[i].ToString());
         private static float scrollOffset;
         private static float scrollContentHeight;
         private static Rect scrollClipRect;
@@ -244,8 +242,7 @@ namespace SlimeCorralSpawn.UI
             if (IsVisible) SetCursorFree(true);
             InitStyles();
 
-            // Botón integrado: visible cuando el juego muestra el cursor (pausa/menú) o el menú está abierto.
-            DrawOpenButton();
+            // El botón "Custom Ranch Builder" se ha quitado por molestia visual. Usá F5.
 
             if (menuX < -menuWidth - 10f) return;
 
@@ -299,32 +296,6 @@ namespace SlimeCorralSpawn.UI
 
             if (tooltipText != null)
                 DrawTooltip();
-        }
-
-        /// <summary>
-        /// Botón "Custom Builder" para abrir el menú desde el juego (además de F5). Se muestra cuando el
-        /// cursor está libre (menú de pausa abierto) — ahí sí es clickeable — o con el menú ya abierto.
-        /// </summary>
-        private static void DrawOpenButton()
-        {
-            bool cursorFree = false;
-            try { cursorFree = Cursor.lockState == CursorLockMode.None || Time.timeScale < 0.05f; } catch { }
-            if (IsVisible || PlacementManager.IsPlacing) return;
-            if (!cursorFree) return;
-
-            float bw = 210f, bh = 40f;
-            Rect r = new Rect(Screen.width * 0.5f - bw / 2f, 12f, bw, bh);
-            bool hover = r.Contains(Event.current.mousePosition);
-            Fill(r, hover ? SlimeTheme.PrimaryPink : SlimeTheme.DarkPink);
-            Fill(new Rect(r.x, r.yMax - 3, r.width, 3), SlimeTheme.BackgroundButtonActive);
-
-            Event e = Event.current;
-            if (e.type == EventType.MouseDown && e.button == 0 && hover) { e.Use(); OpenMenu(); }
-
-            Color prev = GUI.color;
-            GUI.color = SlimeTheme.CreamText;
-            GUI.Label(r, new GUIContent("Custom Ranch Builder  (F5)"), buyStyle);
-            GUI.color = prev;
         }
 
         private static void DrawTabs(float x, float y, float w)
@@ -413,7 +384,7 @@ namespace SlimeCorralSpawn.UI
                 if (plot.IsHouse) continue;
                 bool isSelected = selectedPlotIndex == i;
                 int cost = PlotDefinitions.GetCost(plot.Type, selectedSize);
-                string btnText = $"{plot.Name}  |  {cost} Newbucks";
+                string btnText = $"{Loc.PlotName(plot.Type)}  |  {cost} Newbucks";
 
                 Rect btnRect = new Rect(x, y, w, 42);
                 if (ClickableBox(btnRect, btnText, isSelected ? SlimeTheme.BackgroundButtonHover : SlimeTheme.BackgroundButton, labelStyle))
@@ -442,7 +413,7 @@ namespace SlimeCorralSpawn.UI
                 var house = HouseManager.HouseDefinitions[i];
                 bool isSelected = selectedPlotIndex == i + 100;
                 int cost = HouseManager.GetCost(house);
-                string btnText = $"{house.Name}  |  {cost} Newbucks";
+                string btnText = $"{Loc.StructName(house.Id)}  |  {cost} Newbucks";
 
                 Rect btnRect = new Rect(x, y, w, 42);
                 if (ClickableBox(btnRect, btnText, isSelected ? SlimeTheme.BackgroundButtonHover : SlimeTheme.BackgroundButton, labelStyle))
@@ -475,7 +446,7 @@ namespace SlimeCorralSpawn.UI
                 bool hover = r.Contains(Event.current.mousePosition);
                 Fill(r, active ? SlimeTheme.PrimaryPink : (hover ? SlimeTheme.BackgroundButtonHover : SlimeTheme.BackgroundButton));
                 Color prev = GUI.color; GUI.color = active ? SlimeTheme.CreamText : SlimeTheme.TextWhite;
-                GUI.Label(r, new GUIContent(Loc.T("cat_" + CatOrder[i].ToString())), tabStyle);
+                GUI.Label(r, new GUIContent(CatName(i)), tabStyle);
                 GUI.color = prev;
                 if (hover && Event.current.type == EventType.MouseDown && Event.current.button == 0)
                 { structCat = CatOrder[i]; Event.current.Use(); }
@@ -507,7 +478,7 @@ namespace SlimeCorralSpawn.UI
                 shown++;
                 bool isSelected = selectedPlotIndex == i + 200;
                 int cost = StructureManager.GetCost(s);
-                string btnText = $"{s.Name}  |  {cost} NB";
+                string btnText = $"{Loc.StructName(s.Id)}  |  {cost} NB";
 
                 Rect btnRect = new Rect(x, y, w, 40);
                 if (ClickableBox(btnRect, btnText, isSelected ? SlimeTheme.BackgroundButtonHover : SlimeTheme.BackgroundButton, labelStyle))
@@ -596,7 +567,7 @@ namespace SlimeCorralSpawn.UI
                 if (s.Category != structCat) continue;
                 if (s.Id != null && s.Id.StartsWith("free_")) continue;   // defs internas (free_floor/free_cube)
                 Rect btnRect = new Rect(x, y, w, 40);
-                if (ClickableBox(btnRect, $"{s.Name}  |  {StructureManager.GetCost(s)} NB", SlimeTheme.BackgroundButton, labelStyle))
+                if (ClickableBox(btnRect, $"{Loc.StructName(s.Id)}  |  {StructureManager.GetCost(s)} NB", SlimeTheme.BackgroundButton, labelStyle))
                 {
                     StructureManager.StartPlacement(s, true);   // freeMode = true
                     PlacementManager.StartPlacement(0, PlotType.Empty, PlotSize.Size1x1, StructureManager.GetCost(s));
@@ -661,7 +632,7 @@ namespace SlimeCorralSpawn.UI
                     PlotType parsedType;
                     Enum.TryParse(entry.PlotType, out parsedType);
                     var def = PlotDefinitions.GetByType(parsedType);
-                    string typeName = def?.Name ?? entry.PlotType;
+                    string typeName = def != null ? Loc.PlotName(def.Type) : entry.PlotType;
                     string sizeLabel = entry.PlotSize.Replace("Size", "");
 
                     Rect plotRect = new Rect(x, y, w, 38);
@@ -702,7 +673,7 @@ namespace SlimeCorralSpawn.UI
             PlotDefinition plot = PlotDefinitions.AllPlots[selectedPlotIndex];
             int cost = PlotDefinitions.GetCost(plot.Type, selectedSize);
 
-            GUI.Label(new Rect(x, y, w, 30), new GUIContent($"Buy: {plot.Name}"), titleStyle);
+            GUI.Label(new Rect(x, y, w, 30), new GUIContent($"Buy: {Loc.PlotName(plot.Type)}"), titleStyle);
             y += 35f;
             GUI.Label(new Rect(x + 10, y, w - 20, 40), new GUIContent(plot.Description), tooltipStyle);
             y += 45f;
@@ -744,7 +715,7 @@ namespace SlimeCorralSpawn.UI
             if (houseIdx < 0 || houseIdx >= HouseManager.HouseDefinitions.Count) { showPurchasePanel = false; return; }
             var house = HouseManager.HouseDefinitions[houseIdx];
 
-            GUI.Label(new Rect(x, y, w, 30), new GUIContent($"Buy: {house.Name}"), titleStyle);
+            GUI.Label(new Rect(x, y, w, 30), new GUIContent($"Buy: {Loc.StructName(house.Id)}"), titleStyle);
             y += 35f;
             GUI.Label(new Rect(x + 10, y, w - 20, 40), new GUIContent(house.Description), tooltipStyle);
             y += 45f;
@@ -786,7 +757,7 @@ namespace SlimeCorralSpawn.UI
             if (structIdx < 0 || structIdx >= defs.Count) { showPurchasePanel = false; return; }
             var s = defs[structIdx];
 
-            GUI.Label(new Rect(x, y, w, 30), new GUIContent($"Buy: {s.Name}"), titleStyle);
+            GUI.Label(new Rect(x, y, w, 30), new GUIContent($"Buy: {Loc.StructName(s.Id)}"), titleStyle);
             y += 35f;
             GUI.Label(new Rect(x + 10, y, w - 20, 40), new GUIContent(s.Description), tooltipStyle);
             y += 45f;
@@ -848,7 +819,7 @@ namespace SlimeCorralSpawn.UI
             PlotType parsedType;
             Enum.TryParse(entry.PlotType, out parsedType);
             var def = PlotDefinitions.GetByType(parsedType);
-            string typeName = def?.Name ?? entry.PlotType;
+            string typeName = def != null ? Loc.PlotName(def.Type) : entry.PlotType;
 
             GUI.Label(new Rect(x, y, w, 30), new GUIContent($"Edit: {typeName}"), titleStyle);
             y += 35f;

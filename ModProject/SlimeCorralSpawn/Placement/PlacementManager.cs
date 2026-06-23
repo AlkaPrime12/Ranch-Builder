@@ -738,14 +738,17 @@ namespace SlimeCorralSpawn.Placement
                 new Vector3(-hx,-hy, hz), new Vector3( hx,-hy, hz), new Vector3( hx,-hy,-hz), new Vector3(-hx,-hy,-hz),
             };
 
-            // UVs escaladas por las dimensiones de cada cara para densidad de textura uniforme.
+            // UVs escaladas por dimensión (mín 1 para caras finas).
+            float ux = size.x < 1f ? 1f : size.x;
+            float uy = size.y < 1f ? 1f : size.y;
+            float uz = size.z < 1f ? 1f : size.z;
             Vector2[] uv = {
-                new Vector2(0,0), new Vector2(size.x,0), new Vector2(size.x,size.y), new Vector2(0,size.y),       // front
-                new Vector2(0,0), new Vector2(size.x,0), new Vector2(size.x,size.y), new Vector2(0,size.y),       // back
-                new Vector2(0,0), new Vector2(size.z,0), new Vector2(size.z,size.y), new Vector2(0,size.y),       // left
-                new Vector2(0,0), new Vector2(size.z,0), new Vector2(size.z,size.y), new Vector2(0,size.y),       // right
-                new Vector2(0,0), new Vector2(size.x,0), new Vector2(size.x,size.z), new Vector2(0,size.z),       // top
-                new Vector2(0,0), new Vector2(size.x,0), new Vector2(size.x,size.z), new Vector2(0,size.z),       // bottom
+                new Vector2(0,0), new Vector2(ux,0), new Vector2(ux,uy), new Vector2(0,uy),       // front
+                new Vector2(0,0), new Vector2(ux,0), new Vector2(ux,uy), new Vector2(0,uy),       // back
+                new Vector2(0,0), new Vector2(uz,0), new Vector2(uz,uy), new Vector2(0,uy),       // left
+                new Vector2(0,0), new Vector2(uz,0), new Vector2(uz,uy), new Vector2(0,uy),       // right
+                new Vector2(0,0), new Vector2(ux,0), new Vector2(ux,uz), new Vector2(0,uz),       // top
+                new Vector2(0,0), new Vector2(ux,0), new Vector2(ux,uz), new Vector2(0,uz),       // bottom
             };
 
             int[] tri = new int[36];
@@ -780,13 +783,16 @@ namespace SlimeCorralSpawn.Placement
                 new Vector3(-hx, hy,-hz), new Vector3( hx, hy,-hz), new Vector3( hx, hy, hz), new Vector3(-hx, hy, hz),
                 new Vector3(-hx,-hy, hz), new Vector3( hx,-hy, hz), new Vector3( hx,-hy,-hz), new Vector3(-hx,-hy,-hz),
             };
+            float ux = size.x < 1f ? 1f : size.x;
+            float uy = size.y < 1f ? 1f : size.y;
+            float uz = size.z < 1f ? 1f : size.z;
             Vector2[] uv = {
-                new Vector2(0,0), new Vector2(size.x,0), new Vector2(size.x,size.y), new Vector2(0,size.y),
-                new Vector2(0,0), new Vector2(size.x,0), new Vector2(size.x,size.y), new Vector2(0,size.y),
-                new Vector2(0,0), new Vector2(size.z,0), new Vector2(size.z,size.y), new Vector2(0,size.y),
-                new Vector2(0,0), new Vector2(size.z,0), new Vector2(size.z,size.y), new Vector2(0,size.y),
-                new Vector2(0,0), new Vector2(size.x,0), new Vector2(size.x,size.z), new Vector2(0,size.z),
-                new Vector2(0,0), new Vector2(size.x,0), new Vector2(size.x,size.z), new Vector2(0,size.z),
+                new Vector2(0,0), new Vector2(ux,0), new Vector2(ux,uy), new Vector2(0,uy),
+                new Vector2(0,0), new Vector2(ux,0), new Vector2(ux,uy), new Vector2(0,uy),
+                new Vector2(0,0), new Vector2(uz,0), new Vector2(uz,uy), new Vector2(0,uy),
+                new Vector2(0,0), new Vector2(uz,0), new Vector2(uz,uy), new Vector2(0,uy),
+                new Vector2(0,0), new Vector2(ux,0), new Vector2(ux,uz), new Vector2(0,uz),
+                new Vector2(0,0), new Vector2(ux,0), new Vector2(ux,uz), new Vector2(0,uz),
             };
             for (int i = 0; i < 24; i++) { verts.Add(v[i] + c); uvs.Add(uv[i]); }
             for (int f = 0; f < 6; f++) { int o = o0 + f * 4; tris.Add(o); tris.Add(o + 2); tris.Add(o + 1); tris.Add(o); tris.Add(o + 3); tris.Add(o + 2); }

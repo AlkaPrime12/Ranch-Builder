@@ -451,7 +451,7 @@ namespace SlimeCorralSpawn.UI
         private static StructureDefinition _currentStructure;
 
         public static bool IsPlacing => _isPlacing;
-        public static string CurrentStructureName => _currentStructure != null ? _currentStructure.Name : "Structure";
+        public static string CurrentStructureName => _currentStructure != null ? Loc.StructName(_currentStructure.Id) : "Structure";
 
         public static Vector3 GetPlacementBounds()
         {
@@ -623,7 +623,7 @@ namespace SlimeCorralSpawn.UI
             foreach (var kv in _placed)
             {
                 var def = GetById(kv.Value.DefinitionId);
-                list.Add(new KeyValuePair<string, string>(kv.Key, def != null ? def.Name : kv.Value.DefinitionId));
+                list.Add(new KeyValuePair<string, string>(kv.Key, def != null ? Loc.StructName(def.Id) : kv.Value.DefinitionId));
             }
             return list;
         }
