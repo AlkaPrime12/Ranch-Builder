@@ -393,6 +393,12 @@ namespace SlimeCorralSpawn.UI
                 B(0, 0.1f, 0, 4f, 0.2f, 4f, Pl), B(0, 2.5f, 0, 4f, 0.2f, 4f, DWd), B(0, 2.95f, 0, 2.6f, 0.7f, 2.6f, Rt));
             Add("torch", "Torch", "Antorcha con llama.", StructureCategory.Decoration, 70, new Vector3(0.4f, 1.8f, 0.4f),
                 Cy(0, 0.7f, 0, 0.12f, 1.4f, DWd), B(0, 1.45f, 0, 0.26f, 0.26f, 0.26f, Ir), B(0, 1.65f, 0, 0.2f, 0.3f, 0.2f, Go));
+            Add("hanging_lantern", "Hanging Lantern", "Linterna colgante con luz.", StructureCategory.Decoration, 150, new Vector3(0.5f, 1.6f, 0.5f),
+                Cy(0, 1.1f, 0, 0.12f, 0.3f, Ir), B(0, 1.3f, 0, 0.32f, 0.36f, 0.32f, Gl), B(0, 1.22f, 0, 0.34f, 0.06f, 0.34f, Ir),
+                B(0, 1.48f, 0, 0.26f, 0.06f, 0.26f, Ir), B(0, 1.35f, 0, 0.06f, 0.12f, 0.06f, Go));
+            Add("floor_lamp", "Floor Lamp", "Lámpara de pie con pantalla.", StructureCategory.Decoration, 200, new Vector3(0.5f, 2.6f, 0.5f),
+                B(0, 0.1f, 0, 0.5f, 0.2f, 0.5f, Ir), Cy(0, 1.3f, 0, 0.1f, 2.4f, Mt),
+                B(0, 2.5f, 0, 0.4f, 0.12f, 0.4f, Ir), B(0, 2.6f, 0, 0.28f, 0.28f, 0.28f, Gl), B(0, 2.72f, 0, 0.12f, 0.08f, 0.12f, Go));
             Add("brazier", "Brazier", "Pebetero de metal encendido.", StructureCategory.Decoration, 180, new Vector3(1f, 1.2f, 1f),
                 Cy(0, 0.35f, 0, 0.2f, 0.7f, Ir), Cy(0, 0.8f, 0, 0.8f, 0.4f, Mt), Cy(0, 1f, 0, 0.6f, 0.2f, Go));
             Add("cart", "Cart", "Carro de madera con ruedas.", StructureCategory.Decoration, 300, new Vector3(2.4f, 1.4f, 1.4f),
@@ -403,9 +409,13 @@ namespace SlimeCorralSpawn.UI
                 Cy(0, 0.35f, 0, 0.6f, 0.7f, Lg), B(0, 0.78f, 0, 0.9f, 0.18f, 0.4f, Ir), B(0, 0.92f, 0.1f, 0.5f, 0.12f, 0.3f, Mt), B(-0.5f, 0.85f, 0, 0.25f, 0.22f, 0.3f, Mt));
             Add("bird_bath", "Bird Bath", "Pila para pájaros de piedra.", StructureCategory.Decoration, 160, new Vector3(1.2f, 1.2f, 1.2f),
                 Cy(0, 0.45f, 0, 0.35f, 0.9f, St), Cy(0, 0.95f, 0, 1.1f, 0.18f, St), Cy(0, 1.0f, 0, 0.85f, 0.1f, Gl));
-            Add("clock_tower", "Clock Tower", "Torre de reloj de ladrillo.", StructureCategory.Decoration, 2200, new Vector3(2f, 6f, 2f),
-                B(0, 2.4f, 0, 1.8f, 4.8f, 1.8f, Br_), B(0, 4.95f, 0, 1.4f, 0.5f, 0.1f, Ma), B(0, 4.95f, 0, 0.7f, 0.7f, 1.9f, Gl),
-                B(0, 5.5f, 0, 2.1f, 0.6f, 2.1f, Rt), B(0, 5.95f, 0, 0.3f, 0.5f, 0.3f, Go));
+            Add("clock_tower", "Clock Tower", "Torre de reloj de ladrillo.", StructureCategory.Decoration, 2200, new Vector3(2.8f, 7f, 2.8f),
+                B(0, 2.4f, 0, 2.6f, 4.8f, 2.6f, Br_), B(0, 4.85f, 0, 2.8f, 0.16f, 2.8f, Gr),
+                B(-0.75f, 3.2f, -1.31f, 0.6f, 1.4f, 0.12f, Gl), B(0.75f, 3.2f, -1.31f, 0.6f, 1.4f, 0.12f, Gl),
+                B(-0.75f, 3.2f, 1.31f, 0.6f, 1.4f, 0.12f, Gl), B(0.75f, 3.2f, 1.31f, 0.6f, 1.4f, 0.12f, Gl),
+                B(0, 5.5f, 0, 1.2f, 0.45f, 0.12f, Ma), B(0, 5.5f, 0, 0.12f, 0.45f, 1.2f, Ma),
+                B(0, 5.9f, 0, 2.4f, 0.4f, 2.4f, Sl), B(0, 6.4f, 0, 2.0f, 0.6f, 2.0f, Rt),
+                Cy(0, 7.0f, 0, 0.3f, 0.8f, Go), B(0, 7.1f, 0, 0.04f, 0.4f, 0.04f, Go));
             Add("pergola", "Pergola", "Pérgola de madera con vigas.", StructureCategory.Decoration, 520, new Vector3(4f, 2.6f, 2.4f),
                 Cy(-1.7f, 1.1f, -1f, 0.18f, 2.2f, DWd), Cy(1.7f, 1.1f, -1f, 0.18f, 2.2f, DWd), Cy(-1.7f, 1.1f, 1f, 0.18f, 2.2f, DWd), Cy(1.7f, 1.1f, 1f, 0.18f, 2.2f, DWd),
                 B(0, 2.25f, -1f, 3.8f, 0.16f, 0.16f, Wd), B(0, 2.25f, 1f, 3.8f, 0.16f, 0.16f, Wd),
@@ -416,7 +426,10 @@ namespace SlimeCorralSpawn.UI
                 Br(0, 2.5f, 0, 3.2f, 0.12f, 1.8f, Rt, 18, 0, 0));
             Add("bookshelf", "Bookshelf", "Estantería con libros.", StructureCategory.Decoration, 280, new Vector3(2f, 2.4f, 0.6f),
                 B(0, 1.2f, 0, 2f, 2.4f, 0.5f, DWd), B(0, 1.2f, 0.05f, 1.8f, 2.2f, 0.4f, Wd),
-                B(0, 0.5f, 0.1f, 1.7f, 0.5f, 0.3f, Br_), B(0, 1.2f, 0.1f, 1.7f, 0.5f, 0.3f, Go), B(0, 1.9f, 0.1f, 1.7f, 0.5f, 0.3f, Cu));
+                B(0, 0.4f, 0.05f, 1.76f, 0.06f, 0.36f, DWd), B(0, 1.2f, 0.05f, 1.76f, 0.06f, 0.36f, DWd), B(0, 2.0f, 0.05f, 1.76f, 0.06f, 0.36f, DWd),
+                B(-0.6f, 0.82f, 0.06f, 0.2f, 0.7f, 0.28f, Br_), B(0.25f, 0.78f, 0.06f, 0.25f, 0.65f, 0.28f, Go), B(-0.1f, 0.8f, 0.06f, 0.18f, 0.72f, 0.28f, Cu),
+                B(0.7f, 0.85f, 0.06f, 0.15f, 0.55f, 0.28f, Bk), B(-0.4f, 1.55f, 0.06f, 0.22f, 0.55f, 0.28f, Go), B(0.0f, 1.6f, 0.06f, 0.28f, 0.6f, 0.28f, Br_),
+                B(0.55f, 1.5f, 0.06f, 0.2f, 0.5f, 0.28f, Cu), B(-0.65f, 1.65f, 0.06f, 0.14f, 0.7f, 0.28f, Bk));
 
             // Cama FUNCIONAL (al acercarte: E para dormir). Kind=Bed -> construye con AddBed (marca SCS_Bed).
             _definitions.Add(new StructureDefinition

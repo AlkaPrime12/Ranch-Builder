@@ -219,31 +219,19 @@ namespace SlimeCorralSpawn.Themes
             if (invert) strength = -strength;
             Color[] src = GetAlbedoPixels(kind);
             int w = NM_RES, sw = S;
-            float str = Mathf.Abs(strength) * 0.18f;
-            float edgeThresh = 0.025f, edgeHardness = 8f;
-            float[] H = new float[(w + 2) * (w + 2)];
+            float str = Mathf.Abs(strength) * 0.25f;
+            float edgeThresh = 0.04f, edgeHardness = 10f;
+            int stride = w + 2;
+            float[] H = new float[stride * stride];
             for (int y = -1; y <= w; y++)
             {
                 int sy = (y + w) % w;
                 for (int x = -1; x <= w; x++)
                 {
                     int sx = (x + w) % w;
-                    H[(y + 1) * (w + 2) + (x + 1)] = Lum(src[sy * sw + sx]);
+                    H[(y + 1) * stride + (x + 1)] = Lum(src[sy * sw + sx]);
                 }
             }
-            // Blur 3×3 sobre el height map antes del Sobel para eliminar ruido de la textura.
-            float[] blur = new float[(w + 2) * (w + 2)];
-            int stride = w + 2;
-            for (int y = 1; y <= w; y++)
-                for (int x = 1; x <= w; x++)
-                {
-                    int c = y * stride + x;
-                    blur[c] = (H[c - stride - 1] + H[c - stride] + H[c - stride + 1]
-                             + H[c - 1]          + H[c]          + H[c + 1]
-                             + H[c + stride - 1] + H[c + stride] + H[c + stride + 1]) / 9f;
-                }
-            for (int y = 0; y <= w + 1; y++) { blur[y * stride] = H[y * stride]; blur[y * stride + w + 1] = H[y * stride + w + 1]; }
-            for (int x = 0; x <= w + 1; x++) { blur[x] = H[x]; blur[(w + 1) * stride + x] = H[(w + 1) * stride + x]; }
             var dst = new Color[w * w];
             for (int y = 0; y < w; y++)
             {
@@ -253,7 +241,7 @@ namespace SlimeCorralSpawn.Themes
                     for (int ky = -1; ky <= 1; ky++)
                         for (int kx = -1; kx <= 1; kx++)
                         {
-                            float hval = blur[(y + 1 + ky) * stride + (x + 1 + kx)];
+                            float hval = H[(y + 1 + ky) * stride + (x + 1 + kx)];
                             float wx = (kx == 0) ? 0f : (kx * (ky == 0 ? 2f : 1f));
                             float wy = (ky == 0) ? 0f : (ky * (kx == 0 ? 2f : 1f));
                             gx += wx * hval;

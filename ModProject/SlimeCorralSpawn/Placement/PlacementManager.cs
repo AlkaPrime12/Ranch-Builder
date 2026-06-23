@@ -19,7 +19,7 @@ namespace SlimeCorralSpawn.Placement
         private static Material ghostMaterialInvalid;
         private static bool isValidPosition;
         private static float rotationAngle;
-        private static float gridSize = 1f;                 // grilla fina (las paredes enganchan mejor)
+        private static float gridSize = 0.5f;               // media unidad para que bloques de 1m encajen borde a borde
         private static bool alignToSurface;                 // alinear a la superficie que mirás (tecla T)
         private static Vector3 lastHitNormal = Vector3.up;
         private static float maxPlacementDistance = 50f;
@@ -486,7 +486,7 @@ namespace SlimeCorralSpawn.Placement
         {
             try
             {
-                Color c = tint; c.a = 0.45f;
+                Color c = tint; c.a = 0.25f;
                 try { m.color = c; } catch { }
                 TrySetColor(m, "_BaseColor", c);
                 TrySetColor(m, "_UnlitColor", c);
@@ -629,14 +629,12 @@ namespace SlimeCorralSpawn.Placement
                 try { if (m.HasProperty("_CoatMask")) m.SetFloat("_CoatMask", 0f); } catch { }
                 try { m.DisableKeyword("_MATERIAL_FEATURE_CLEAR_COAT"); } catch { }
 
-                float met = Themes.TextureFactory.GetMetallic(kind);
-                float smo = Themes.TextureFactory.GetSmoothness(kind);
-                if (Themes.TextureFactory.IsTransparent(kind))
-                {
-                    // VIDRIO: OPACO pero MUY reflectivo (cristal/hielo) — la transparencia HDRP en runtime
-                    // sale invisible/negra, así que reflejamos con metallic+smoothness (confiable, con textura).
-                    met = 0.9f; smo = 0.97f;
-                }
+                    float met = Themes.TextureFactory.GetMetallic(kind);
+                    float smo = Themes.TextureFactory.GetSmoothness(kind);
+                    if (Themes.TextureFactory.IsTransparent(kind))
+                    {
+                        met = 0.05f; smo = 0.35f;
+                    }
                 try { if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", met); } catch { }
                 try { if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", smo); } catch { }
                 return m;
