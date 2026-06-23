@@ -614,7 +614,7 @@ namespace SlimeCorralSpawn.Placement
                 Texture2D nrm = Themes.TextureFactory.GetNormal(kind);
                 if (nrm != null)
                 {
-                    float ns = 5f;
+                    float ns = 1f;
                     TrySetTexture(m, "_NormalMap", nrm);
                     TrySetTexture(m, "_BumpMap", nrm);
                     try { if (m.HasProperty("_NormalScale")) m.SetFloat("_NormalScale", ns); } catch { }

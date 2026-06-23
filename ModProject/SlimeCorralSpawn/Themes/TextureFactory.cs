@@ -219,8 +219,8 @@ namespace SlimeCorralSpawn.Themes
             if (invert) strength = -strength;
             Color[] src = GetAlbedoPixels(kind);
             int w = NM_RES, sw = S;
-            float str = Mathf.Abs(strength) * 0.5f;
-            float edgeThresh = 0.018f, edgeHardness = 10f;
+            float str = Mathf.Abs(strength) * 0.04f;
+            float edgeThresh = 0.028f, edgeHardness = 12f;
             float[] H = new float[(w + 2) * (w + 2)];
             for (int y = -1; y <= w; y++)
             {
