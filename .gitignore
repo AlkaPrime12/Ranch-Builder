@@ -5,3 +5,11 @@ obj/
 *.suo
 *.raw
 *.dll
+Documentation/
+ApiCheck_*
+FUENTE_MOD*
+REAL_PLOT_SYSTEM*
+RESEARCH_AND_PLAN*
+VERIFIED_FINDINGS*
+MEGA_DOCUMENTACION*
+dotnet-install.ps1

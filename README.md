@@ -92,7 +92,7 @@ Requires: .NET 6 SDK, MelonLoader 0.7+, Slime Rancher 2 (for interop assemblies)
 
 <div align="center">
 
-**Made by alka :3**
+**Made by alka :3** · Discord: **tyralka0660**
 
 [Report Bug](https://github.com/AlkaPrime12/Ranch-Builder/issues) · [Request Feature](https://github.com/AlkaPrime12/Ranch-Builder/issues)
 
