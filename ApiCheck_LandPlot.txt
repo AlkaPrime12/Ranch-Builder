@@ -1,0 +1,231 @@
+﻿Assembly-CSharp: 6422 types
+
+=== Tipos relevantes (spawn / ubicación / compra / UI de plot) ===
+[LandPlot] Il2Cpp.LandPlot | Il2Cpp.LandPlotLocation | Il2Cpp.RanchMetadata+LandPlotMetadata | Il2CppMonomiPark.SlimeRancher.DataModel.LandPlotModel | Il2CppMonomiPark.SlimeRancher.Drone.RanchDroneSourceProgramLandPlot | Il2CppMonomiPark.SlimeRancher.Persist.LandPlotV01 | Il2CppMonomiPark.SlimeRancher.Persist.LandPlotV02 | Il2CppMonomiPark.SlimeRancher.UI.LandPlotUIActivator | Il2CppMonomiPark.SlimeRancher.UI.Plot.LandPlotUIRoot
+[PlotLocation] Il2Cpp.LandPlotLocation
+[PlotPurchase] Il2CppMonomiPark.SlimeRancher.Analytics.Event.PlotPurchasedAnalyticsEvent | Il2CppMonomiPark.SlimeRancher.UI.Plot.PlotPurchaseCategory | Il2CppMonomiPark.SlimeRancher.UI.Plot.PlotPurchaseItemModel | Il2CppMonomiPark.SlimeRancher.UI.Plot.PlotPurchaseMenuConfiguration | Il2CppMonomiPark.SlimeRancher.UI.Plot.PlotPurchaseMenuMapper
+[PlotUI] Il2CppMonomiPark.SlimeRancher.UI.LandPlotUIActivator | Il2CppMonomiPark.SlimeRancher.UI.Plot.LandPlotUIRoot
+[PlotUpgrade] Il2Cpp.PlotUpgrader | Il2CppMonomiPark.SlimeRancher.Analytics.Event.PlotUpgradedAnalyticsEvent | Il2CppMonomiPark.SlimeRancher.UI.Plot.PlotUpgradePurchaseItemModel
+[Purchasable] Il2CppMonomiPark.SlimeRancher.Economy.IPurchasableItem
+[PurchaseUI] Il2CppMonomiPark.SlimeRancher.UI.Purchase.ListPurchaseUIRoot`4 | Il2CppMonomiPark.SlimeRancher.UI.PurchaseUI_LoadingSlime
+[PlotDefinition] Il2CppMonomiPark.SlimeRancher.Ranch.PlotDefinition
+[RanchPlot] Il2CppMonomiPark.SlimeRancher.Event.Query.RanchPlotQueryComponent | Il2CppMonomiPark.SlimeRancher.Event.Query.RanchPlotStatusQueryComponent | Il2CppMonomiPark.SlimeRancher.Event.RanchPlotEventProducer
+
+--- Il2Cpp.LandPlot (base: SRBehaviour) ---
+  M AddUpgrade(Upgrade upgrade) : Void
+  M ApplyUpgrades(IEnumerable`1 upgrades, Boolean isInitialPurchase) : Void
+  M Attach(GameObject toAttach, Boolean immediate, Boolean isReplacement, SECTR_AudioCue scaleUpCue) : Void
+  M Awake() : Void
+  M DestroyAttached() : Void
+  M DestroyAttachedModel() : Void
+  M GetAttachedCropId() : IdentifiableType
+  M GetAttachedDeathTime() : Double
+  M GetCountInRanch() : Int32
+  M GetPlotId() : Id
+  M HasAttached() : Boolean
+  M HasUpgrade(Upgrade upgrade) : Boolean
+  M InitModel(LandPlotModel model) : Void
+  M OnBeforeHibernationStateChanged(Boolean hibernating) : Void
+  M OnDestroy() : Void
+  M PreventActorsDelayedUnhibernation() : Void
+  M RaiseAllDemolishedEvent() : Void
+  M RaiseDemolishEvent() : Void
+  M SetModel(LandPlotModel model) : Void
+  M Start() : Void
+  M TweenScaleUpItem(GameObject toAttach, Boolean isReplacement) : Void
+  M TweenScaleUpItem_OnTweenComplete(Il2CppReferenceArray`1 spawners) : Void
+  F IntPtr NativeFieldInfoPtr__allPlotsDemolishEvent
+  F IntPtr NativeFieldInfoPtr__attached
+  F IntPtr NativeFieldInfoPtr__model
+  F IntPtr NativeFieldInfoPtr__plortLifetimes
+  F IntPtr NativeFieldInfoPtr__plotDefinition
+  F IntPtr NativeFieldInfoPtr__plotDemolishEvent
+  F IntPtr NativeFieldInfoPtr__ranchMetadata
+  F IntPtr NativeFieldInfoPtr__region
+  F IntPtr NativeFieldInfoPtr__trackers
+  F IntPtr NativeFieldInfoPtr_ATTACH_SCALE_UP_TIME
+  F IntPtr NativeFieldInfoPtr_IDComparer
+  F IntPtr NativeFieldInfoPtr_TypeId
+  F IntPtr NativeFieldInfoPtr_UpgradeComparer
+  F IntPtr NativeMethodInfoPtr__ctor_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_AddUpgrade_Public_Void_Upgrade_0
+  F IntPtr NativeMethodInfoPtr_ApplyUpgrades_Private_Void_IEnumerable_1_Upgrade_Boolean_0
+  F IntPtr NativeMethodInfoPtr_Attach_Public_Void_GameObject_Boolean_Boolean_SECTR_AudioCue_0
+  F IntPtr NativeMethodInfoPtr_Awake_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_DestroyAttached_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_DestroyAttachedModel_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_GetAttachedCropId_Public_IdentifiableType_0
+  F IntPtr NativeMethodInfoPtr_GetAttachedDeathTime_Public_Double_0
+  F IntPtr NativeMethodInfoPtr_GetCountInRanch_Public_Int32_0
+  F IntPtr NativeMethodInfoPtr_GetPlotId_Public_Virtual_Final_New_Id_0
+  F IntPtr NativeMethodInfoPtr_HasAttached_Public_Virtual_Final_New_Boolean_0
+  F IntPtr NativeMethodInfoPtr_HasUpgrade_Public_Virtual_Final_New_Boolean_Upgrade_0
+  F IntPtr NativeMethodInfoPtr_InitModel_Public_Virtual_Final_New_Void_LandPlotModel_0
+  F IntPtr NativeMethodInfoPtr_OnBeforeHibernationStateChanged_Private_Void_Boolean_0
+  F IntPtr NativeMethodInfoPtr_OnDestroy_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_PreventActorsDelayedUnhibernation_Private_Void_0
+  F IntPtr NativeMethodInfoPtr_RaiseAllDemolishedEvent_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_RaiseDemolishEvent_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_SetModel_Public_Virtual_Final_New_Void_LandPlotModel_0
+  F IntPtr NativeMethodInfoPtr_Start_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_TweenScaleUpItem_OnTweenComplete_Private_Void_Il2CppReferenceArray_1_SpawnResource_0
+  F IntPtr NativeMethodInfoPtr_TweenScaleUpItem_Private_Void_GameObject_Boolean_0
+  P RanchPlotEventProducer _allPlotsDemolishEvent
+  P GameObject _attached
+  P LandPlotModel _model
+  P Dictionary`2 _plortLifetimes
+  P PlotDefinition _plotDefinition
+  P RanchPlotEventProducer _plotDemolishEvent
+  P RanchMetadata _ranchMetadata
+  P Region _region
+  P Il2CppReferenceArray`1 _trackers
+  P Single ATTACH_SCALE_UP_TIME
+  P IdComparer IDComparer
+  P Id TypeId
+  P UpgradeEqualityComparer UpgradeComparer
+
+--- Il2Cpp.LandPlotLocation (base: IdHandler) ---
+  M Awake() : Void
+  M IdPrefix() : String
+  M OnDestroy() : Void
+  M Replace(LandPlot oldLandPlot, GameObject replacementPrefab) : GameObject
+  F IntPtr NativeMethodInfoPtr__ctor_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_Awake_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_IdPrefix_Protected_Virtual_String_0
+  F IntPtr NativeMethodInfoPtr_OnDestroy_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_Replace_Public_GameObject_LandPlot_GameObject_0
+
+--- Il2CppMonomiPark.SlimeRancher.DataModel.LandPlotModel (base: Object) ---
+  M Clear() : Void
+  M GetAllAmmoSets() : Dictionary`2
+  M GetAmmoSet(PlotAmmoSetDefinition def) : AmmoModel
+  M HasAttached() : Boolean
+  M HasGameObject() : Boolean
+  M HasUpgrade(Upgrade upgrade) : Boolean
+  M IncludesFullyUpgradedCorralCoopAndSilo(ICollection`1 allPlots) : Boolean
+  M Init() : Void
+  M InstantiatePlot(GameObject prefab, Boolean expectingPush) : Void
+  M NotifyParticipants() : Void
+  M Pull(Double& feederNextTime, Int32& feederPendingCount, FeedSpeed& feederCycleSpeed, Double& collectorNextTime, Id& typeId, ResourceGrowerDefinition& resourceGrowerDefinition, List`1& upgrades, Dictionary`2& siloAmmo, List`1& siloStorageIndices, Single& ashUnits, HashSet`1& trackedActorIds) : Void
+  M Push(Double feederNextTime, Int32 feederPendingCount, FeedSpeed feederCycleSpeed, Double collectorNextTime, Id typeId, ResourceGrowerDefinition resourceGrowerDefinition, List`1 upgrades, Dictionary`2 siloAmmo, List`1 siloStorageIndices, Single ashUnits, HashSet`1 trackedActorIds) : Void
+  M RemoveGameObject() : Void
+  M SetGameObject(GameObject gameObj) : Void
+  F IntPtr NativeFieldInfoPtr_ashUnits
+  F IntPtr NativeFieldInfoPtr_attachedDeathTime
+  F IntPtr NativeFieldInfoPtr_collectorNextTime
+  F IntPtr NativeFieldInfoPtr_feederCycleSpeed
+  F IntPtr NativeFieldInfoPtr_gameObj
+  F IntPtr NativeFieldInfoPtr_nextFeedingTime
+  F IntPtr NativeFieldInfoPtr_remainingFeedOperations
+  F IntPtr NativeFieldInfoPtr_resourceGrowerDefinition
+  F IntPtr NativeFieldInfoPtr_siloAmmo
+  F IntPtr NativeFieldInfoPtr_siloStorageIndices
+  F IntPtr NativeFieldInfoPtr_trackedActors
+  F IntPtr NativeFieldInfoPtr_typeId
+  F IntPtr NativeFieldInfoPtr_upgrades
+  F IntPtr NativeMethodInfoPtr__ctor_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_Clear_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_GetAllAmmoSets_Public_Dictionary_2_String_AmmoModel_0
+  F IntPtr NativeMethodInfoPtr_GetAmmoSet_Public_AmmoModel_PlotAmmoSetDefinition_0
+  F IntPtr NativeMethodInfoPtr_HasAttached_Public_Boolean_0
+  F IntPtr NativeMethodInfoPtr_HasGameObject_Public_Boolean_0
+  F IntPtr NativeMethodInfoPtr_HasUpgrade_Public_Boolean_Upgrade_0
+  F IntPtr NativeMethodInfoPtr_IncludesFullyUpgradedCorralCoopAndSilo_Public_Static_Boolean_ICollection_1_LandPlotModel_0
+  F IntPtr NativeMethodInfoPtr_Init_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_InstantiatePlot_Public_Void_GameObject_Boolean_0
+  F IntPtr NativeMethodInfoPtr_NotifyParticipants_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_Pull_Public_Void_byref_Double_byref_Int32_byref_FeedSpeed_byref_Double_byref_Id_byref_ResourceGrowerDefinition_byref_List_1_Upgrade_byref_Dictionary_2_String_Il2CppReferenceArray_1_AmmoSlot_byref_List_1_Int32_byref_Single_byref_HashSet_1_ActorId_0
+  F IntPtr NativeMethodInfoPtr_Push_Public_Void_Double_Int32_FeedSpeed_Double_Id_ResourceGrowerDefinition_List_1_Upgrade_Dictionary_2_String_Il2CppReferenceArray_1_AmmoSlot_List_1_Int32_Single_HashSet_1_ActorId_0
+  F IntPtr NativeMethodInfoPtr_RemoveGameObject_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_SetGameObject_Public_Void_GameObject_0
+  P Single ashUnits
+  P Double attachedDeathTime
+  P Double collectorNextTime
+  P FeedSpeed feederCycleSpeed
+  P GameObject gameObj
+  P Double nextFeedingTime
+  P Int32 remainingFeedOperations
+  P ResourceGrowerDefinition resourceGrowerDefinition
+  P Dictionary`2 siloAmmo
+  P Il2CppStructArray`1 siloStorageIndices
+  P TrackedActorsModel trackedActors
+  P Id typeId
+  P HashSet`1 upgrades
+
+--- Il2CppMonomiPark.SlimeRancher.UI.LandPlotUIActivator (base: UIActivator) ---
+  M SetupUI(GameObject ui) : Void
+  F IntPtr NativeFieldInfoPtr_landPlot
+  F IntPtr NativeMethodInfoPtr__ctor_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_SetupUI_Protected_Virtual_Void_GameObject_0
+  P LandPlot landPlot
+
+--- Il2CppMonomiPark.SlimeRancher.UI.Plot.LandPlotUIRoot (base: ListPurchaseUIRoot`4) ---
+  M BuyPlot(PurchaseCost cost, GameObject plotPrefab) : Boolean
+  M ClearAttached(PurchaseCost cost) : Boolean
+  M OnAction(PlotPurchaseItemModel plotPurchaseItemModel) : Void
+  M PlayPurchaseCue() : Void
+  M PlayPurchaseUpgradeCue() : Void
+  M PromptForClearCrop(ClearCropPurchaseItemModel clearCropPurchaseItemModel) : Void
+  M PromptForDemolish(PlotDemolishPurchaseItemModel plotDemolishPurchaseItemModel) : Void
+  M PromptForPlot(PlotPatchPurchaseItemModel plotPatchPurchaseItemModel) : Void
+  M PromptForUpgrade(PlotUpgradePurchaseItemModel plotUpgradePurchaseItemModel) : Void
+  M Replace(GameObject replacementPrefab) : GameObject
+  M SendCropClearedPlayFabAnalyticsEvent(PurchaseCost cost) : Void
+  M SendPlotDemolishedPlayFabAnalyticsEvent(PurchaseCost cost) : Void
+  M SendPlotPurchasedPlayFabAnalyticsEvent(PurchaseCost cost, String plotType) : Void
+  M SendPlotUpgradedPlayFabAnalyticsEvent(PurchaseCost cost, String upgradeType) : Void
+  M SetActivator(LandPlot activator) : Void
+  M UpdateMenuItemAvailabilityAndHidden() : Void
+  M Upgrade(Upgrade upgrade, PurchaseCost purchaseCost) : Boolean
+  F IntPtr NativeFieldInfoPtr_Activator
+  F IntPtr NativeMethodInfoPtr__ctor_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_BuyPlot_Protected_Boolean_PurchaseCost_GameObject_0
+  F IntPtr NativeMethodInfoPtr_ClearAttached_Protected_Boolean_PurchaseCost_0
+  F IntPtr NativeMethodInfoPtr_OnAction_Protected_Virtual_Void_PlotPurchaseItemModel_0
+  F IntPtr NativeMethodInfoPtr_PlayPurchaseCue_Protected_Void_0
+  F IntPtr NativeMethodInfoPtr_PlayPurchaseUpgradeCue_Protected_Void_0
+  F IntPtr NativeMethodInfoPtr_PromptForClearCrop_Protected_Void_ClearCropPurchaseItemModel_0
+  F IntPtr NativeMethodInfoPtr_PromptForDemolish_Protected_Void_PlotDemolishPurchaseItemModel_0
+  F IntPtr NativeMethodInfoPtr_PromptForPlot_Protected_Void_PlotPatchPurchaseItemModel_0
+  F IntPtr NativeMethodInfoPtr_PromptForUpgrade_Protected_Void_PlotUpgradePurchaseItemModel_0
+  F IntPtr NativeMethodInfoPtr_Replace_Protected_GameObject_GameObject_0
+  F IntPtr NativeMethodInfoPtr_SendCropClearedPlayFabAnalyticsEvent_Private_Void_PurchaseCost_0
+  F IntPtr NativeMethodInfoPtr_SendPlotDemolishedPlayFabAnalyticsEvent_Private_Void_PurchaseCost_0
+  F IntPtr NativeMethodInfoPtr_SendPlotPurchasedPlayFabAnalyticsEvent_Private_Void_PurchaseCost_String_0
+  F IntPtr NativeMethodInfoPtr_SendPlotUpgradedPlayFabAnalyticsEvent_Private_Void_PurchaseCost_String_0
+  F IntPtr NativeMethodInfoPtr_SetActivator_Public_Virtual_New_Void_LandPlot_0
+  F IntPtr NativeMethodInfoPtr_UpdateMenuItemAvailabilityAndHidden_Protected_Virtual_Void_0
+  F IntPtr NativeMethodInfoPtr_Upgrade_Protected_Boolean_Upgrade_PurchaseCost_0
+  P LandPlot Activator
+
+--- Il2Cpp.PlotUpgrader (base: SRBehaviour) ---
+  M Apply(Upgrade upgrade) : Void
+  M OnInitialPurchase(Upgrade upgrade) : Void
+  F IntPtr NativeMethodInfoPtr__ctor_Protected_Void_0
+  F IntPtr NativeMethodInfoPtr_Apply_Public_Abstract_Virtual_New_Void_Upgrade_0
+  F IntPtr NativeMethodInfoPtr_OnInitialPurchase_Public_Virtual_New_Void_Upgrade_0
+
+--- Il2CppMonomiPark.SlimeRancher.UI.Plot.PlotUpgradePurchaseItemModel (base: PlotPurchaseItemModel) ---
+  M UpdateAvailability(IPlotInfoProvider plotInfoProvider) : Void
+  M UpdateHidden(IPlotInfoProvider plotInfoProvider) : Void
+  F IntPtr NativeFieldInfoPtr__upgrade
+  F IntPtr NativeMethodInfoPtr__ctor_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_get_Upgrade_Public_get_Upgrade_0
+  F IntPtr NativeMethodInfoPtr_UpdateAvailability_Public_Virtual_Void_IPlotInfoProvider_0
+  F IntPtr NativeMethodInfoPtr_UpdateHidden_Public_Virtual_Void_IPlotInfoProvider_0
+  P Upgrade _upgrade
+  P Upgrade Upgrade
+
+=== ENUM Il2Cpp.LandPlot+Id ===
+  NONE, EMPTY, CORRAL, COOP, GARDEN, SILO, POND, INCINERATOR
+
+(nested no-enum: Il2Cpp.LandPlot+IdComparer)
+
+=== ENUM Il2Cpp.LandPlot+Upgrade ===
+  NONE, WALLS, MUSIC_BOX, STORAGE2, STORAGE3, STORAGE4, SOIL, SPRINKLER, SCARESLIME, FEEDER, VITAMIZER, AIR_NET, PLORT_COLLECTOR, SOLAR_SHIELD, ASH_TROUGH, MIRACLE_MIX, DELUXE_GARDEN, DELUXE_COOP, PLORT_COLLECTOR_POND, PLORT_COLLECTOR_INCINERATOR, STORAGE_CAPACITY_INCREASE
+
+(nested no-enum: Il2Cpp.LandPlot+UpgradeEqualityComparer)
+
+(nested no-enum: Il2Cpp.LandPlot+__c)
+
+(nested no-enum: Il2Cpp.LandPlot+__c__DisplayClass27_0)

@@ -1,0 +1,113 @@
+﻿Assembly-CSharp: 6422 types
+
+=== Tipos relevantes (spawn / ubicación / compra / UI de plot) ===
+[LandPlot] Il2Cpp.LandPlot | Il2Cpp.LandPlotLocation | Il2Cpp.RanchMetadata+LandPlotMetadata | Il2CppMonomiPark.SlimeRancher.DataModel.LandPlotModel | Il2CppMonomiPark.SlimeRancher.Drone.RanchDroneSourceProgramLandPlot | Il2CppMonomiPark.SlimeRancher.Persist.LandPlotV01 | Il2CppMonomiPark.SlimeRancher.Persist.LandPlotV02 | Il2CppMonomiPark.SlimeRancher.UI.LandPlotUIActivator | Il2CppMonomiPark.SlimeRancher.UI.Plot.LandPlotUIRoot
+[PlotLocation] Il2Cpp.LandPlotLocation
+[PlotPurchase] Il2CppMonomiPark.SlimeRancher.Analytics.Event.PlotPurchasedAnalyticsEvent | Il2CppMonomiPark.SlimeRancher.UI.Plot.PlotPurchaseCategory | Il2CppMonomiPark.SlimeRancher.UI.Plot.PlotPurchaseItemModel | Il2CppMonomiPark.SlimeRancher.UI.Plot.PlotPurchaseMenuConfiguration | Il2CppMonomiPark.SlimeRancher.UI.Plot.PlotPurchaseMenuMapper
+[PlotUI] Il2CppMonomiPark.SlimeRancher.UI.LandPlotUIActivator | Il2CppMonomiPark.SlimeRancher.UI.Plot.LandPlotUIRoot
+[PlotUpgrade] Il2Cpp.PlotUpgrader | Il2CppMonomiPark.SlimeRancher.Analytics.Event.PlotUpgradedAnalyticsEvent | Il2CppMonomiPark.SlimeRancher.UI.Plot.PlotUpgradePurchaseItemModel
+[Purchasable] Il2CppMonomiPark.SlimeRancher.Economy.IPurchasableItem
+[PurchaseUI] Il2CppMonomiPark.SlimeRancher.UI.Purchase.ListPurchaseUIRoot`4 | Il2CppMonomiPark.SlimeRancher.UI.PurchaseUI_LoadingSlime
+[PlotDefinition] Il2CppMonomiPark.SlimeRancher.Ranch.PlotDefinition
+[RanchPlot] Il2CppMonomiPark.SlimeRancher.Event.Query.RanchPlotQueryComponent | Il2CppMonomiPark.SlimeRancher.Event.Query.RanchPlotStatusQueryComponent | Il2CppMonomiPark.SlimeRancher.Event.RanchPlotEventProducer
+
+--- Il2CppMonomiPark.SlimeRancher.UI.Plot.PlotPurchaseItemModel (base: MenuPurchaseItemModel) ---
+  M RaisePurchaseEvent() : Void
+  M UpdateAvailability(IPlotInfoProvider plotInfoProvider) : Void
+  M UpdateHidden(IPlotInfoProvider plotInfoProvider) : Void
+  F IntPtr NativeMethodInfoPtr__ctor_Protected_Void_0
+  F IntPtr NativeMethodInfoPtr_RaisePurchaseEvent_Public_Virtual_New_Void_0
+  F IntPtr NativeMethodInfoPtr_UpdateAvailability_Public_Virtual_New_Void_IPlotInfoProvider_0
+  F IntPtr NativeMethodInfoPtr_UpdateHidden_Public_Virtual_New_Void_IPlotInfoProvider_0
+
+--- Il2CppMonomiPark.SlimeRancher.UI.Plot.PlotPurchaseCategory (base: StaticCategory`1) ---
+  F IntPtr NativeMethodInfoPtr__ctor_Public_Void_0
+
+--- Il2CppMonomiPark.SlimeRancher.UI.Plot.PlotPurchaseMenuConfiguration (base: MenuConfiguration`2) ---
+  F IntPtr NativeMethodInfoPtr__ctor_Public_Void_0
+
+--- Il2CppMonomiPark.SlimeRancher.UI.Plot.PlotPurchaseMenuMapper (base: Object) ---
+  M GetCategoryViewModel(PlotPurchaseCategory category) : CategoryViewModel
+  M GetDetailsViewModel(PlotPurchaseItemModel data) : PurchaseItemDetailsViewModel
+  M GetListItemViewModel(PlotPurchaseItemModel data) : GenericListItemViewModel
+  F IntPtr NativeMethodInfoPtr__ctor_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_GetCategoryViewModel_Public_Virtual_Final_New_CategoryViewModel_PlotPurchaseCategory_0
+  F IntPtr NativeMethodInfoPtr_GetDetailsViewModel_Public_Virtual_Final_New_PurchaseItemDetailsViewModel_PlotPurchaseItemModel_0
+  F IntPtr NativeMethodInfoPtr_GetListItemViewModel_Public_Virtual_Final_New_GenericListItemViewModel_PlotPurchaseItemModel_0
+
+--- Il2CppMonomiPark.SlimeRancher.Ranch.PlotDefinition (base: ScriptableObjectWithGuid) ---
+  F IntPtr NativeFieldInfoPtr_Type
+  F IntPtr NativeMethodInfoPtr__ctor_Public_Void_0
+  P Id Type
+
+--- Il2CppMonomiPark.SlimeRancher.UI.UIActivator (base: BaseUIInteractable) ---
+  M OnInteract() : Void
+  M SetupUI(GameObject ui) : Void
+  F IntPtr NativeFieldInfoPtr_onActivatedEvent
+  F IntPtr NativeFieldInfoPtr_popUiToStack
+  F IntPtr NativeFieldInfoPtr_uiPrefab
+  F IntPtr NativeMethodInfoPtr__ctor_Public_Void_0
+  F IntPtr NativeMethodInfoPtr_OnInteract_Protected_Virtual_Void_0
+  F IntPtr NativeMethodInfoPtr_SetupUI_Protected_Virtual_New_Void_GameObject_0
+  P StaticGameEvent onActivatedEvent
+  P Boolean popUiToStack
+  P GameObject uiPrefab
+
+--- Il2CppMonomiPark.SlimeRancher.Economy.PurchaseCost (base: ValueType) ---
+  M CountCurrencyCosts() : Int32
+  M CreateEmpty() : PurchaseCost
+  M Equals(PurchaseCost& other) : Boolean
+  M FromCurrencyCosts(Il2CppReferenceArray`1 entries) : PurchaseCost
+  M FromCurrencyCosts(CurrencyCostEntry[] entries) : PurchaseCost
+  M FromIdentCosts(Il2CppReferenceArray`1 entries) : PurchaseCost
+  M FromIdentCosts(IdentCostEntry[] entries) : PurchaseCost
+  M IndexOfCurrency(ICurrency currencyDefinition) : Int32
+  M IsEmpty() : Boolean
+  M SequencesEqual(IEnumerable`1 first, IEnumerable`1 second) : Boolean
+  M SetCurrencyCost(CurrencyDefinition currency, Int32 costAmount) : Void
+  M SetCurrencyCosts(IEnumerable`1 currencies) : Void
+  M TryGetCurrencyCost(ICurrency currency, Int32& cost) : Boolean
+  F IntPtr NativeFieldInfoPtr__currencyCosts
+  F IntPtr NativeFieldInfoPtr_ComponentCosts
+  F IntPtr NativeFieldInfoPtr_CURRENCY_COST_PROPERTY
+  F IntPtr NativeFieldInfoPtr_IdentCosts
+  F IntPtr NativeMethodInfoPtr__ctor_Public_Void_List_1_CurrencyCostEntry_List_1_IdentCostEntry_List_1_UpgradeComponent_0
+  F IntPtr NativeMethodInfoPtr_CountCurrencyCosts_Public_Int32_0
+  F IntPtr NativeMethodInfoPtr_CreateEmpty_Public_Static_PurchaseCost_0
+  F IntPtr NativeMethodInfoPtr_Equals_Public_Boolean_byref_PurchaseCost_0
+  F IntPtr NativeMethodInfoPtr_FromCurrencyCosts_Public_Static_PurchaseCost_Il2CppReferenceArray_1_CurrencyCostEntry_0
+  F IntPtr NativeMethodInfoPtr_FromIdentCosts_Public_Static_PurchaseCost_Il2CppReferenceArray_1_IdentCostEntry_0
+  F IntPtr NativeMethodInfoPtr_get_CurrencyCosts_Public_get_IReadOnlyList_1_CurrencyCostEntry_0
+  F IntPtr NativeMethodInfoPtr_get_NewbuckCost_Public_get_Int32_0
+  F IntPtr NativeMethodInfoPtr_IndexOfCurrency_Private_Int32_ICurrency_0
+  F IntPtr NativeMethodInfoPtr_IsEmpty_Public_Boolean_0
+  F IntPtr NativeMethodInfoPtr_SequencesEqual_Private_Static_Boolean_IEnumerable_1_TType_IEnumerable_1_TType_0
+  F IntPtr NativeMethodInfoPtr_set_CurrencyCosts_Public_set_Void_IReadOnlyList_1_CurrencyCostEntry_0
+  F IntPtr NativeMethodInfoPtr_set_NewbuckCost_Public_set_Void_Int32_0
+  F IntPtr NativeMethodInfoPtr_SetCurrencyCost_Public_Void_CurrencyDefinition_Int32_0
+  F IntPtr NativeMethodInfoPtr_SetCurrencyCosts_Public_Void_IEnumerable_1_CurrencyCostEntry_0
+  F IntPtr NativeMethodInfoPtr_TryGetCurrencyCost_Public_Boolean_ICurrency_byref_Int32_0
+  P List`1 _currencyCosts
+  P List`1 ComponentCosts
+  P String CURRENCY_COST_PROPERTY
+  P IReadOnlyList`1 CurrencyCosts
+  P List`1 IdentCosts
+  P Int32 NewbuckCost
+
+=== Nested types de LandPlot ===
+
+=== ENUM Il2Cpp.LandPlot+Id ===
+  NONE, EMPTY, CORRAL, COOP, GARDEN, SILO, POND, INCINERATOR
+  (no-enum: IdComparer)
+
+=== ENUM Il2Cpp.LandPlot+Upgrade ===
+  NONE, WALLS, MUSIC_BOX, STORAGE2, STORAGE3, STORAGE4, SOIL, SPRINKLER, SCARESLIME, FEEDER, VITAMIZER, AIR_NET, PLORT_COLLECTOR, SOLAR_SHIELD, ASH_TROUGH, MIRACLE_MIX, DELUXE_GARDEN, DELUXE_COOP, PLORT_COLLECTOR_POND, PLORT_COLLECTOR_INCINERATOR, STORAGE_CAPACITY_INCREASE
+  (no-enum: UpgradeEqualityComparer)
+  (no-enum: __c)
+  (no-enum: __c__DisplayClass27_0)
+
+=== ENUM Il2Cpp.LandPlot+Id ===
+  NONE, EMPTY, CORRAL, COOP, GARDEN, SILO, POND, INCINERATOR
+
+=== ENUM Il2Cpp.LandPlot+Upgrade ===
+  NONE, WALLS, MUSIC_BOX, STORAGE2, STORAGE3, STORAGE4, SOIL, SPRINKLER, SCARESLIME, FEEDER, VITAMIZER, AIR_NET, PLORT_COLLECTOR, SOLAR_SHIELD, ASH_TROUGH, MIRACLE_MIX, DELUXE_GARDEN, DELUXE_COOP, PLORT_COLLECTOR_POND, PLORT_COLLECTOR_INCINERATOR, STORAGE_CAPACITY_INCREASE

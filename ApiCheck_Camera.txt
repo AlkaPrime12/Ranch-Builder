@@ -1,0 +1,84 @@
+﻿Assembly-CSharp: 6422 types
+
+=== Tipos de cámara/input/pausa ===
+[CameraController] Il2CppMonomiPark.KFC.CameraControllerParameters | Il2CppMonomiPark.KFC.FirstPerson.FirstPersonCameraController | Il2CppMonomiPark.KFC.ICameraController | Il2CppMonomiPark.SlimeRancher.Player.CharacterController.SRCameraController | Il2CppMonomiPark.SlimeRancher.Player.IPlayerCameraController
+[MouseLook] Il2CppMonomiPark.SlimeRancher.Input.MouseLookSensitivityXProcessor | Il2CppMonomiPark.SlimeRancher.Input.MouseLookSensitivityYProcessor
+[PlayerCamera] Il2CppMonomiPark.SlimeRancher.Player.IPlayerCameraController
+[FirstPerson] Il2CppMonomiPark.KFC.FirstPerson.FirstPersonCameraController | Il2CppMonomiPark.KFC.FirstPerson.SpringEffect.FirstPersonSpringEffect | Il2CppMonomiPark.SlimeRancher.Player.CharacterController.MovementAndLookTypes.FirstPersonMovementAndLookType | Il2CppMonomiPark.SlimeRancher.Player.FirstPersonItemsScaleControl | Il2CppMonomiPark.SlimeRancher.Player.FirstPersonScreenEffects.FirstPersonEffectsCustomPass | Il2CppMonomiPark.SlimeRancher.Player.FirstPersonScreenEffects.FirstPersonScreenEffects | Il2CppMonomiPark.SlimeRancher.Player.FirstPersonScreenEffects.FirstPersonScreenEffectsDebugTest | Il2CppMonomiPark.SlimeRancher.Player.FirstPersonScreenEffects.FirstPersonScreenEffectsHooks
+[SRCamera] Il2CppMonomiPark.SlimeRancher.Player.CharacterController.SRCameraController | Il2CppMonomiPark.SlimeRancher.Player.CharacterController.SRCameraHandler
+[InputDirector] Il2CppMonomiPark.SlimeRancher.Input.InputDirector
+[PlayerControl] Il2CppMonomiPark.SlimeRancher.Player.IPlayerController
+[PauseMenuDirector] Il2CppMonomiPark.SlimeRancher.Script.UI.Pause.PauseMenuDirector
+
+--- Il2CppMonomiPark.SlimeRancher.Player.CharacterController.SRCameraController (base: FirstPersonCameraController) ---
+  M AddPositionalForce(Vector3, Int32)
+  M AddRotationalForce(Vector3, Int32)
+  M Awake()
+
+--- Il2CppMonomiPark.SlimeRancher.Script.UI.Pause.PauseMenuDirector (base: SRBehaviour) ---
+  M _PauseGame_b__18_0(UIRuntimeDisplay, Object)
+  M Awake()
+  M IsPaused()
+  M OnDestroy()
+  M OnDisable()
+  M OnEnable()
+  M Options()
+  M PauseGame()
+  M Pedia()
+  M PlatformContextOnOnPlatformResourceAvailabilityChanged()
+  M Quit()
+  M Resume()
+  M Screenshot()
+  M Start()
+  M TogglePause(InputEventData)
+  M UnPauseGame()
+
+--- Il2CppMonomiPark.SlimeRancher.Input.InputDirector (base: SRBehaviour) ---
+  M Awake()
+  M BeforeSceneGroupUnLoaded(SceneGroup, Action`1)
+  M CurrentKeyboardLayoutImpl()
+  M DisableAllInputs()
+  M ForceUpdateInputMaps(Boolean)
+  M GetActionsForBinding(InputBinding, InputActionMap)
+  M GetActiveDeviceIcon(String, Boolean)
+  M GetAdaptiveTriggerEnabled()
+  M GetControllerSpeakerVolume()
+  M GetControllerVibrationStrength()
+  M GetCurrentKeyboardLayout()
+  M GetDefaultDeviceIcon(String, Boolean)
+  M GetDeviceAsset(InputDevice)
+  M GetDisableMouseLookSmooth()
+  M GetInvertGamepadLookY()
+  M GetInvertMouseLookY()
+  M GetSwapSticks()
+  M HandleMissingDevice(PositivePopupPromptConfig)
+  M HumanReadableControl(String, HumanReadableStringOptions, InputDevice)
+  M IconForAction(InputAction)
+  M IconForBinding(InputBinding, IReadOnlyList`1)
+  M IconsForInputBinding(InputBindingSpecifier)
+  M IconsForInputBinding(InputBindingSpecifier, List`1)
+  M IconsForInputEvent(InputEvent)
+  M IconsForInputEvent(InputEvent, List`1)
+  M IsDeviceSupported(InputDevice)
+  M MonomiPark_SlimeRancher_Input_InputDeviceTracker_IParticipant_OnDeviceChanged(InputDevice, Boolean)
+  M MonomiPark_SlimeRancher_Input_InputDeviceTracker_IParticipant_OnDeviceDisconnected(InputDevice)
+  M MonomiPark_SlimeRancher_Input_InputDeviceTracker_IParticipant_RemapDevice(InputDevice)
+  M NotifyKeyBindingsChanged()
+  M OnApplicationQuit()
+  M OnDestroy()
+  M OnDeviceChange(InputDevice, InputDeviceChange)
+  M OnDisable()
+  M OnEnable()
+  M OnPausedChanged(Boolean)
+  M OnSceneGroupLoaded(SceneGroup, Action`1)
+  M ResetGamepadDefaults()
+  M ResetKeyMouseDefaults()
+  M ResetProfile()
+  M SetDisableMouseLookSmooth(Boolean)
+  M SetInvertGamepadLookY(Boolean)
+  M SetInvertMouseLookY(Boolean)
+  M SetSwapSticks(Boolean)
+  M UnbindEvents()
+  M Update()
+  M UpdateInputMaps(Boolean)
+  M UsingGamepad()
