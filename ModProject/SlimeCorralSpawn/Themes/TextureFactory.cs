@@ -207,40 +207,34 @@ namespace SlimeCorralSpawn.Themes
             }
         }
 
-        // Normal map por DETECCIÓN DE BORDES (edge-aware): el gradiente se calcula sobre la luminancia
-        // LIMPIA (sin ruido), así el ruido NO genera falsos bordes en zonas planas. Solo los cambios
-        // abruptos (juntas, grietas, vetas) producen normal; el centro de cada piedra/ladrillo queda
-        // perfectamente plano (0,0,1). El borde se realza con ganancia no lineal.
-        // Resolución 256×256 (4× más rápida que 512, memoria mínima, el shader interpola igual).
+        // Normal map por DETECCIÓN DE BORDES (edge-aware). Resolución 512×512 para capturar
+        // grietas finas. El gradiente Sobel se calcula sobre luminancia limpia (sin ruido).
         // Codificado RGB estándar (R=X, G=Y, B=derivado) — compatible con UnpackNormal de HDRP/URP.
-        private const int NM = 256;
+        private const int HM_RES = 256; // resolución del height map (parallax)
         private static Texture2D BuildNormal(MatKind kind)
         {
             bool invert = NormalInvert(kind);
             float strength = NormalStrength(kind);
             if (invert) strength = -strength;
             Color[] src = GetAlbedoPixels(kind);
-            int sw = S, sh = S;
+            int w = S, h = S;
             float str = Mathf.Abs(strength) * 0.6f;
             float edgeThresh = 0.008f, edgeHardness = 12f;
-            var dst = new Color[NM * NM];
-            // Muestrear la altura directamente a resolución NM (sin array intermedio de 512).
-            for (int y = 0; y < NM; y++)
+            var dst = new Color[w * h];
+            for (int y = 0; y < h; y++)
             {
-                for (int x = 0; x < NM; x++)
+                for (int x = 0; x < w; x++)
                 {
-                    // Sobel 3×3 sobre la altura (muestreada del albedo original 512)
                     float gx = 0f, gy = 0f;
                     for (int ky = -1; ky <= 1; ky++)
                         for (int kx = -1; kx <= 1; kx++)
                         {
-                            int sx = (x + kx + NM) % NM, sy = (y + ky + NM) % NM;
-                            int ssx = sx * sw / NM, ssy = sy * sh / NM;
-                            float h = Lum(src[ssy * sw + ssx]);
+                            int sx = (x + kx + w) % w, sy = (y + ky + h) % h;
+                            float hval = Lum(src[sy * w + sx]);
                             float wx = (kx == 0) ? 0f : (kx * (ky == 0 ? 2f : 1f));
                             float wy = (ky == 0) ? 0f : (ky * (kx == 0 ? 2f : 1f));
-                            gx += wx * h;
-                            gy += wy * h;
+                            gx += wx * hval;
+                            gy += wy * hval;
                         }
                     float mag = Mathf.Sqrt(gx * gx + gy * gy);
                     if (mag > edgeThresh)
@@ -250,13 +244,13 @@ namespace SlimeCorralSpawn.Themes
                         float nx = gx / mag * str * e;
                         float ny = gy / mag * str * e;
                         Vector3 n = new Vector3(nx, ny, 1f).normalized;
-                        dst[y * NM + x] = new Color(n.x * 0.5f + 0.5f, n.y * 0.5f + 0.5f, n.z * 0.5f + 0.5f, 1f);
+                        dst[y * w + x] = new Color(n.x * 0.5f + 0.5f, n.y * 0.5f + 0.5f, n.z * 0.5f + 0.5f, 1f);
                     }
                     else
-                        dst[y * NM + x] = new Color(0.5f, 0.5f, 1f, 1f);
+                        dst[y * w + x] = new Color(0.5f, 0.5f, 1f, 1f);
                 }
             }
-            var tex = new Texture2D(NM, NM, TextureFormat.RGBA32, true, true);
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, true, true);
             tex.wrapMode = TextureWrapMode.Repeat; tex.filterMode = FilterMode.Trilinear; tex.anisoLevel = 6;
             tex.hideFlags = HideFlags.HideAndDontSave;
             tex.SetPixels(dst); tex.Apply();
@@ -273,16 +267,16 @@ namespace SlimeCorralSpawn.Themes
             Color[] px = GetAlbedoPixels(kind);
             bool inv = NormalInvert(kind);
             int sw = S;
-            var dst = new Color[NM * NM];
-            for (int y = 0; y < NM; y++)
-                for (int x = 0; x < NM; x++)
+            var dst = new Color[HM_RES * HM_RES];
+            for (int y = 0; y < HM_RES; y++)
+                for (int x = 0; x < HM_RES; x++)
                 {
-                    int sx = x * sw / NM, sy = y * sw / NM;
+                    int sx = x * sw / HM_RES, sy = y * sw / HM_RES;
                     float h = Lum(px[sy * sw + sx]);
                     if (inv) h = 1f - h;
-                    dst[y * NM + x] = new Color(h, h, h, 1f);
+                    dst[y * HM_RES + x] = new Color(h, h, h, 1f);
                 }
-            var t = new Texture2D(NM, NM, TextureFormat.RGBA32, true);
+            var t = new Texture2D(HM_RES, HM_RES, TextureFormat.RGBA32, true);
             t.wrapMode = TextureWrapMode.Repeat; t.filterMode = FilterMode.Trilinear; t.anisoLevel = 6;
             t.hideFlags = HideFlags.HideAndDontSave;
             t.SetPixels(dst); t.Apply();
