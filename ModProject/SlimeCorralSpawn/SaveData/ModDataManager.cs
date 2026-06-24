@@ -2,10 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using UnityEngine;
-using MelonLoader;
+using MelonLogger = MelonLoader.MelonLogger;
 using SlimeCorralSpawn.Placement;
-using SlimeCorralSpawn.Plots;
 
 namespace SlimeCorralSpawn.SaveData
 {
@@ -16,52 +14,222 @@ namespace SlimeCorralSpawn.SaveData
             "SlimeRancher2", "SlimeCorralSpawn"
         );
 
-        private static string SaveFilePath => Path.Combine(SaveDirectory, "moddata.json");
+        private static string LegacySavePath => Path.Combine(SaveDirectory, "moddata.json");
 
+        private static string _currentSlotId;
         private static ModSaveData currentData;
+        private static bool _slotResolved;
+        private static bool _backwardCompatLoaded;
+
+        public static string CurrentSlotId => _currentSlotId ?? "unknown";
+        public static bool IsSlotResolved => _slotResolved;
+
+        // ── Slot resolution ──────────────────────────────────────────────
+
+        /// <summary>
+        /// Resolves the current save slot ID from the game's AutoSaveDirector.
+        /// Returns null if not yet available (menu, loading, no game loaded).
+        /// </summary>
+        private static string ResolveSlotId()
+        {
+            if (_slotResolved && !string.IsNullOrEmpty(_currentSlotId))
+                return _currentSlotId;
+
+            try
+            {
+                var gc = Il2Cpp.GameContext.Instance;
+                if (gc == null) return null;
+
+                var asd = gc.AutoSaveDirector;
+                if (asd == null) return null;
+
+                // Primary: Summary.SaveSlotIndex
+                var summary = asd.TryGetCurrentGameSummary();
+                if (summary != null)
+                {
+                    int idx = summary.SaveSlotIndex;
+                    _currentSlotId = $"saveSlot{idx}";
+                    _slotResolved = true;
+                    MelonLogger.Msg($"[SlimeCorralSpawn] Resolved save slot: {_currentSlotId} (index={idx})");
+                    return _currentSlotId;
+                }
+
+                // Fallback: save game name
+                string name = null;
+                try { name = asd.CurrentSaveGameName(); } catch { }
+                if (!string.IsNullOrEmpty(name))
+                {
+                    string sanitized = SanitizeSlotName(name);
+                    _currentSlotId = sanitized;
+                    _slotResolved = true;
+                    MelonLogger.Msg($"[SlimeCorralSpawn] Resolved save slot from name: {_currentSlotId}");
+                    return _currentSlotId;
+                }
+            }
+            catch { }
+
+            return null;
+        }
+
+        private static string GetSlotPath()
+        {
+            string slot = ResolveSlotId();
+            if (string.IsNullOrEmpty(slot)) return null;
+            return Path.Combine(SaveDirectory, $"moddata_{slot}.json");
+        }
+
+        private static string SanitizeSlotName(string raw)
+        {
+            foreach (char c in Path.GetInvalidFileNameChars())
+                raw = raw.Replace(c.ToString(), "_");
+            return raw;
+        }
+
+        /// <summary>
+        /// Clears the resolved slot — used on scene unload / return to menu.
+        /// </summary>
+        public static void ClearSlot()
+        {
+            _currentSlotId = null;
+            _slotResolved = false;
+            currentData = null;
+            _backwardCompatLoaded = false;
+        }
+
+        // ── Initialization / loading ─────────────────────────────────────
 
         public static void Initialize()
         {
             if (!Directory.Exists(SaveDirectory))
                 Directory.CreateDirectory(SaveDirectory);
 
-            Load();
-            RegisterAllPlots();
+            _currentSlotId = null;
+            _slotResolved = false;
+            currentData = null;
+
+            MelonLogger.Msg($"[SlimeCorralSpawn] ModDataManager initialized. Save directory: {SaveDirectory}");
+            MelonLogger.Msg($"[SlimeCorralSpawn] Using per-slot save files: moddata_<slot>.json");
         }
 
-        private static void RegisterAllPlots()
+        /// <summary>
+        /// Try to load data for the current save slot. Safe to call repeatedly.
+        /// Returns true if data was loaded (new or existing).
+        /// </summary>
+        public static bool LoadForCurrentSlot()
+        {
+            if (currentData != null && _slotResolved)
+                return true;
+
+            string slotPath = GetSlotPath();
+            if (slotPath == null) return false;
+
+            if (File.Exists(slotPath))
+            {
+                try
+                {
+                    string json = File.ReadAllText(slotPath);
+                    currentData = JsonSerializer.Deserialize<ModSaveData>(json);
+                    MelonLogger.Msg($"[SlimeCorralSpawn] Loaded save data: {slotPath}");
+                }
+                catch (Exception ex)
+                {
+                    MelonLogger.Warning($"[SlimeCorralSpawn] Failed to load slot save '{slotPath}': {ex.Message}");
+                    currentData = null;
+                }
+            }
+
+            // Backward compatibility: migrate legacy moddata.json
+            if (currentData == null && File.Exists(LegacySavePath))
+            {
+                try
+                {
+                    string json = File.ReadAllText(LegacySavePath);
+                    currentData = JsonSerializer.Deserialize<ModSaveData>(json);
+                    _backwardCompatLoaded = true;
+                    MelonLogger.Msg($"[SlimeCorralSpawn] Loaded legacy save data: {LegacySavePath}");
+
+                    // Migrate to per-slot file immediately
+                    string migratedPath = GetSlotPath();
+                    if (migratedPath != null)
+                    {
+                        Save();
+                        MelonLogger.Msg($"[SlimeCorralSpawn] Migrated legacy data to: {migratedPath}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MelonLogger.Warning($"[SlimeCorralSpawn] Failed to load legacy save: {ex.Message}");
+                }
+            }
+
+            if (currentData == null)
+            {
+                currentData = new ModSaveData();
+                EnsureLists();
+            }
+            else
+            {
+                EnsureLists();
+            }
+
+            int plotCount = currentData?.Plots?.Count ?? 0;
+            int structCount = currentData?.Structures?.Count ?? 0;
+            int strokeCount = currentData?.Strokes?.Count ?? 0;
+            int polyCount = currentData?.Polygons?.Count ?? 0;
+            MelonLogger.Msg($"[SlimeCorralSpawn] Slot={CurrentSlotId} Plots={plotCount} Structures={structCount} Strokes={strokeCount} Polygons={polyCount}");
+
+            return true;
+        }
+
+        public static void RegisterAllPlots()
         {
             if (currentData == null) return;
             foreach (var entry in currentData.Plots)
-            {
-                SlimeCorralSpawn.Plots.PlotData.RegisterFromSave(entry);
-            }
+                Plots.PlotData.RegisterFromSave(entry);
             foreach (var entry in currentData.Structures)
-            {
-                SlimeCorralSpawn.UI.StructureManager.RegisterFromSave(entry);
-            }
+                UI.StructureManager.RegisterFromSave(entry);
             if (currentData.Strokes != null)
                 foreach (var s in currentData.Strokes)
-                    SlimeCorralSpawn.Placement.FreeDrawTool.RegisterFromSave(s);
+                    Placement.FreeDrawTool.RegisterFromSave(s);
             if (currentData.Polygons != null)
                 foreach (var pg in currentData.Polygons)
-                    SlimeCorralSpawn.Placement.PolygonTool.RegisterFromSave(pg);
-            SlimeCorralSpawn.Plots.PlotData.RestoreLinkedObjects();
-            SlimeCorralSpawn.UI.StructureManager.RestoreLinkedObjects();
+                    Placement.PolygonTool.RegisterFromSave(pg);
+            Plots.PlotData.RestoreLinkedObjects();
+            UI.StructureManager.RestoreLinkedObjects();
             MelonLogger.Msg($"[SlimeCorralSpawn] Registered {currentData.Plots.Count} plots from save.");
         }
 
-        public static void SavePlot(PlotData plot)
+        private static void EnsureLists()
         {
+            if (currentData == null) return;
+            if (currentData.Plots == null) currentData.Plots = new List<PlotSaveEntry>();
+            if (currentData.Structures == null) currentData.Structures = new List<StructureSaveEntry>();
+            if (currentData.Strokes == null) currentData.Strokes = new List<StrokeSaveEntry>();
+            if (currentData.Polygons == null) currentData.Polygons = new List<PolygonSaveEntry>();
+            if (currentData.PurchasedLicenses == null) currentData.PurchasedLicenses = new List<PurchasedPlotLicense>();
+        }
+
+        // ── Save operations ──────────────────────────────────────────────
+
+        /// <summary>Ensure slot is loaded before any save operation.</summary>
+        private static void EnsureSlotLoaded()
+        {
+            if (currentData == null)
+                LoadForCurrentSlot();
+            if (currentData == null)
+                currentData = new ModSaveData();
+        }
+
+        public static void SavePlot(Plots.PlotData plot)
+        {
+            EnsureSlotLoaded();
             SyncPlot(plot);
             Save();
         }
 
-        /// <summary>Actualiza la entrada del plot en memoria SIN escribir a disco (para guardado en lote).</summary>
-        public static void SyncPlot(PlotData plot)
+        public static void SyncPlot(Plots.PlotData plot)
         {
-            if (currentData == null)
-                currentData = new ModSaveData();
+            EnsureSlotLoaded();
 
             var existing = currentData.Plots.Find(p => p.UniqueId == plot.UniqueId);
             if (existing != null)
@@ -100,7 +268,7 @@ namespace SlimeCorralSpawn.SaveData
             }
         }
 
-        private static List<SiloSlotEntry> ToSiloEntries(List<PlotData.SiloSlotData> src)
+        private static List<SiloSlotEntry> ToSiloEntries(List<Plots.PlotData.SiloSlotData> src)
         {
             var list = new List<SiloSlotEntry>();
             if (src != null)
@@ -112,18 +280,13 @@ namespace SlimeCorralSpawn.SaveData
         public static void RemovePlot(string uniqueId)
         {
             if (currentData == null) return;
-
             currentData.Plots.RemoveAll(p => p.UniqueId == uniqueId);
             Save();
         }
 
         public static void SaveStructure(StructureSaveEntry structure)
         {
-            if (structure == null || string.IsNullOrEmpty(structure.UniqueId))
-                return;
-
-            if (currentData == null)
-                currentData = new ModSaveData();
+            EnsureSlotLoaded();
 
             var existing = currentData.Structures.Find(s => s.UniqueId == structure.UniqueId);
             if (existing != null)
@@ -159,15 +322,13 @@ namespace SlimeCorralSpawn.SaveData
         public static void RemoveStructure(string uniqueId)
         {
             if (currentData == null) return;
-
             currentData.Structures.RemoveAll(s => s.UniqueId == uniqueId);
             Save();
         }
 
         public static void SaveStroke(StrokeSaveEntry stroke)
         {
-            if (stroke == null || string.IsNullOrEmpty(stroke.UniqueId)) return;
-            if (currentData == null) currentData = new ModSaveData();
+            EnsureSlotLoaded();
             if (currentData.Strokes == null) currentData.Strokes = new List<StrokeSaveEntry>();
             currentData.Strokes.RemoveAll(s => s.UniqueId == stroke.UniqueId);
             currentData.Strokes.Add(stroke);
@@ -183,8 +344,7 @@ namespace SlimeCorralSpawn.SaveData
 
         public static void SavePolygon(PolygonSaveEntry poly)
         {
-            if (poly == null || string.IsNullOrEmpty(poly.UniqueId)) return;
-            if (currentData == null) currentData = new ModSaveData();
+            EnsureSlotLoaded();
             if (currentData.Polygons == null) currentData.Polygons = new List<PolygonSaveEntry>();
             currentData.Polygons.RemoveAll(s => s.UniqueId == poly.UniqueId);
             currentData.Polygons.Add(poly);
@@ -205,61 +365,40 @@ namespace SlimeCorralSpawn.SaveData
                 if (currentData == null)
                     currentData = new ModSaveData();
 
+                string path = GetSlotPath();
+                if (path == null)
+                {
+                    MelonLogger.Warning("[SlimeCorralSpawn] Cannot save: save slot not yet resolved.");
+                    return;
+                }
+
                 if (!Directory.Exists(SaveDirectory))
                     Directory.CreateDirectory(SaveDirectory);
 
-                currentData.LastSaveTime = System.DateTime.Now.ToString("o");
+                currentData.LastSaveTime = DateTime.Now.ToString("o");
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 string json = JsonSerializer.Serialize(currentData, options);
-                File.WriteAllText(SaveFilePath, json);
+                File.WriteAllText(path, json);
+                int plotCount = currentData?.Plots?.Count ?? 0;
+                MelonLogger.Msg($"[SlimeCorralSpawn] Saved {plotCount} plots to: {path}");
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 MelonLogger.Error($"[SlimeCorralSpawn] Failed to save: {ex.Message}");
             }
         }
 
-        public static void Load()
-        {
-            try
-            {
-                if (File.Exists(SaveFilePath))
-                {
-                    string json = File.ReadAllText(SaveFilePath);
-                    currentData = JsonSerializer.Deserialize<ModSaveData>(json);
-                }
-                else
-                {
-                    currentData = new ModSaveData();
-                }
-
-                if (currentData.Plots == null)
-                    currentData.Plots = new List<PlotSaveEntry>();
-                if (currentData.Structures == null)
-                    currentData.Structures = new List<StructureSaveEntry>();
-                if (currentData.Strokes == null)
-                    currentData.Strokes = new List<StrokeSaveEntry>();
-                if (currentData.Polygons == null)
-                    currentData.Polygons = new List<PolygonSaveEntry>();
-                if (currentData.PurchasedLicenses == null)
-                    currentData.PurchasedLicenses = new List<PurchasedPlotLicense>();
-            }
-            catch (System.Exception ex)
-            {
-                MelonLogger.Warning($"[SlimeCorralSpawn] Failed to load save data: {ex.Message}. Creating new save.");
-                currentData = new ModSaveData();
-            }
-        }
+        // ── Querying ─────────────────────────────────────────────────────
 
         public static List<PlotSaveEntry> GetAllPlots()
         {
-            if (currentData == null) Load();
+            EnsureSlotLoaded();
             return currentData?.Plots ?? new List<PlotSaveEntry>();
         }
 
         public static ModSaveData GetCurrentData()
         {
-            if (currentData == null) Load();
+            EnsureSlotLoaded();
             return currentData;
         }
     }

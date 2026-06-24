@@ -60,6 +60,10 @@ namespace SlimeCorralSpawn
             if (InputHelper.GetKeyDown(UnityEngine.KeyCode.F8))
                 Placement.RealPlotManager.DumpOurPlotContent();
 
+            // F9: dump completo de registro de cada custom plot (diagnóstico de integración con GameModel).
+            if (InputHelper.GetKeyDown(UnityEngine.KeyCode.F9))
+                Placement.RealPlotManager.DumpPlotRegistration();
+
             try { Placement.PlacementManager.UpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("PlacementManager.UpdateStatic", ex); }
 
@@ -85,19 +89,16 @@ namespace SlimeCorralSpawn
             catch (Exception ex) { LogErrorOnce("PaintTool.UpdateStatic", ex); }
 
             try { Plots.PlotData.UpdateRetry(); }
-            catch (Exception ex) { LogErrorOnce("PlotData.UpdateRetry", ex); }
+            catch (Exception ex) { Instance?.LoggerInstance.Error($"[UpdateRetry] {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}"); }
 
-            // Re-crear las estructuras custom guardadas cuando el rancho esté cargado.
-            // Capturar/guardar el contenido vivo de los plots (cultivos, plorts del silo) cada ~12s.
             try { Plots.PlotData.UpdateContentCapture(); }
-            catch (Exception ex) { LogErrorOnce("PlotData.UpdateContentCapture", ex); }
+            catch (Exception ex) { Instance?.LoggerInstance.Error($"[ContentCapture] {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}"); }
 
             try { UI.StructureManager.UpdateRetry(); }
-            catch (Exception ex) { LogErrorOnce("StructureManager.UpdateRetry", ex); }
+            catch (Exception ex) { Instance?.LoggerInstance.Error($"[StructureRetry] {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}"); }
 
             // Ejecutar acciones diferidas (creación de LandPlots reales en pasos).
-            try { Deferred.Update(); }
-            catch (Exception ex) { LogErrorOnce("Deferred.Update", ex); }
+            Deferred.Update();
         }
 
         private int _scenesLogged;

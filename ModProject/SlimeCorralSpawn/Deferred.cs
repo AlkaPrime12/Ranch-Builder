@@ -3,8 +3,6 @@ using System.Collections.Generic;
 
 namespace SlimeCorralSpawn
 {
-    /// <summary>Ejecuta acciones tras N frames (equivalente a ExecuteInTicks de Starlight).
-    /// Necesario para crear LandPlots reales (el juego necesita unos frames entre pasos).</summary>
     public static class Deferred
     {
         private class Item { public Action Act; public int Frames; }
@@ -25,7 +23,7 @@ namespace SlimeCorralSpawn
                 if (it.Frames <= 0)
                 {
                     _items.RemoveAt(i);
-                    try { it.Act(); } catch (Exception ex) { ModEntry.LogErrorOnce("Deferred", ex); }
+                    it.Act();
                 }
             }
         }

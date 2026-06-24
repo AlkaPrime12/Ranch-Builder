@@ -231,6 +231,52 @@ namespace SlimeCorralSpawn
             // Suelo a medida / trazo
             { "struct_free_floor",    new[]{ "Suelo a Medida", "Custom Floor", "自定义地板", "Пользовательский пол", "Sol personnalisé" } },
             { "struct_free_cube",     new[]{ "Trazo", "Stroke", "笔触", "Штрих", "Trait" } },
+            // Botones / encabezados del menú principal
+            { "hdr_plots_buy",   new[]{ "PLOTS PARA COMPRAR", "PLOTS TO BUY", "地块购买", "УЧАСТКИ ДЛЯ ПОКУПКИ", "PARCELLES À ACHETER" } },
+            { "hdr_houses",      new[]{ "CASAS", "HOUSES", "房屋", "ДОМА", "MAISONS" } },
+            { "hdr_your_builds", new[]{ "TUS CONSTRUCCIONES", "YOUR BUILDS", "你的建筑", "ВАШИ ПОСТРОЙКИ", "VOS CONSTRUCTIONS" } },
+            { "hdr_your_plots",  new[]{ "TUS PARCELAS", "YOUR PLACES", "你的地块", "ВАШИ УЧАСТКИ", "VOS PARCELLES" } },
+            { "no_builds_yet",   new[]{ "Nada construido todavía.", "Nothing built yet.", "尚未建造任何东西。", "Пока ничего не построено.", "Rien construit pour l'instant." } },
+            { "no_plots_yet",    new[]{ "No hay parcelas todavía. ¡Compra una arriba!", "No places yet! Buy one above.", "尚无地块。请在上面购买！", "Пока нет участков. Купите выше!", "Pas encore de parcelles. Achetez-en une ci-dessus !" } },
+            { "btn_close",       new[]{ "Cerrar (F5)", "Close (F5)", "关闭 (F5)", "Закрыть (F5)", "Fermer (F5)" } },
+            { "no_items_cat",    new[]{ "(sin items en esta categoría)", "(no items in this category)", "（此类别中无物品）", "(нет предметов в этой категории)", "(aucun article dans cette catégorie)" } },
+            { "tool_remove",     new[]{ "MODO QUITAR", "REMOVE MODE", "移除模式", "РЕЖИМ УДАЛЕНИЯ", "MODE RETIRER" } },
+            { "tool_remove_hint", new[]{
+                "Click IZQ = Romper lo que mires     ·     F9 / Click DER / Esc = Salir",
+                "L-Click = Break what you aim at     ·     F9 / R-Click / Esc = Exit",
+                "左键 = 打碎目标     ·     F9 / 右键 / Esc = 退出",
+                "ЛКМ = Сломать цель     ·     F9 / ПКМ / Esc = Выход",
+                "Clic G = Casser la cible     ·     F9 / Clic D / Esc = Quitter" } },
+            { "tip_paint", new[]{
+                "Apuntá a una estructura y click izq. Q = material · E = color · R = Pintar/Textura.",
+                "Aim at a structure and left-click. Q = material · E = color · R = Paint/Texture.",
+                "瞄准结构并左键单击。Q = 材质 · E = 颜色 · R = 上色/纹理。",
+                "Наведите на строение и ЛКМ. Q = материал · E = цвет · R = Цвет/Текстура.",
+                "Visez une structure et clic gauche. Q = matériau · E = couleur · R = Peindre/Texture." } },
+            { "tip_floor", new[]{
+                "Elegí 2 esquinas con la mira; el costo sube con el área (1x1 ≈ 25 NB).",
+                "Choose 2 corners with your aim; cost depends on area (1x1 ≈ 25 NB).",
+                "用瞄准选择两个角；成本取决于面积（1x1 ≈ 25 NB）。",
+                "Выберите 2 угла прицелом; стоимость зависит от площади (1x1 ≈ 25 NB).",
+                "Choisissez 2 coins avec votre visée ; le coût dépend de la surface (1x1 ≈ 25 NB)." } },
+            { "tip_freedraw", new[]{
+                "Mantené CLICK IZQ y barré sobre la superficie: deja un trazo plano pegado. Material = el del PaintTool (F7).",
+                "Hold L-CLICK and sweep on a surface: leaves a flat stroke. Material = PaintTool's (F7).",
+                "按住左键并在表面上滑动：留下平面笔触。材质 = PaintTool 的 (F7)。",
+                "Удерживайте ЛКМ и ведите по поверхности: остаётся плоский штрих. Материал = PaintTool (F7).",
+                "Maintenez le clic G et balayez sur une surface : laisse un trait plat. Matériau = PaintTool (F7)." } },
+            { "tip_polygon", new[]{
+                "Click puntos para contornear cualquier forma, ENTER para rellenar. Material = el del PaintTool.",
+                "Click points to outline any shape, ENTER to fill it. Material = PaintTool's.",
+                "点击点勾勒任意形状，按 ENTER 填充。材质 = PaintTool 的。",
+                "Нажимайте точки для контура любой формы, ENTER для заливки. Материал = PaintTool.",
+                "Cliquez pour tracer n'importe quelle forme, ENTER pour la remplir. Matériau = PaintTool." } },
+            { "tip_remove", new[]{
+                "Apuntá a una estructura/suelo/plot y click para romperlo. Esc/click der = salir.",
+                "Aim at a structure/floor/plot and click to break it. Esc/R-Click = exit.",
+                "瞄准结构/地板/地块并单击以打碎。Esc/右键 = 退出。",
+                "Наведите на строение/пол/участок и нажмите, чтобы сломать. Esc/ПКМ = выход.",
+                "Visez une structure/sol/parcelle et cliquez pour la casser. Esc/Clic D = quitter." } },
         };
     }
 }

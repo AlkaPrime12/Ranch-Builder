@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using SlimeCorralSpawn;
 using SlimeCorralSpawn.UI;
 
 namespace SlimeCorralSpawn.Placement
@@ -103,9 +104,9 @@ namespace SlimeCorralSpawn.Placement
             GUI.DrawTexture(new Rect(panel.x, panel.y, panel.width, 3), Texture2D.whiteTexture);
             GUI.color = prev;
 
-            GUI.Label(new Rect(panel.x, panel.y + 8, panel.width, 22), new GUIContent("MODO QUITAR"), _style);
+            GUI.Label(new Rect(panel.x, panel.y + 8, panel.width, 22), new GUIContent(Loc.T("tool_remove")), _style);
             GUI.Label(new Rect(panel.x, panel.y + 32, panel.width, 22),
-                new GUIContent("Click IZQ = Romper lo que mires     ·     F9 / Click DER / Esc = Salir"), _style);
+                new GUIContent(Loc.T("tool_remove_hint")), _style);
         }
     }
 }

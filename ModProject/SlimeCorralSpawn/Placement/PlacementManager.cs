@@ -1121,8 +1121,8 @@ namespace SlimeCorralSpawn.Placement
                 float t = (float)i / segments;
                 float ang = t * Mathf.PI * 2f;
                 float cx = Mathf.Cos(ang) * radius, cz = Mathf.Sin(ang) * radius;
-                verts.Add(new Vector3(cx, -hy, cz)); uvs.Add(new Vector2(t * radius * 2f, 0f));
-                verts.Add(new Vector3(cx, hy, cz));  uvs.Add(new Vector2(t * radius * 2f, height));
+                verts.Add(new Vector3(cx, -hy, cz)); uvs.Add(new Vector2(t, 0f));
+                verts.Add(new Vector3(cx, hy, cz));  uvs.Add(new Vector2(t, height));
             }
             for (int i = 0; i < segments; i++)
             {

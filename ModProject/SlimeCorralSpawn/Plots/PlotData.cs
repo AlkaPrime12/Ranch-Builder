@@ -41,6 +41,7 @@ namespace SlimeCorralSpawn.Plots
         private static float _retryInterval = 2f;
         private static int _retryCount = 0;
         private static int _maxRetries = 15;
+        private static bool _dataLoaded;
 
         public static void Register(PlotData data)
         {
@@ -130,6 +131,7 @@ namespace SlimeCorralSpawn.Plots
         public static void ResetLinksForSceneChange()
         {
             foreach (var kv in allPlots) kv.Value.LinkedObject = null;
+            ContentPersistence.ClearCache();
             _retryCount = 0;
             _lastRetryTime = 0f;
         }
@@ -164,6 +166,23 @@ namespace SlimeCorralSpawn.Plots
 
         public static void UpdateRetry()
         {
+            // First call: load saved data from disk and register all plots/structures.
+            if (!_dataLoaded)
+            {
+                if (SaveData.ModDataManager.LoadForCurrentSlot())
+                {
+                    SaveData.ModDataManager.RegisterAllPlots();
+                    _dataLoaded = true;
+                    MelonLogger.Msg($"[Load] RegisterAllPlots executed. Plots={allPlots.Count} Structures={UI.StructureManager.PlacedCount}");
+                    // RestoreLinkedObjects already attempted respawn inside RegisterAllPlots.
+                    // Fall through to retry logic for any that failed.
+                }
+                else
+                {
+                    return;
+                }
+            }
+
             if (allPlots.Count == 0) return;
             if (Time.time - _lastRetryTime < _retryInterval) return;
             _lastRetryTime = Time.time;

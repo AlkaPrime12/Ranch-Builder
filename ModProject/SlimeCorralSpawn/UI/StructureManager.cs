@@ -175,16 +175,6 @@ namespace SlimeCorralSpawn.UI
             },
             new StructureDefinition
             {
-                Id = "lamp_post",
-                Name = "Lamp Post",
-                Description = "Farol alto para iluminar caminos y plazas.",
-                Category = StructureCategory.Decoration,
-                Cost = 600,
-                Kind = StructureKind.LampPost,
-                PlacementBounds = new Vector3(1f, 4.6f, 1f)
-            },
-            new StructureDefinition
-            {
                 Id = "sign_post",
                 Name = "Sign Post",
                 Description = "Cartel simple para orientar sectores del rancho.",
@@ -199,7 +189,6 @@ namespace SlimeCorralSpawn.UI
             new StructureDefinition { Id = "stone_pillar", Name = "Stone Pillar", Description = "Columna de piedra para arcos y pórticos.", Category = StructureCategory.Pillar, Cost = 500, Kind = StructureKind.StonePillar, PlacementBounds = new Vector3(0.9f, 3.4f, 0.9f) },
             new StructureDefinition { Id = "wood_pillar", Name = "Wood Pillar", Description = "Poste de madera grueso.", Category = StructureCategory.Pillar, Cost = 350, Kind = StructureKind.WoodPillar, PlacementBounds = new Vector3(0.6f, 3.2f, 0.6f) },
             new StructureDefinition { Id = "ramp", Name = "Wooden Ramp", Description = "Rampa inclinada para subir suave.", Category = StructureCategory.Stairs, Cost = 600, Kind = StructureKind.Ramp, PlacementBounds = new Vector3(3f, 2f, 4.5f) },
-            new StructureDefinition { Id = "archway", Name = "Stone Archway", Description = "Arco de piedra: dos columnas + dintel.", Category = StructureCategory.Door, Cost = 1200, Kind = StructureKind.Archway, PlacementBounds = new Vector3(4f, 3.6f, 1f) },
             new StructureDefinition { Id = "crate", Name = "Wooden Crate", Description = "Cajón de madera decorativo/apilable.", Category = StructureCategory.Decoration, Cost = 150, Kind = StructureKind.Crate, PlacementBounds = new Vector3(1.2f, 1.2f, 1.2f) },
             new StructureDefinition { Id = "window_lattice", Name = "Window Lattice", Description = "Marco con celosía para paredes.", Category = StructureCategory.Window, Cost = 450, Kind = StructureKind.WindowLattice, PlacementBounds = new Vector3(2f, 2.4f, 0.25f) },
             new StructureDefinition { Id = "bridge", Name = "Wooden Bridge", Description = "Puente de tablones con barandas.", Category = StructureCategory.Bridge, Cost = 900, Kind = StructureKind.Bridge, PlacementBounds = new Vector3(3f, 1f, 7f) },
@@ -274,11 +263,11 @@ namespace SlimeCorralSpawn.UI
             Vector3 wB = new Vector3(4, 3, 0.4f), hB = new Vector3(4, 1.4f, 0.4f), fB = new Vector3(4, 0.3f, 4);
 
             // ---- MUROS completos (3m) ----
-            Add("w_concrete", "Muro Hormigón", "Pared lisa de hormigón.", StructureCategory.Wall, 700, wB, B(0, 1.5f, 0, 4, 3, 0.3f, Co));
-            Add("w_cobble", "Muro Adoquín", "Pared de adoquines.", StructureCategory.Wall, 800, wB, B(0, 1.5f, 0, 4, 3, 0.3f, Cb));
-            Add("w_sandstone", "Muro Arenisca", "Pared de arenisca cálida.", StructureCategory.Wall, 850, wB, B(0, 1.5f, 0, 4, 3, 0.3f, Sa));
-            Add("w_marble", "Muro Mármol", "Pared de mármol pulido.", StructureCategory.Wall, 1500, wB, B(0, 1.5f, 0, 4, 3, 0.3f, Ma));
-            Add("w_slate", "Muro Pizarra", "Pared de pizarra oscura.", StructureCategory.Wall, 900, wB, B(0, 1.5f, 0, 4, 3, 0.3f, Sl));
+            Add("w_concrete", "Concrete Wall", "Pared lisa de hormigón.", StructureCategory.Wall, 700, wB, B(0, 1.5f, 0, 4, 3, 0.3f, Co));
+            Add("w_cobble", "Cobble Wall", "Pared de adoquines.", StructureCategory.Wall, 800, wB, B(0, 1.5f, 0, 4, 3, 0.3f, Cb));
+            Add("w_sandstone", "Sandstone Wall", "Pared de arenisca cálida.", StructureCategory.Wall, 850, wB, B(0, 1.5f, 0, 4, 3, 0.3f, Sa));
+            Add("w_marble", "Marble Wall", "Pared de mármol pulido.", StructureCategory.Wall, 1500, wB, B(0, 1.5f, 0, 4, 3, 0.3f, Ma));
+            Add("w_slate", "Slate Wall", "Pared de pizarra oscura.", StructureCategory.Wall, 900, wB, B(0, 1.5f, 0, 4, 3, 0.3f, Sl));
 
             // ---- SEMI-MUROS (1.3m) ----
             Add("hw_wood", "Semi-muro Madera", "Murito bajo de madera.", StructureCategory.HalfWall, 250, hB, B(0, 0.65f, 0, 4, 1.3f, 0.28f, Wd), B(0, 1.36f, 0, 4.1f, 0.12f, 0.4f, DWd));
@@ -447,6 +436,7 @@ namespace SlimeCorralSpawn.UI
         };
 
         private static readonly Dictionary<string, PlacedStructureData> _placed = new Dictionary<string, PlacedStructureData>();
+        public static int PlacedCount => _placed.Count;
 
         public static int GetCost(StructureDefinition def)
         {
@@ -513,8 +503,18 @@ namespace SlimeCorralSpawn.UI
         /// <summary>Coloca un bloque 1x1 de Free Draw en 'position' con el material dado. Persiste.</summary>
         public static bool PlaceFreeCube(Vector3 position, Quaternion rotation, Themes.MatKind mat)
         {
-            if (FreeCubeDef.Recipe != null && FreeCubeDef.Recipe.Count > 0) FreeCubeDef.Recipe[0].Mat = mat;
-            return SpawnStructure(FreeCubeDef, position, rotation, 1f, 0f, 0f, null, true) != null;
+            if (FreeCubeDef.Recipe == null || FreeCubeDef.Recipe.Count == 0)
+                return SpawnStructure(FreeCubeDef, position, rotation, 1f, 0f, 0f, null, true) != null;
+            var cloneParts = new List<BoxPart>(FreeCubeDef.Recipe.Count);
+            foreach (var p in FreeCubeDef.Recipe)
+                cloneParts.Add(new BoxPart { Pos = p.Pos, Size = p.Size, Mat = mat, Tint = p.Tint, Euler = p.Euler, Cylinder = p.Cylinder });
+            var tempDef = new StructureDefinition
+            {
+                Id = FreeCubeDef.Id, Name = FreeCubeDef.Name, Description = FreeCubeDef.Description,
+                Category = FreeCubeDef.Category, Cost = FreeCubeDef.Cost, Kind = FreeCubeDef.Kind,
+                PlacementBounds = FreeCubeDef.PlacementBounds, Recipe = cloneParts
+            };
+            return SpawnStructure(tempDef, position, rotation, 1f, 0f, 0f, null, true) != null;
         }
 
         public static bool FreeMode { get; private set; }
@@ -812,10 +812,11 @@ namespace SlimeCorralSpawn.UI
                         Color cc = c;
                         bool transp = false; try { transp = m.renderQueue >= (int)UnityEngine.Rendering.RenderQueue.Transparent; } catch { }
                         if (transp) { float a = 0.45f; try { if (m.color.a > 0.01f) a = m.color.a; } catch { } cc.a = a; }
-                        try { m.color = cc; } catch { }
-                        try { if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", cc); } catch { }
-                        try { if (m.HasProperty("_Color")) m.SetColor("_Color", cc); } catch { }
-                        try { if (m.HasProperty("_UnlitColor")) m.SetColor("_UnlitColor", cc); } catch { }
+                        try { m.SetColor("_BaseColor", cc); } catch { }
+                        try { m.SetColor("_Color", cc); } catch { }
+                        try { m.SetColor("_UnlitColor", cc); } catch { }
+                        try { m.SetColor("_MainColor", cc); } catch { }
+                        try { m.SetColor("_TintColor", cc); } catch { }
                     }
                     r.materials = mats;
                 }

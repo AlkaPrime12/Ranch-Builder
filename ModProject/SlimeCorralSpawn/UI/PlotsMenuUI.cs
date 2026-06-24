@@ -375,7 +375,7 @@ namespace SlimeCorralSpawn.UI
             GUI.Label(new Rect(x, y, w, 20), new GUIContent(balanceTxt), priceStyle);
             y += 26f;
 
-            GUI.Label(new Rect(x, y, w, 22), new GUIContent("PLOTS TO BUY"), headerStyle);
+            GUI.Label(new Rect(x, y, w, 22), new GUIContent(Loc.T("hdr_plots_buy")), headerStyle);
             y += 28f;
 
             for (int i = 0; i < PlotDefinitions.AllPlots.Length; i++)
@@ -405,7 +405,7 @@ namespace SlimeCorralSpawn.UI
 
         private static void DrawHousesTab(float x, ref float y, float w)
         {
-            GUI.Label(new Rect(x, y, w, 22), new GUIContent("HOUSES"), headerStyle);
+            GUI.Label(new Rect(x, y, w, 22), new GUIContent(Loc.T("hdr_houses")), headerStyle);
             y += 28f;
 
             for (int i = 0; i < HouseManager.HouseDefinitions.Count; i++)
@@ -464,7 +464,7 @@ namespace SlimeCorralSpawn.UI
             if (ClickableBox(matRect, PaintTool.Active ? "Material: ON (Q · E · click)" : Loc.T("btn_changemat"), SlimeTheme.BackgroundButtonActive, labelStyle))
             { if (!PaintTool.Active) PaintTool.Toggle(); CloseMenu(); }
             if (matRect.Contains(Event.current.mousePosition))
-                tooltipText = "Apuntá a una estructura y click izq. Q = elegir material · E = color · R = Pintar/Textura.";
+                tooltipText = Loc.T("tip_paint", "Aim at a structure and left-click. Q = material · E = color · R = Paint/Texture.");
             y += 50f;
 
             DrawStructCategoryRow(x, ref y, w);
@@ -491,7 +491,7 @@ namespace SlimeCorralSpawn.UI
             }
             if (shown == 0)
             {
-                GUI.Label(new Rect(x + 8, y, w - 16, 20), new GUIContent("(sin items en esta categoría)"), smallLabelStyle);
+                GUI.Label(new Rect(x + 8, y, w - 16, 20), new GUIContent(Loc.T("no_items_cat")), smallLabelStyle);
                 y += 24f;
             }
         }
@@ -513,7 +513,7 @@ namespace SlimeCorralSpawn.UI
                 CloseMenu();
             }
             if (floorRect.Contains(Event.current.mousePosition))
-                tooltipText = "Elegí 2 esquinas con la mira; el costo sube con el área (1x1 ≈ 25 NB).";
+                tooltipText = Loc.T("tip_floor", "Choose 2 corners with your aim; cost depends on area (1x1 ≈ 25 NB).");
             y += 50f;
 
             // FREE DRAW: pincel a mano alzada — mantené click y barré para dejar bloques 1x1.
@@ -526,7 +526,7 @@ namespace SlimeCorralSpawn.UI
                 CloseMenu();
             }
             if (drawRect.Contains(Event.current.mousePosition))
-                tooltipText = "Mantené CLICK IZQ y barré sobre la superficie: deja un trazo plano pegado. Material = el del PaintTool (F7).";
+                tooltipText = Loc.T("tip_freedraw", "Hold L-CLICK and sweep on a surface: leaves a flat stroke. Material = PaintTool's (F7).");
             y += 50f;
 
             // FORMAS IRREGULARES: seleccionar puntos y rellenar el polígono.
@@ -539,7 +539,7 @@ namespace SlimeCorralSpawn.UI
                 CloseMenu();
             }
             if (polyRect.Contains(Event.current.mousePosition))
-                tooltipText = "Click points to outline any shape, ENTER to fill it. Material = PaintTool's.";
+                tooltipText = Loc.T("tip_polygon", "Click points to outline any shape, ENTER to fill it. Material = PaintTool's.");
             y += 50f;
 
             // Modo Quitar: apuntá y click para romper estructuras/suelos/plots (también con F9).
@@ -552,7 +552,7 @@ namespace SlimeCorralSpawn.UI
                 CloseMenu();
             }
             if (rmRect.Contains(Event.current.mousePosition))
-                tooltipText = "Apuntá a una estructura/suelo/plot y click para romperlo. Esc/click der = salir.";
+                tooltipText = Loc.T("tip_remove", "Aim at a structure/floor/plot and click to break it. Esc/R-Click = exit.");
             y += 50f;
 
             GUI.Label(new Rect(x, y, w, 22), new GUIContent(Loc.T("hdr_blocks")), headerStyle);
@@ -581,13 +581,13 @@ namespace SlimeCorralSpawn.UI
             y += 6f;
             Fill(new Rect(x, y, w, 2), SlimeTheme.BorderSubtle);
             y += 10f;
-            GUI.Label(new Rect(x, y, w, 22), new GUIContent("TUS CONSTRUCCIONES"), headerStyle);
+            GUI.Label(new Rect(x, y, w, 22), new GUIContent(Loc.T("hdr_your_builds")), headerStyle);
             y += 28f;
 
             var placed = StructureManager.GetPlaced();
             if (placed.Count == 0)
             {
-                GUI.Label(new Rect(x + 10, y, w - 20, 20), new GUIContent("Nada construido todavía."), smallLabelStyle);
+                GUI.Label(new Rect(x + 10, y, w - 20, 20), new GUIContent(Loc.T("no_builds_yet")), smallLabelStyle);
                 y += 25f;
             }
             else
@@ -606,7 +606,7 @@ namespace SlimeCorralSpawn.UI
 
             y += 10f;
             Rect closeRect = new Rect(x, y, w, 40);
-            if (ClickableBox(closeRect, "Close (F5)", SlimeTheme.DarkPink, labelStyle))
+            if (ClickableBox(closeRect, Loc.T("btn_close"), SlimeTheme.DarkPink, labelStyle))
                 CloseMenu();
         }
 
@@ -615,13 +615,13 @@ namespace SlimeCorralSpawn.UI
             Fill(new Rect(x, y, w, 2), SlimeTheme.BorderSubtle);
             y += 10f;
 
-            GUI.Label(new Rect(x, y, w, 22), new GUIContent("YOUR PLACES"), headerStyle);
+            GUI.Label(new Rect(x, y, w, 22), new GUIContent(Loc.T("hdr_your_plots")), headerStyle);
             y += 28f;
 
             var placedPlots = ModDataManager.GetAllPlots();
             if (placedPlots.Count == 0)
             {
-                GUI.Label(new Rect(x + 10, y, w - 20, 20), new GUIContent("No places yet! Buy one above."), smallLabelStyle);
+                GUI.Label(new Rect(x + 10, y, w - 20, 20), new GUIContent(Loc.T("no_plots_yet")), smallLabelStyle);
                 y += 25f;
             }
             else
@@ -647,7 +647,7 @@ namespace SlimeCorralSpawn.UI
 
             y += 10f;
             Rect closeRect = new Rect(x, y, w, 40);
-            if (ClickableBox(closeRect, "Close (F5)", SlimeTheme.DarkPink, labelStyle))
+            if (ClickableBox(closeRect, Loc.T("btn_close"), SlimeTheme.DarkPink, labelStyle))
                 CloseMenu();
         }
 
