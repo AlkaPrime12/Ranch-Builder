@@ -1,14 +1,12 @@
 using UnityEngine;
 using System.Collections.Generic;
 using SlimeCorralSpawn.Placement;
-using SlimeCorralSpawn.Gadgets;
 
 namespace SlimeCorralSpawn.Houses
 {
     /// <summary>
-    /// Casas = CASAS reales (gadgets del juego tipo refugio/casa) + la Tent House custom. Antes la
-    /// "Rancher's House" creaba un PLOT (de ahí que "llamara a un corral"); ahora cada casa coloca una
-    /// CASA real con GadgetFactory (persistida por el juego) o el refugio custom.
+    /// Casas del mod: Tent House custom + cabañas procedurales. Los gadgets vanilla
+    /// (teletransportadores, refugios del juego, etc.) se colocan desde el menú del juego.
     /// </summary>
     public static class HouseManager
     {
@@ -17,7 +15,6 @@ namespace SlimeCorralSpawn.Houses
         public static int GetCost(HouseDefinition def) => DebugOneNewbuck ? 1 : (def?.BaseCost ?? 0);
         public static int GetUpgradeCost(HouseDefinition def) => DebugOneNewbuck ? 1 : (def?.UpgradeCost ?? 0);
 
-        // La Tent House custom (con dormir/F) se mantiene como opción especial.
         private static readonly HouseDefinition TentHouse = new HouseDefinition
         {
             Id = "tent_house",
@@ -30,22 +27,15 @@ namespace SlimeCorralSpawn.Houses
         };
 
         private static List<HouseDefinition> _cache;
-        private static int _cacheCount = -1;
 
-        /// <summary>Tent House + todas las casas/refugios reales del juego (gadgets house-like).</summary>
+        /// <summary>Tent House + casas procedurales del mod (sin gadgets vanilla del juego).</summary>
         public static List<HouseDefinition> HouseDefinitions
         {
             get
             {
-                if (!GadgetFactory.Ready())
-                    return _cache ?? new List<HouseDefinition> { TentHouse };
-
-                var cat = GadgetFactory.GetCatalog();
-                if (_cache != null && _cacheCount == cat.Count) return _cache;
+                if (_cache != null) return _cache;
 
                 var list = new List<HouseDefinition> { TentHouse };
-
-                // Casas procedurales detalladas (cabaña, casa de ladrillo) — persisten como estructura.
                 foreach (var hd in SlimeCorralSpawn.UI.StructureManager.HouseDefs)
                     list.Add(new HouseDefinition
                     {
@@ -53,29 +43,14 @@ namespace SlimeCorralSpawn.Houses
                         BaseCost = hd.Cost, UpgradeCost = 0, MaxUpgrades = 0, Size = PlotSize.Size4x4
                     });
 
-                foreach (var g in cat)
-                {
-                    if (!g.HouseLike) continue;
-                    list.Add(new HouseDefinition
-                    {
-                        Id = g.Id,
-                        Name = g.Display,
-                        Description = "Casa/refugio real del juego — persistente.",
-                        BaseCost = 1,
-                        UpgradeCost = 1,
-                        MaxUpgrades = 0,
-                        Size = PlotSize.Size4x4
-                    });
-                }
                 _cache = list;
-                _cacheCount = cat.Count;
                 return list;
             }
         }
 
         public static HouseDefinition GetById(string id) => HouseDefinitions.Find(h => h.Id == id);
 
-        /// <summary>Coloca la casa: refugio custom (tent) o una CASA real (gadget). True si la creó.</summary>
+        /// <summary>Coloca tent o casa procedural del mod.</summary>
         public static bool PlaceHouse(string id, Vector3 position, Quaternion rotation)
         {
             if (string.IsNullOrEmpty(id)) return false;
@@ -86,24 +61,19 @@ namespace SlimeCorralSpawn.Houses
                 return go != null;
             }
 
-            // Casas procedurales detalladas → vía el sistema de estructuras (persisten solas).
             if (id != null && id.StartsWith("house_"))
                 return SlimeCorralSpawn.UI.StructureManager.PlaceById(id, position, rotation);
 
-            var entry = GadgetFactory.FindById(id);
-            if (entry != null) return GadgetFactory.SpawnGadget(entry.Def, position, rotation);
-
-            ModEntry.Instance?.LoggerInstance.Msg($"[Houses] Casa desconocida: {id}. No se crea nada.");
+            ModEntry.Instance?.LoggerInstance.Msg($"[Houses] Casa desconocida: {id}. Usá el menú de gadgets del juego para gadgets vanilla.");
             return false;
         }
 
-        // Compat: algunas rutas viejas llamaban CreateHouse. Mantener para no romper.
         public static GameObject CreateHouse(HouseDefinition def, Vector3 position, Quaternion rotation, int upgradeLevel = 0)
         {
             if (def == null) return null;
             if (def.Id == "tent_house") return TentHouseManager.CreateTentHouse(position, rotation);
-            var entry = GadgetFactory.FindById(def.Id);
-            if (entry != null && GadgetFactory.SpawnGadget(entry.Def, position, rotation)) return null; // el gadget lo maneja el juego
+            if (def.Id != null && def.Id.StartsWith("house_"))
+                return SlimeCorralSpawn.UI.StructureManager.PlaceById(def.Id, position, rotation) ? null : null;
             return null;
         }
     }

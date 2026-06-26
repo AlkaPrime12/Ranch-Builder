@@ -1,0 +1,7 @@
+﻿MISSING Il2Cpp.GadgetDirector
+MISSING Il2CppMonomiPark.SlimeRancher.Player.PlayerItems.GadgetItem
+MISSING Il2CppMonomiPark.SlimeRancher.World.Gadget
+MISSING Il2CppMonomiPark.SlimeRancher.World.GadgetGroundedHelpers
+MISSING Il2CppMonomiPark.SlimeRancher.World.SetSpringGoalBasedOnGadgetMode
+MISSING Il2CppMonomiPark.SlimeRancher.World.GadgetOverlapHelpers
+MISSING Il2CppMonomiPark.SlimeRancher.UI.Gadget.NewGadgetSelectionUI

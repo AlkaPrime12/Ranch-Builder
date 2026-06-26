@@ -1,0 +1,666 @@
+﻿Loaded 122 assemblies
+=== Il2CppSystem.Text.DecoderReplacementFallback ===
+=== Il2CppSystem.Text.DecoderReplacementFallbackBuffer ===
+  field NativeMethodInfoPtr__ctor_Public_Void_DecoderReplacementFallback_0 : IntPtr
+=== Il2CppSystem.Text.EncoderReplacementFallback ===
+=== Il2CppSystem.Text.EncoderReplacementFallbackBuffer ===
+  field NativeMethodInfoPtr__ctor_Public_Void_EncoderReplacementFallback_0 : IntPtr
+=== Il2Cpp.GadgetChickenCloner ===
+  Update()
+  field NativeFieldInfoPtr_ANIMATION_ACTIVE : IntPtr
+=== Il2Cpp.GadgetDashPad ===
+=== Il2Cpp.GadgetLaunchPad ===
+=== Il2Cpp.GadgetMusicPlayer ===
+  CanInteract()
+  Update()
+  field NativeFieldInfoPtr__gadgetActiveFX : IntPtr
+  field NativeFieldInfoPtr__gadgetActiveAudio : IntPtr
+  field NativeFieldInfoPtr__gadgetActiveAudioInstance : IntPtr
+  field NativeFieldInfoPtr__gadgetActive : IntPtr
+=== Il2Cpp.GadgetPortableSlimeBait ===
+=== Il2Cpp.GadgetPortableSlimeBaitAttractor ===
+=== Il2Cpp.GadgetPortableSlimeBaitPlaySoundOnHit ===
+=== Il2Cpp.GadgetDirector ===
+  get__isTargetingPlaceholder()
+  set__isTargetingPlaceholder(Boolean)
+  get__CanPlaceSelectedGadget_k__BackingField()
+  set__CanPlaceSelectedGadget_k__BackingField(ObservableValue`1)
+  get_CanPlaceSelectedGadget()
+  get_IsTargetingPlaceholder()
+  UpdateSelectedGadget()
+  Update()
+  CanAddGadget(GadgetDefinition,Int32)
+  CanPlaceGadget(Gadget,GadgetDefinition)
+  GetPlacementError(Gadget,GadgetDefinition)
+  GetPlacedCount(List`1)
+  GetPlacedCount(GadgetDefinition)
+  field NativeFieldInfoPtr__isTargetingPlaceholder : IntPtr
+  field NativeFieldInfoPtr__ActiveGadget_k__BackingField : IntPtr
+  field NativeFieldInfoPtr__CanPlaceSelectedGadget_k__BackingField : IntPtr
+  field NativeMethodInfoPtr_get_ActiveGadget_Public_Static_get_Gadget_0 : IntPtr
+  field NativeMethodInfoPtr_set_ActiveGadget_Private_Static_set_Void_Gadget_0 : IntPtr
+  field NativeMethodInfoPtr_get_CanPlaceSelectedGadget_Public_get_ObservableValue_1_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_get_IsTargetingPlaceholder_Public_get_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_CanPlaceGadget_Public_Boolean_Gadget_GadgetDefinition_0 : IntPtr
+  field NativeMethodInfoPtr_GetPlacementError_Public_PlacementError_Gadget_GadgetDefinition_0 : IntPtr
+  field NativeMethodInfoPtr_GetPlacedCount_Public_Int32_List_1_GadgetDefinition_0 : IntPtr
+  field NativeMethodInfoPtr_GetPlacedCount_Public_Int32_GadgetDefinition_0 : IntPtr
+=== Il2Cpp.DeactivateBasedOnGadgetMode ===
+  Update()
+=== Il2Cpp.GadgetDefinition ===
+  set_InvalidPlacementButton(LocalizedString)
+  Validate(IValidatableIssueReporter)
+  get_InvalidPlacementWarning()
+  set_InvalidPlacementWarning(LocalizedString)
+  get_InvalidPlacementButton()
+  field NativeFieldInfoPtr_InvalidPlacementWarning : IntPtr
+  field NativeFieldInfoPtr_InvalidPlacementButton : IntPtr
+=== Il2Cpp.IGadgetInteractor ===
+  CanInteract()
+=== Il2Cpp.MoveBasedOnGadgetMode ===
+  Update()
+=== Il2Cpp.SyncedGadgetRange ===
+  Update()
+  get_HideRangeObjectAfterPlacement()
+  set_HideRangeObjectAfterPlacement(Boolean)
+  get_IS_VALID()
+  set_IS_VALID(Int32)
+  field NativeFieldInfoPtr_HideRangeObjectAfterPlacement : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.DebugSpawnGadgetsInGrid ===
+=== Il2CppMonomiPark.SlimeRancher.IgnoreGadgetOverlap ===
+=== Il2CppMonomiPark.SlimeRancher.LinkedGadgetRangeController ===
+  Update()
+  get_IS_VALID()
+  set_IS_VALID(Int32)
+=== Il2CppMonomiPark.SlimeRancher.PrismaDetectorGadget ===
+  Update()
+  get__updateDelayMin()
+  set__updateDelayMin(Single)
+  get__updateDelayMax()
+  set__updateDelayMax(Single)
+  get__updateDelay()
+  set__updateDelay(Single)
+  field NativeFieldInfoPtr__spindleSpeedActive : IntPtr
+  field NativeFieldInfoPtr__activeAudioCue : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.DisableGadgetModeTrigger ===
+=== Il2CppMonomiPark.SlimeRancher.World.Gadget ===
+  get__placementSpring()
+  set__placementSpring(Spring)
+  get_INITIAL_OVERLAP_CHECK_MASK()
+  set_INITIAL_OVERLAP_CHECK_MASK(Int32)
+  get_INITIAL_OVERLAP_CHECK_FLOOR_TOLERANCE()
+  set_INITIAL_OVERLAP_CHECK_FLOOR_TOLERANCE(Single)
+  get__updateIsInRanchRegions()
+  set__updateIsInRanchRegions(List`1)
+  OnPlaced(SpringConfiguration,Single)
+  LateUpdate()
+  Update()
+  IsOverlapping(Single,LayerMask,Boolean)
+  IsOverlapping(GadgetOverlapInfo&,Single,LayerMask,Boolean)
+  UpdateIsInRanch(RegionRegistry)
+  get_PlaceVFXOverride()
+  set_PlaceVFXOverride(GameObject)
+  get_CanBePickedUp()
+  set_CanBePickedUp(Boolean)
+  get_CanStackOnStackableGadgets()
+  set_CanStackOnStackableGadgets(Boolean)
+  field NativeFieldInfoPtr_PlaceVFXOverride : IntPtr
+  field NativeFieldInfoPtr__placementSpring : IntPtr
+  field NativeMethodInfoPtr_OnPlaced_Public_Void_SpringConfiguration_Single_0 : IntPtr
+  field NativeMethodInfoPtr_IsGadgetInactive_Public_Boolean_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.World.GadgetGroundedHelpers ===
+=== Il2CppMonomiPark.SlimeRancher.World.GadgetLayerHelpers ===
+=== Il2CppMonomiPark.SlimeRancher.World.GadgetOverlapHelpers ===
+  IsGadgetOverlapping(Transform,Collider,IdentifiableType,Single,LayerMask,Boolean)
+  IsGadgetOverlapping(Transform,Collider,IdentifiableType,GadgetOverlapInfo&,Single,LayerMask,Boolean)
+  IsBoxColliderOverlapping(Transform,BoxCollider,Vector3,LayerMask,Boolean,GadgetOverlapInfo&)
+  IsSphereColliderOverlapping(Transform,SphereCollider,Vector3,LayerMask,Boolean,GadgetOverlapInfo&)
+  IsCapsuleColliderOverlapping(Transform,CapsuleCollider,Vector3,LayerMask,Boolean,GadgetOverlapInfo&)
+  IsMeshColliderOverlapping(Transform,MeshCollider,Vector3,LayerMask,Boolean,GadgetOverlapInfo&)
+  IsOverlappingExtraSlimeSpaceCheck(Transform,Vector3,LayerMask,Boolean,GadgetOverlapInfo&)
+=== Il2CppMonomiPark.SlimeRancher.World.GadgetOverlapInfo ===
+=== Il2CppMonomiPark.SlimeRancher.World.IGadgetPlacementListener ===
+  OnGadgetPlaced()
+  field NativeMethodInfoPtr_OnGadgetPlaced_Public_Abstract_Virtual_New_Void_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.World.IGadgetRangeSizeProvider ===
+=== Il2CppMonomiPark.SlimeRancher.World.SanctuaryRoomPreplacedGadget ===
+=== Il2CppMonomiPark.SlimeRancher.World.SanctuaryRoomPreplacedGadgetId ===
+  field NativeMethodInfoPtr_Equals_Public_Virtual_Final_New_Boolean_SanctuaryRoomPreplacedGadgetId_0 : IntPtr
+  field NativeMethodInfoPtr_op_Equality_Public_Static_Boolean_SanctuaryRoomPreplacedGadgetId_SanctuaryRoomPreplacedGadgetId_0 : IntPtr
+  field NativeMethodInfoPtr_op_Inequality_Public_Static_Boolean_SanctuaryRoomPreplacedGadgetId_SanctuaryRoomPreplacedGadgetId_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.World.SetSpringGoalBasedOnGadgetMode ===
+=== Il2CppMonomiPark.SlimeRancher.World.Teleportation.GadgetTeleporterNode ===
+=== Il2CppMonomiPark.SlimeRancher.UI.LangReplaceParticleMat ===
+  get_replacements()
+  set_replacements(Il2CppReferenceArray`1)
+  get_replacementDict()
+  set_replacementDict(Dictionary`2)
+  field NativeFieldInfoPtr_replacements : IntPtr
+  field NativeFieldInfoPtr_replacementDict : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.UI.Map.DetectorGadgetMapMarker ===
+  field NativeFieldInfoPtr__activeBackerSprite : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.UI.Map.MapClickPlaceMarker ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Localization.GadgetStrings ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetBarSoundBank ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetCategory ===
+  MonomiPark_SlimeRancher_Validation_IValidatable_Validate(IValidatableIssueReporter)
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetCategoryRuntime ===
+  UpdateItemList()
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetFavoriteInputHint ===
+  Update()
+  UpdateActiveState()
+  get__dropYInitialPosition()
+  set__dropYInitialPosition(Single)
+  field NativeFieldInfoPtr__isAssignedActive : IntPtr
+  field NativeMethodInfoPtr_get_IsActive_Private_get_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_SetActive_Public_Void_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_UpdateActiveState_Private_Void_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetFavoritesBar ===
+  LateUpdate()
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetFavoriteSlot ===
+  get__canvasGroup()
+  set__canvasGroup(CanvasGroup)
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetInputLegendConfiguration ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetInputLegendUpdater ===
+  UpdateInputLegend()
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetItemData ===
+  get_PlacementCost()
+  get__PlacementCost_k__BackingField()
+  set__PlacementCost_k__BackingField(PurchaseCost)
+  field NativeFieldInfoPtr__PlacementCost_k__BackingField : IntPtr
+  field NativeMethodInfoPtr_get_PlacementCost_Public_get_PurchaseCost_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetLabelDisplay ===
+  UpdateLabels()
+  field NativeMethodInfoPtr_HandleGadgetModeActiveChanged_Private_Void_Boolean_Boolean_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetMenuConfiguration ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetModeTutorialComponent ===
+  HandleGadgetPlaceholderChanged(Gadget)
+  Update()
+  get__lastPlaceholderGadget()
+  set__lastPlaceholderGadget(Gadget)
+  get__updateSlotTutorials()
+  set__updateSlotTutorials(Boolean)
+  get__updateAllTutorials()
+  set__updateAllTutorials(Boolean)
+  field NativeFieldInfoPtr__activeTutorials : IntPtr
+  field NativeFieldInfoPtr__lastPlaceholderGadget : IntPtr
+  field NativeMethodInfoPtr_HandleGadgetPlaceholderChanged_Private_Void_Gadget_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetModeTutorialPopup ===
+  CanShow()
+  UpdateVisibility()
+  MonomiPark_SlimeRancher_UI_Popup_ITutorialHandler_CanHandleTutorial(TutorialDefinition)
+  Update()
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetRecentCategory ===
+  get__gadgetPlacedEvent()
+  set__gadgetPlacedEvent(GadgetEventProducer)
+  field NativeFieldInfoPtr__gadgetPlacedEvent : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetsFavoritesBarLabel ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetSoundBank ===
+  PlayPlaceNow()
+  PlayAddToFavoritesCanceled()
+  get__placeNow()
+  set__placeNow(SECTR_AudioCue)
+  get__addToFavoritesCanceled()
+  set__addToFavoritesCanceled(SECTR_AudioCue)
+  field NativeFieldInfoPtr__placeNow : IntPtr
+  field NativeMethodInfoPtr_PlayPlaceNow_Public_Void_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetsSelectionLabel ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetUIInputManager ===
+  Update()
+  UpdatePointerInput()
+  get__canvas()
+  set__canvas(Canvas)
+  field NativeFieldInfoPtr__IsPointerActive_k__BackingField : IntPtr
+  field NativeFieldInfoPtr_IsPointerActiveChanged : IntPtr
+  field NativeMethodInfoPtr_get_IsPointerActive_Public_get_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_set_IsPointerActive_Private_set_Void_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_add_IsPointerActiveChanged_Public_add_Void_IsPointerActiveChangedDelegate_0 : IntPtr
+  field NativeMethodInfoPtr_remove_IsPointerActiveChanged_Public_rem_Void_IsPointerActiveChangedDelegate_0 : IntPtr
+  field NativeMethodInfoPtr_SetIsPointerActive_Private_Void_Boolean_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetUIInteractable ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetUIManager ===
+  CanSelectIndex(Int32)
+  ValidIndexInDirection(Int32)
+  get__lastValidSelection()
+  set__lastValidSelection(Int32)
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.IGadgetVariantBrowserConfig ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetVariantBrowserConfig ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetVariantBrowserPopup ===
+  MonomiPark_SlimeRancher_UI_Framework_Displays_IDisplayShowDataHandler_MonomiPark_SlimeRancher_UI_Gadget_IGadgetVariantBrowserConfig__UpdateShowData(IGadgetVariantBrowserConfig)
+  UnityEngine_EventSystems_ICancelHandler_OnCancel(BaseEventData)
+  MonomiPark_SlimeRancher_UI_Framework_Audio_IUIAudioSource_ValidateCueName(String)
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetVariantPopupStyle ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.GadgetVariantSlot ===
+  UpdateNewState()
+  get__canvasGroup()
+  set__canvasGroup(CanvasGroup)
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.IGadgetUIActionInputHandler ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.IGadgetUIDirectionalInputHandler ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.IGadgetUIPointerInputHandler ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.IGadgetUIPointerTarget ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.NewGadgetCategoryButton ===
+  UpdateNewState()
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.NewGadgetCategoryList ===
+  OnValidate()
+  Update()
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.NewGadgetItemButton ===
+  UpdateNewState()
+  UpdateFavoriteState(GadgetUIManager)
+  get__canvasGroup()
+  set__canvasGroup(CanvasGroup)
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.NewGadgetItemGrid ===
+  add_PlaceNowPerformed(Action`1)
+  remove_PlaceNowPerformed(Action`1)
+  OnValidate()
+  UpdateSelectionLabel()
+  UpdateButtons()
+  UpdateFavoritesIcons()
+  get_PlaceNowPerformed()
+  set_PlaceNowPerformed(Action`1)
+  field NativeFieldInfoPtr_PlaceNowPerformed : IntPtr
+  field NativeMethodInfoPtr_add_PlaceNowPerformed_Public_add_Void_Action_1_GadgetItemData_0 : IntPtr
+  field NativeMethodInfoPtr_remove_PlaceNowPerformed_Public_rem_Void_Action_1_GadgetItemData_0 : IntPtr
+  field NativeMethodInfoPtr_HandlePointerActiveChanged_Private_Void_Boolean_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.NewGadgetSelectionFavorites ===
+  get_Canceled()
+  set_Canceled(Action`1)
+  add_Canceled(Action`1)
+  remove_Canceled(Action`1)
+  PlaceFavorite(GadgetItemData,InteractionCause)
+  PlaceFavorite(GadgetDefinition,InteractionCause)
+  UpdateSelectionLabel()
+  Update()
+  LateUpdate()
+  CancelAddToFavorites(InteractionCause)
+  field NativeMethodInfoPtr_get_IsPlacingItem_Public_get_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_get_PlacingItem_Public_get_GadgetDefinition_0 : IntPtr
+  field NativeMethodInfoPtr_ClearPlacingFavorite_Public_Void_InteractionCause_0 : IntPtr
+  field NativeMethodInfoPtr_PlaceFavorite_Public_Void_GadgetItemData_InteractionCause_0 : IntPtr
+  field NativeMethodInfoPtr_PlaceFavorite_Public_Void_GadgetDefinition_InteractionCause_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.NewGadgetSelectionUI ===
+  get__fadersNeedUpdate()
+  set__fadersNeedUpdate(Boolean)
+  UpdateFaders(Boolean)
+  UpdateFadersImpl(Boolean)
+  UpdateInputStates()
+  UpdateInputLegendStates()
+  CanAddToFavorites(GadgetDefinition)
+  CanAddToFavorites(GadgetItemData)
+  CanPlaceItem(GadgetItemData)
+  UpdatePromptsForItemGrid(GadgetItemData)
+  UpdatePromptsForFavorites(GadgetDefinition,GadgetDefinition)
+  PlaceNow(GadgetItemData)
+  OnPlaceFavoritesCanceled(InteractionCause)
+  OnPlaceFavoritesConfirmed(Int32,InteractionCause)
+  MonomiPark_SlimeRancher_UI_Framework_Audio_IUIAudioSource_ValidateCueName(String)
+  Update()
+  get__placeItemEvent()
+  set__placeItemEvent(InputEvent)
+  field NativeFieldInfoPtr__favoritesActiveFader : IntPtr
+  field NativeFieldInfoPtr__placingFavoriteInputLegendConfig : IntPtr
+  field NativeFieldInfoPtr__placeItemEvent : IntPtr
+  field NativeMethodInfoPtr_OnIsPointerActiveChanged_Private_Void_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_CanPlaceItem_Private_Static_Boolean_GadgetItemData_0 : IntPtr
+  field NativeMethodInfoPtr_PlaceNow_Private_Void_GadgetItemData_0 : IntPtr
+  field NativeMethodInfoPtr_OnPlaceFavoritesCanceled_Private_Void_InteractionCause_0 : IntPtr
+  field NativeMethodInfoPtr_OnPlaceFavoritesConfirmed_Private_Void_Int32_InteractionCause_0 : IntPtr
+  field NativeMethodInfoPtr_GoToPlacingFavorite_Private_Void_InteractionCause_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.SerializedGadgetVariantBrowserConfig ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.IFabricatableItem ===
+  CheckCanBeFabricatedIgnoringCosts(Int32)
+  CheckCanAffordFabricateCosts(Int32)
+  CheckCanFabricate(Int32)
+  get_ShouldShowPlaceholder()
+  CheckCanShowVariants()
+  get_CanBePinned()
+  field NativeMethodInfoPtr_get_ShouldShowPlaceholder_Public_Abstract_Virtual_New_get_Boolean_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.FabricateCategory ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.IFabricateCategoryRuntime ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.FabricateCategoryRuntime`1 ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.FabricateMenuConfiguration ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.FabricatorCategoryButton ===
+  UpdateNewItemCount()
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.FabricatorCategoryList ===
+  UpdatePinnedRecipeCategoryInputHint()
+  Update()
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.FabricatorCategoryTitle ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.FabricatorConfirmPopup ===
+  get_Canceled()
+  set_Canceled(Action)
+  add_Canceled(Action)
+  remove_Canceled(Action)
+  Update()
+  UnityEngine_EventSystems_ICancelHandler_OnCancel(BaseEventData)
+  CheckCanFabricateSelection()
+  UpdateCountAndRecipeDisplay(FabricationBlockedReason)
+  get__canFabricateFormatString()
+  set__canFabricateFormatString(String)
+  get__maxCountCanOwn()
+  set__maxCountCanOwn(Int32)
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.FabricatorContent ===
+  ValidateCueName(String)
+  UpdateVariantsButton(IFabricatableItem)
+  UnityEngine_EventSystems_ICancelHandler_OnCancel(BaseEventData)
+  get__mainContentCanvasGroup()
+  set__mainContentCanvasGroup(CanvasGroup)
+  get__placeholderItemDetailsRoot()
+  set__placeholderItemDetailsRoot(GameObject)
+  field NativeFieldInfoPtr__placeholderItemDetailsRoot : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.FabricatorIngredient ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.FabricatorItemButton ===
+  UpdateItemSeenState(IFabricatableItem)
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.FabricatorItemButtonPips ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.FabricatorItemConfiguration ===
+  get_UpdateHiddenIconAlpha()
+  get__updateHiddenIconAlpha()
+  set__updateHiddenIconAlpha(Single)
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.FabricatorItemDetails ===
+  get__placeholderDetailsColorGroup()
+  set__placeholderDetailsColorGroup(GraphicColorGroup)
+  get__canFabricateCurrentItem()
+  set__canFabricateCurrentItem(Boolean)
+  field NativeFieldInfoPtr__placeholderDetailsColorGroup : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.FabricatorItemGrid ===
+  OnValidate()
+  UpdatePinRecipeInputLegend()
+  Update()
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.FabricatorRecipe ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.FabricatorSoundBank ===
+  get__confirmationCancelButtonMouseHover()
+  set__confirmationCancelButtonMouseHover(SECTR_AudioCue)
+  PlayConfirmationIncrementCanFabricate()
+  PlayConfirmationIncrementCannotFabricate()
+  PlayConfirmationDecrementCanFabricate()
+  PlayConfirmationDecrementCannotFabricate()
+  PlayConfirmationCanceled()
+  get__confirmationCanceled()
+  set__confirmationCanceled(SECTR_AudioCue)
+  get__confirmationIncrementCanFabricate()
+  set__confirmationIncrementCanFabricate(SECTR_AudioCue)
+  get__confirmationIncrementCannotFabricate()
+  set__confirmationIncrementCannotFabricate(SECTR_AudioCue)
+  get__confirmationDecrementCanFabricate()
+  set__confirmationDecrementCanFabricate(SECTR_AudioCue)
+  get__confirmationDecrementCannotFabricate()
+  set__confirmationDecrementCannotFabricate(SECTR_AudioCue)
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.FabricatorStyle ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.FabricatorUI ===
+  OnConfirmationCanceled()
+  UpdateInputLegendBasedOnItemUpgrade(IFabricatableItem)
+  UpdateInputLegendBasedOnItemsSeen()
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.GadgetDetails ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.GadgetDirectorHelper ===
+  MonomiPark_SlimeRancher_UI_Fabricator_IFabricatorGadgetHelper_CheckCanFabricateIgnoringCosts(GadgetDefinition,Int32)
+  MonomiPark_SlimeRancher_UI_Fabricator_IFabricatorGadgetHelper_CheckCanAffordFabricateCostsIgnoringPrerequisites(GadgetDefinition,Int32)
+  MonomiPark_SlimeRancher_UI_Fabricator_IFabricatorGadgetHelper_CheckCanFabricate(GadgetDefinition,Int32)
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.GadgetFabricatableItem ===
+  MonomiPark_SlimeRancher_UI_Fabricator_IFabricatableItem_CheckCanBeFabricatedIgnoringCosts(Int32)
+  MonomiPark_SlimeRancher_UI_Fabricator_IFabricatableItem_CheckCanAffordFabricateCosts(Int32)
+  MonomiPark_SlimeRancher_UI_Fabricator_IFabricatableItem_CheckCanFabricate(Int32)
+  get_ShouldShowPlaceholder()
+  CheckCanShowVariants()
+  get_CanBePinned()
+  field NativeMethodInfoPtr_get_ShouldShowPlaceholder_Public_Virtual_Final_New_get_Boolean_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.GadgetFabricateCategory ===
+  Validate(IValidatableIssueReporter)
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.GadgetFabricateCategoryRuntime ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.FabricationBlockedReason ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.IFabricatorGadgetHelper ===
+  CheckCanFabricateIgnoringCosts(GadgetDefinition,Int32)
+  CheckCanAffordFabricateCostsIgnoringPrerequisites(GadgetDefinition,Int32)
+  CheckCanFabricate(GadgetDefinition,Int32)
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.PinnedFabricateCategory ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.PinnedFabricateCategoryRuntime ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.PlayerUpgradeFabricatableItem ===
+  get_ShouldShowPlaceholder()
+  MonomiPark_SlimeRancher_UI_Fabricator_IFabricatableItem_CheckCanBeFabricatedIgnoringCosts(Int32)
+  MonomiPark_SlimeRancher_UI_Fabricator_IFabricatableItem_CheckCanAffordFabricateCosts(Int32)
+  MonomiPark_SlimeRancher_UI_Fabricator_IFabricatableItem_CheckCanFabricate(Int32)
+  CheckCanShowVariants()
+  get_CanBePinned()
+  field NativeMethodInfoPtr_get_ShouldShowPlaceholder_Public_Virtual_Final_New_get_Boolean_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.PlayerUpgradeFabricateCategory ===
+  MonomiPark_SlimeRancher_Validation_IValidatable_Validate(IValidatableIssueReporter)
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.PlayerUpgradeFabricateCategoryRuntime ===
+=== Il2CppMonomiPark.SlimeRancher.Shop.GadgetShopItemHelper ===
+  CanAcquireIgnoringCosts(IAcquirable,Int32,AcquireGadgetType)
+  CanAcquireIgnoringCostsByRefId(String,AcquireGadgetType,Int32,Optional`1)
+  GetMaxCanOwnCount(IAcquirable,AcquireGadgetType)
+=== Il2CppMonomiPark.SlimeRancher.Sanctuary.SanctuaryRoomMemberGadget ===
+  IsValidMember()
+=== Il2CppMonomiPark.SlimeRancher.Rendering.Pass.GadgetsOverlayModeCustomPass ===
+  get_GadgetPlacementLayerMask()
+  set_GadgetPlacementLayerMask(LayerMask)
+  get_IsGadgetValid()
+  set_IsGadgetValid(Single)
+  get__gadgetPlacementMaterial()
+  set__gadgetPlacementMaterial(Material)
+  get__isGadgetValidID()
+  set__isGadgetValidID(Int32)
+  field NativeFieldInfoPtr_GadgetPlacementLayerMask : IntPtr
+  field NativeFieldInfoPtr__gadgetPlacementMaterial : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.Persist.GadgetPortableSlimeBaitV01 ===
+=== Il2CppMonomiPark.SlimeRancher.Persist.LegacyDroneGadgetV01 ===
+=== Il2CppMonomiPark.SlimeRancher.Persist.PlacedGadgetV01 ===
+  field NativeMethodInfoPtr_Load_Public_Static_PlacedGadgetV01_BinaryReader_0 : IntPtr
+  field NativeMethodInfoPtr_AssertAreEqual_Public_Static_Void_PlacedGadgetV01_PlacedGadgetV01_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.Persist.PlacedGadgetV02 ===
+  UpdateRotationBasedOnSiteId(String)
+  field NativeMethodInfoPtr__ctor_Public_Void_PlacedGadgetV01_String_0 : IntPtr
+  field NativeMethodInfoPtr_Load_Public_Static_PlacedGadgetV02_BinaryReader_0 : IntPtr
+  field NativeMethodInfoPtr_AssertAreEqual_Public_Static_Void_PlacedGadgetV02_PlacedGadgetV02_0 : IntPtr
+  field NativeMethodInfoPtr_UpgradeFrom_Protected_Virtual_Void_PlacedGadgetV01_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.Persist.PlacedGadgetV03 ===
+  field NativeMethodInfoPtr__ctor_Public_Void_PlacedGadgetV02_0 : IntPtr
+  field NativeMethodInfoPtr_Load_Public_Static_PlacedGadgetV03_BinaryReader_0 : IntPtr
+  field NativeMethodInfoPtr_AssertAreEqual_Public_Static_Void_PlacedGadgetV03_PlacedGadgetV03_0 : IntPtr
+  field NativeMethodInfoPtr_UpgradeFrom_Protected_Virtual_Void_PlacedGadgetV02_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.Persist.PlacedGadgetV04 ===
+  field NativeMethodInfoPtr__ctor_Public_Void_PlacedGadgetV03_0 : IntPtr
+  field NativeMethodInfoPtr_Load_Public_Static_PlacedGadgetV04_BinaryReader_0 : IntPtr
+  field NativeMethodInfoPtr_AssertAreEqual_Public_Static_Void_PlacedGadgetV04_PlacedGadgetV04_0 : IntPtr
+  field NativeMethodInfoPtr_UpgradeFrom_Protected_Virtual_Void_PlacedGadgetV03_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.Persist.PlacedGadgetV05 ===
+  field NativeMethodInfoPtr__ctor_Public_Void_PlacedGadgetV04_0 : IntPtr
+  field NativeMethodInfoPtr_Load_Public_Static_PlacedGadgetV05_BinaryReader_0 : IntPtr
+  field NativeMethodInfoPtr_AssertAreEqual_Public_Static_Void_PlacedGadgetV05_PlacedGadgetV05_0 : IntPtr
+  field NativeMethodInfoPtr_UpgradeFrom_Protected_Virtual_Void_PlacedGadgetV04_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.Persist.PlacedGadgetV06 ===
+  field NativeMethodInfoPtr__ctor_Public_Void_PlacedGadgetV05_0 : IntPtr
+  field NativeMethodInfoPtr_Load_Public_Static_PlacedGadgetV06_BinaryReader_0 : IntPtr
+  field NativeMethodInfoPtr_AssertAreEqual_Public_Static_Void_PlacedGadgetV06_PlacedGadgetV06_0 : IntPtr
+  field NativeMethodInfoPtr_UpgradeFrom_Protected_Virtual_Void_PlacedGadgetV05_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.Persist.PlacedGadgetV07 ===
+  get_IsPrePlaced()
+  set_IsPrePlaced(Boolean)
+  field NativeFieldInfoPtr_IsPrePlaced : IntPtr
+  field NativeMethodInfoPtr__ctor_Public_Void_PlacedGadgetV06_0 : IntPtr
+  field NativeMethodInfoPtr_Load_Public_Static_PlacedGadgetV07_BinaryReader_0 : IntPtr
+  field NativeMethodInfoPtr_AssertAreEqual_Public_Static_Void_PlacedGadgetV07_PlacedGadgetV07_0 : IntPtr
+  field NativeMethodInfoPtr_UpgradeFrom_Protected_Virtual_Void_PlacedGadgetV06_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.Labyrinth.EnergyBeamNodeGadget ===
+  CanReceive()
+  CanEmit()
+=== Il2CppMonomiPark.SlimeRancher.Economy.AcquireGadgetType ===
+=== Il2CppMonomiPark.SlimeRancher.Dialogue.CommStation.ConversationPageGiftGadget ===
+=== Il2CppMonomiPark.SlimeRancher.Player.PlayerItems.GadgetItem ===
+  get__isPlacementValid()
+  set__isPlacementValid(Boolean)
+  get__isPlacementBlocked()
+  set__isPlacementBlocked(Boolean)
+  get__lastPlacedGadget()
+  set__lastPlacedGadget(Gadget)
+  get__hasLookedOffOfLastPlacedGadget()
+  set__hasLookedOffOfLastPlacedGadget(Boolean)
+  get_CAN_PLACE_CHECK_RAY_MASK()
+  set_CAN_PLACE_CHECK_RAY_MASK(Int32)
+  get__local_groundRaycastHits()
+  set__local_groundRaycastHits(Il2CppStructArray`1)
+  get_IsPlaceholderVisible()
+  Update()
+  UpdateFootprint()
+  UpdateTargetedGadget()
+  SetGadgetPlacementValidity(Boolean)
+  IsPlacementValid(Ray,RaycastHit)
+  GetGadgetDefinitionToPlace(GadgetDefinition)
+  GetPlaceholderGadget()
+  RotateClockwiseCancelled(InputEventData)
+  RotateCounterClockwiseCancelled(InputEventData)
+  PlaceGadgetEvent(InputEventData)
+  UpdateTargetingInfo()
+  SendGadgetPlacedAnalyticsEvent(String,String,Vector3,Vector3,String)
+  CreateGadgetPlaceholder(GameObject,Transform)
+  CopyPlaceholderGameObject(GameObject,Transform)
+  CopyPlaceholderComponents(GameObject,GameObject)
+  _PlaceGadgetEvent_b__71_0()
+  get__gadgetPlaceholderInstance()
+  set__gadgetPlaceholderInstance(GameObject)
+  get__gadgetPlaceholderInstanceGadget()
+  set__gadgetPlaceholderInstanceGadget(Gadget)
+  field NativeFieldInfoPtr__gadgetPlaceholderInstance : IntPtr
+  field NativeFieldInfoPtr__gadgetPlaceholderInstanceGadget : IntPtr
+  field NativeFieldInfoPtr__isPlacementValid : IntPtr
+  field NativeFieldInfoPtr__isPlacementBlocked : IntPtr
+  field NativeFieldInfoPtr__lastPlacedGadget : IntPtr
+  field NativeFieldInfoPtr__hasLookedOffOfLastPlacedGadget : IntPtr
+  field NativeFieldInfoPtr_CAN_PLACE_CHECK_RAY_MASK : IntPtr
+  field NativeMethodInfoPtr_get_IsPlaceholderVisible_Public_get_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_SetGadgetPlacementValidity_Private_Void_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_IsPlacementValid_Private_Boolean_Ray_RaycastHit_0 : IntPtr
+  field NativeMethodInfoPtr_GetGadgetDefinitionToPlace_Private_GadgetDefinition_GadgetDefinition_0 : IntPtr
+  field NativeMethodInfoPtr_GetPlaceholderGadget_Public_Gadget_0 : IntPtr
+  field NativeMethodInfoPtr_PlaceGadgetEvent_Private_Void_InputEventData_0 : IntPtr
+  field NativeMethodInfoPtr_SendGadgetPlacedAnalyticsEvent_Private_Void_String_String_Vector3_Vector3_String_0 : IntPtr
+  field NativeMethodInfoPtr_CreateGadgetPlaceholder_Private_GameObject_GameObject_Transform_0 : IntPtr
+  field NativeMethodInfoPtr_CopyPlaceholderGameObject_Private_GameObject_GameObject_Transform_0 : IntPtr
+  field NativeMethodInfoPtr_CopyPlaceholderComponents_Private_Void_GameObject_GameObject_0 : IntPtr
+  field NativeMethodInfoPtr__PlaceGadgetEvent_b__71_0_Private_Void_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.Player.PlayerItems.GadgetItemMetadata ===
+  get_MinPlacementFootprintVisibleDist()
+  set_MinPlacementFootprintVisibleDist(Single)
+  get_PlacementFootprintVisibleDist()
+  set_PlacementFootprintVisibleDist(Single)
+  get_MaxValidPlacementDist()
+  set_MaxValidPlacementDist(Single)
+  get_MaxValidPlacementSlope()
+  set_MaxValidPlacementSlope(Single)
+  get_OverlapPlacementFloorTolerance()
+  set_OverlapPlacementFloorTolerance(Single)
+  get_GroundedRaycastDistance()
+  set_GroundedRaycastDistance(Single)
+  get_GadgetPlacedVFX()
+  set_GadgetPlacedVFX(GameObject)
+  get_GadgetPlacedGamepadFeedback()
+  set_GadgetPlacedGamepadFeedback(GamepadFeedback)
+  get_GadgetPlacedSpringConfiguration()
+  set_GadgetPlacedSpringConfiguration(SpringConfiguration)
+  get_GadgetPlacedSpringNudgeAmount()
+  set_GadgetPlacedSpringNudgeAmount(Single)
+  get_GadgetOverlapLayers()
+  set_GadgetOverlapLayers(LayerMask)
+  get_PlaceGadget()
+  set_PlaceGadget(InputEvent)
+  get_GadgetPlaceEvent()
+  set_GadgetPlaceEvent(GadgetEventProducer)
+  get_PrePlacedGadgetPickedUpOrStoredEvent()
+  set_PrePlacedGadgetPickedUpOrStoredEvent(GadgetEventProducer)
+  get_PlaceGadgetCue()
+  set_PlaceGadgetCue(SECTR_AudioCue)
+  get_GadgetFootprintValidMaterial()
+  set_GadgetFootprintValidMaterial(Material)
+  get_GadgetFootprintInvalidMaterial()
+  set_GadgetFootprintInvalidMaterial(Material)
+  get_BlockedPlacementErrorText()
+  set_BlockedPlacementErrorText(LocalizedString)
+  get_BlockedPlacementErrorCue()
+  set_BlockedPlacementErrorCue(SECTR_AudioCue)
+  get_InvalidPlacementErrorText()
+  set_InvalidPlacementErrorText(LocalizedString)
+  get_InvalidPlacementErrorCue()
+  set_InvalidPlacementErrorCue(SECTR_AudioCue)
+  field NativeFieldInfoPtr_MinPlacementFootprintVisibleDist : IntPtr
+  field NativeFieldInfoPtr_PlacementFootprintVisibleDist : IntPtr
+  field NativeFieldInfoPtr_MaxValidPlacementDist : IntPtr
+  field NativeFieldInfoPtr_MaxValidPlacementSlope : IntPtr
+  field NativeFieldInfoPtr_OverlapPlacementFloorTolerance : IntPtr
+  field NativeFieldInfoPtr_GadgetPlacedVFX : IntPtr
+  field NativeFieldInfoPtr_GadgetPlacedGamepadFeedback : IntPtr
+  field NativeFieldInfoPtr_GadgetPlacedSpringConfiguration : IntPtr
+  field NativeFieldInfoPtr_GadgetPlacedSpringNudgeAmount : IntPtr
+  field NativeFieldInfoPtr_PlaceGadget : IntPtr
+  field NativeFieldInfoPtr_GadgetPlaceEvent : IntPtr
+  field NativeFieldInfoPtr_PrePlacedGadgetPickedUpOrStoredEvent : IntPtr
+  field NativeFieldInfoPtr_PlaceGadgetCue : IntPtr
+  field NativeFieldInfoPtr_BlockedPlacementErrorText : IntPtr
+  field NativeFieldInfoPtr_BlockedPlacementErrorCue : IntPtr
+  field NativeFieldInfoPtr_InvalidPlacementErrorText : IntPtr
+  field NativeFieldInfoPtr_InvalidPlacementErrorCue : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.Event.GadgetEventProducer ===
+=== Il2CppMonomiPark.SlimeRancher.Event.Query.GadgetEventQueryComponent ===
+=== Il2CppMonomiPark.SlimeRancher.DataModel.BasicGadgetModel ===
+=== Il2CppMonomiPark.SlimeRancher.DataModel.DroneStationGadgetModel ===
+  UpdateProgram(Double,Double)
+  UpdateZones(GameObject)
+  UpdateResources(Dictionary`2,Double)
+=== Il2CppMonomiPark.SlimeRancher.DataModel.GadgetModel ===
+  get_IsPrePlaced()
+  MonomiPark_SlimeRancher_Map_IMapMarkerSource_get_MapPosition()
+  get__isPrePlaced()
+  set__isPrePlaced(Boolean)
+  field NativeFieldInfoPtr__isPrePlaced : IntPtr
+  field NativeMethodInfoPtr_get_IsPrePlaced_Public_get_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_MonomiPark_SlimeRancher_Map_IMapMarkerSource_get_IsMapMarkerActive_Private_Virtual_Final_New_get_Boolean_0 : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.DataModel.GadgetsModel ===
+  get_placedGadgetCounts()
+  set_placedGadgetCounts(Dictionary`2)
+  field NativeFieldInfoPtr_placedGadgetCounts : IntPtr
+=== Il2CppMonomiPark.SlimeRancher.DataModel.PrismaDetectorGadgetModel ===
+=== Il2CppMonomiPark.SlimeRancher.DataModel.TeleporterGadgetModel ===
+=== Il2CppMonomiPark.SlimeRancher.Analytics.Event.FabricateAnalyticsEvent ===
+=== Il2CppMonomiPark.SlimeRancher.Analytics.Event.FabricateUpgradeAnalyticsEvent ===
+=== Il2CppMonomiPark.SlimeRancher.Analytics.Event.GadgetInteractedAnalyticsEvent ===
+  get__gadgetPosition()
+  set__gadgetPosition(AnalyticsEventField`1)
+=== Il2CppMonomiPark.SlimeRancher.Analytics.Event.GadgetOwnedAnalyticsEvent ===
+  get__gadgetPosition()
+  set__gadgetPosition(AnalyticsEventField`1)
+=== Il2CppMonomiPark.SlimeRancher.Analytics.Event.GadgetPlacedAnalyticsEvent ===
+  get__gadgetPosition()
+  set__gadgetPosition(AnalyticsEventField`1)
+=== Il2CppMonomiPark.SlimeRancher.Analytics.Event.GadgetUnlockedAnalyticsEvent ===
+=== Il2Cpp.GadgetDirector+TargetGadgetInfo ===
+  get_IsValid()
+=== Il2Cpp.GadgetDirector+PlacementError ===
+=== Il2Cpp.WorldPopulator+_PopulateGadgets_d__4 ===
+=== Il2CppMonomiPark.SlimeRancher.World.Gadget+OnGadgetPickedUpOrStoredDelegate ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Gadget.NewGadgetCategoryButton+GadgetCategoryEventDelegate ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.FabricatorItemDetails+FabricatorUpgradeStrings ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.GadgetFabricateCategoryRuntime+_EnumerateUnlockedGadgetAndVariantDefinitions_d__3 ===
+=== Il2CppMonomiPark.SlimeRancher.UI.Fabricator.GadgetFabricateCategoryRuntime+_EnumerateUnlockedGadgetDefinitions_d__2 ===
+=== Il2CppMonomiPark.SlimeRancher.RecipePinning.RecipeFactory+GadgetRecipe ===
+=== Il2CppPlayFab.ClientModels.AdPlacementDetails ===
+  get_PlacementId()
+  set_PlacementId(String)
+  get_PlacementName()
+  set_PlacementName(String)
+  get_PlacementViewsRemaining()
+  set_PlacementViewsRemaining(Nullable`1)
+  get_PlacementViewsResetMinutes()
+  set_PlacementViewsResetMinutes(Nullable`1)
+  field NativeFieldInfoPtr_PlacementId : IntPtr
+  field NativeFieldInfoPtr_PlacementName : IntPtr
+  field NativeFieldInfoPtr_PlacementViewsRemaining : IntPtr
+  field NativeFieldInfoPtr_PlacementViewsResetMinutes : IntPtr
+=== Il2CppPlayFab.ClientModels.GetAdPlacementsRequest ===
+=== Il2CppPlayFab.ClientModels.GetAdPlacementsResult ===
+  get_AdPlacements()
+  set_AdPlacements(List`1)
+  field NativeFieldInfoPtr_AdPlacements : IntPtr
+=== Il2CppSystem.Text.RegularExpressions.RegexReplacement ===
+  ReplacementImpl(StringBuilder,Match)
+  ReplacementImplRTL(List`1,Match)
+  Replace(Regex,String,Int32,Int32)
+  field NativeMethodInfoPtr_GetOrCreate_Public_Static_RegexReplacement_WeakReference_1_RegexReplacement_String_Hashtable_Int32_Hashtable_RegexOptions_0 : IntPtr
+  field NativeMethodInfoPtr_ReplacementImpl_Private_Void_StringBuilder_Match_0 : IntPtr
+  field NativeMethodInfoPtr_ReplacementImplRTL_Private_Void_List_1_String_Match_0 : IntPtr
+  field NativeMethodInfoPtr_Replace_Public_String_Regex_String_Int32_Int32_0 : IntPtr

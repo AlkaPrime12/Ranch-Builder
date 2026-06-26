@@ -85,7 +85,7 @@ namespace SlimeCorralSpawn
         public static void UpdateStatic()
         {
             if (Placement.FreeDrawTool.Active || Placement.PolygonTool.Active) return;   // no pintar en Free Draw / polígono
-            if (InputHelper.GetKeyDown(KeyCode.F7)) Toggle();
+            if (InputHelper.GetKeyDown(ModKeybinds.Get(ModAction.PaintTool))) Toggle();
             if (!Active) return;
 
             // Abrir menús con E / Q (sólo si no hay ninguno abierto, para no romper el buscador al tipear).

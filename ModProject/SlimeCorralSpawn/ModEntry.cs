@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Slime Corral Spawn", "1.5.0", "SlimeRancherModder")]
+[assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Slime Corral Spawn", "1.6.0", "SlimeRancherModder")]
 [assembly: MelonGame("MonomiPark", "SlimeRancher2")]
 
 namespace SlimeCorralSpawn
@@ -170,6 +170,9 @@ namespace SlimeCorralSpawn
 
             try { UI.PlotsMenuUI.OnGUIStatic(); }
             catch (Exception ex) { LogErrorOnce("PlotsMenuUI.OnGUIStatic", ex); }
+
+            try { Gadgets.GadgetPlacementHelper.DrawHud(); }
+            catch (Exception ex) { LogErrorOnce("GadgetPlacementHelper.DrawHud", ex); }
 
             try { PaintTool.OnGUIStatic(); }
             catch (Exception ex) { LogErrorOnce("PaintTool.OnGUIStatic", ex); }

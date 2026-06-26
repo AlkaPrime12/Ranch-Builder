@@ -57,6 +57,9 @@ namespace SlimeCorralSpawn.UI
         private static int _selectedPackIndex;
         private static List<ModPackManager.PackEntry> _packList = new List<ModPackManager.PackEntry>();
         private static float _packListRefresh;
+        private enum ConfigView { Main, Keybinds }
+        private static ConfigView _configView;
+        private static ModAction? _rebindAction;
 
         public static void ToggleMenu()
         {
@@ -87,13 +90,15 @@ namespace SlimeCorralSpawn.UI
             float targetX = IsVisible ? 10f : -menuWidth - 20f;
             menuX = Mathf.Lerp(menuX, targetX, Time.deltaTime * 10f);
 
-            if (InputHelper.GetKeyDown(KeyCode.F5))
+            if (ModKeybinds.IsDown(ModAction.OpenMenu))
                 ToggleMenu();
 
             ApplyMenuInputState();
 
             if (IsVisible)
                 cachedBalance = EconomyHelper.GetNewbucks();
+
+            UpdateKeybindCapture();
         }
 
         // === Estado de input mientras el menú está abierto ===
@@ -344,6 +349,12 @@ namespace SlimeCorralSpawn.UI
 
         private static void DrawConfigTab(float x, ref float y, float w)
         {
+            if (_configView == ConfigView.Keybinds)
+            {
+                DrawKeybindsTab(x, ref y, w);
+                return;
+            }
+
             GUI.Label(new Rect(x, y, w, 22), new GUIContent(Loc.T("cfg_title")), headerStyle);
             y += 32f;
 
@@ -368,8 +379,20 @@ namespace SlimeCorralSpawn.UI
             }
             y += 56f;
 
-            GUI.Label(new Rect(x + 4, y, w - 8, 110), new GUIContent(Loc.T("cfg_keys")), smallLabelStyle);
-            y += 118f;
+            Rect gadgetRect = new Rect(x, y, w, 40);
+            string gadgetLabel = ModSettings.CustomGadgetPlacement ? Loc.T("cfg_gadget_on") : Loc.T("cfg_gadget_off");
+            if (ClickableBox(gadgetRect, gadgetLabel, SlimeTheme.BackgroundButton, labelStyle))
+                ModSettings.CustomGadgetPlacement = !ModSettings.CustomGadgetPlacement;
+            if (gadgetRect.Contains(Event.current.mousePosition)) tooltipText = Loc.T("cfg_gadget_hint");
+            y += 48f;
+
+            Rect keysBtn = new Rect(x, y, w, 40);
+            if (ClickableBox(keysBtn, Loc.T("cfg_keybinds_btn"), SlimeTheme.BackgroundButtonActive, labelStyle))
+                _configView = ConfigView.Keybinds;
+            y += 48f;
+
+            GUI.Label(new Rect(x + 4, y, w - 8, 90), new GUIContent(Loc.T("cfg_keys")), smallLabelStyle);
+            y += 98f;
 
             GUI.Label(new Rect(x, y, w, 22), new GUIContent(Loc.T("cfg_save_title")), headerStyle);
             y += 28f;
@@ -436,6 +459,72 @@ namespace SlimeCorralSpawn.UI
 
             if (!string.IsNullOrEmpty(_packStatus) && Time.realtimeSinceStartup < _packStatusUntil)
                 GUI.Label(new Rect(x, y, w, 40), new GUIContent(_packStatus), smallLabelStyle);
+        }
+
+        private static void DrawKeybindsTab(float x, ref float y, float w)
+        {
+            GUI.Label(new Rect(x, y, w, 22), new GUIContent(Loc.T("cfg_keybinds_title")), headerStyle);
+            y += 30f;
+
+            Rect back = new Rect(x, y, w, 34);
+            if (ClickableBox(back, Loc.T("cfg_back"), SlimeTheme.BackgroundButton, labelStyle))
+            {
+                _configView = ConfigView.Main;
+                _rebindAction = null;
+            }
+            y += 42f;
+
+            if (_rebindAction.HasValue)
+            {
+                GUI.Label(new Rect(x, y, w, 40), new GUIContent(Loc.T("cfg_keybind_press")), labelStyle);
+                y += 44f;
+            }
+
+            foreach (ModAction action in new[] { ModAction.OpenMenu, ModAction.PaintTool, ModAction.RemoveTool })
+            {
+                string label = ModKeybinds.Label(action);
+                string key = _rebindAction == action ? "..." : ModKeybinds.KeyName(ModKeybinds.Get(action));
+                Rect row = new Rect(x, y, w, 38);
+                if (ClickableBox(row, $"{label}:  [{key}]", SlimeTheme.BackgroundButton, labelStyle))
+                    _rebindAction = action;
+                y += 44f;
+            }
+
+            y += 8f;
+            Rect reset = new Rect(x, y, w, 36);
+            if (ClickableBox(reset, Loc.T("cfg_keybind_reset"), SlimeTheme.BackgroundButton, labelStyle))
+            {
+                ModKeybinds.ResetDefaults();
+                _rebindAction = null;
+            }
+        }
+
+        private static void UpdateKeybindCapture()
+        {
+            if (!_rebindAction.HasValue || !IsVisible) return;
+            if (InputHelper.GetKeyDown(KeyCode.Escape))
+            {
+                _rebindAction = null;
+                return;
+            }
+            for (KeyCode k = KeyCode.F1; k <= KeyCode.F12; k++)
+            {
+                if (InputHelper.GetKeyDown(k))
+                {
+                    ModKeybinds.Set(_rebindAction.Value, k);
+                    _rebindAction = null;
+                    return;
+                }
+            }
+            for (KeyCode k = KeyCode.A; k <= KeyCode.Z; k++)
+            {
+                if (InputHelper.GetKeyDown(k))
+                {
+                    ModKeybinds.Set(_rebindAction.Value, k);
+                    _rebindAction = null;
+                    return;
+                }
+            }
         }
 
         private static void SetPackStatus(string msg)
