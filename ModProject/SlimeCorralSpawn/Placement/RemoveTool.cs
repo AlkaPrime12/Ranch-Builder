@@ -28,7 +28,7 @@ namespace SlimeCorralSpawn.Placement
 
         public static void UpdateStatic()
         {
-            if (InputHelper.GetKeyDown(KeyCode.F9)) Toggle();
+            if (ModKeybinds.IsDown(ModAction.RemoveTool)) Toggle();
             if (!Active) return;
 
             try { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; } catch { }

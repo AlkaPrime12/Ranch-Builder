@@ -24,8 +24,6 @@ namespace SlimeCorralSpawn.Placement
         private static Vector3 lastHitNormal = Vector3.up;
         private static float maxPlacementDistance = 50f;
         private static float placementHeight = 0.05f;
-        private static float manualHeightOffset;    // ajuste manual de altura (flechas ↑/↓) estilo LEGO Fortnite
-        private static float heightNudgeSpeed = 5f;
         private static float placementScale = 1f;    // escala de la construcción ([ / ]) — free build
         private static bool gridSnapEnabled = true;  // ajuste a grilla (G para alternar)
         private static float placementStartTime;   // para debounce del click de compra
@@ -45,7 +43,7 @@ namespace SlimeCorralSpawn.Placement
             CurrentHouseId = houseId;
             IsPlacing = true;
             rotationAngle = 0f;
-            manualHeightOffset = 0f;
+            PlacementHeightInput.Reset();
             placementScale = 1f;
             alignToSurface = false;
             // En Free Build el snap arranca apagado (colocación libre); si no, a grilla.
@@ -177,20 +175,7 @@ namespace SlimeCorralSpawn.Placement
         }
 
         /// <summary>Subir/bajar la construcción con las flechas ↑/↓ (estilo LEGO Fortnite).</summary>
-        private static void HandleHeight()
-        {
-            float d = 0f;
-            if (InputHelper.GetKey(KeyCode.UpArrow)) d += 1f;
-            if (InputHelper.GetKey(KeyCode.DownArrow)) d -= 1f;
-            if (d != 0f) manualHeightOffset += d * heightNudgeSpeed * Time.deltaTime;
-
-            // Pasos finos rápidos con RePág/AvPág.
-            if (InputHelper.GetKeyDown(KeyCode.PageUp)) manualHeightOffset += 0.5f;
-            if (InputHelper.GetKeyDown(KeyCode.PageDown)) manualHeightOffset -= 0.5f;
-
-            // Reset rápido de la altura con Inicio.
-            if (InputHelper.GetKeyDown(KeyCode.Home)) manualHeightOffset = 0f;
-        }
+        private static void HandleHeight() => PlacementHeightInput.Tick();
 
         /// <summary>HUD de colocación: crosshair central + panel de instrucciones y estado.</summary>
         public static void OnGUIStatic()
@@ -231,7 +216,7 @@ namespace SlimeCorralSpawn.Placement
             GUI.Label(new Rect(panel.x, panel.y + 34, panel.width, 22),
                 new GUIContent(Loc.T("place_keys")), hudStyle);
             GUI.Label(new Rect(panel.x, panel.y + 60, panel.width, 22),
-                new GUIContent($"↑/↓ = Subir/Bajar altura ({manualHeightOffset:+0.0;-0.0;0.0}m)   ·   Inicio = Reset"), hudStyle);
+                new GUIContent($"↑/↓ = Subir/Bajar altura ({PlacementHeightInput.Offset:+0.0;-0.0;0.0}m)   ·   Inicio = Reset"), hudStyle);
             if (UI.StructureManager.IsPlacing)
                 GUI.Label(new Rect(panel.x, panel.y + 86, panel.width, 22),
                     new GUIContent($"[ / ] = Escala (x{placementScale:0.00})   ·   G = Grilla ({(gridSnapEnabled ? "ON" : "OFF")})   ·   T = Pegar a superficie ({(alignToSurface ? "ON" : "OFF")})"), hudStyle);
@@ -321,7 +306,7 @@ namespace SlimeCorralSpawn.Placement
             {
                 lastHitNormal = hit.normal;
                 Vector3 targetPos = hit.point;
-                targetPos.y = hit.point.y + placementHeight + manualHeightOffset;
+                targetPos.y = hit.point.y + placementHeight + PlacementHeightInput.Offset;
 
                 if (gridSnapEnabled)
                 {
@@ -346,7 +331,7 @@ namespace SlimeCorralSpawn.Placement
             else
             {
                 Vector3 forwardPos = cam.transform.position + cam.transform.forward * maxPlacementDistance;
-                forwardPos.y = cam.transform.position.y - 2f + manualHeightOffset;
+                forwardPos.y = cam.transform.position.y - 2f + PlacementHeightInput.Offset;
 
                 if (gridSnapEnabled)
                 {
