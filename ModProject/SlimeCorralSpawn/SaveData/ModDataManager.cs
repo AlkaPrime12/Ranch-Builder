@@ -19,7 +19,6 @@ namespace SlimeCorralSpawn.SaveData
         private static string _currentSlotId;
         private static ModSaveData currentData;
         private static bool _slotResolved;
-        private static bool _backwardCompatLoaded;
 
         public static string CurrentSlotId => _currentSlotId ?? "unknown";
         public static bool IsSlotResolved => _slotResolved;
@@ -50,7 +49,6 @@ namespace SlimeCorralSpawn.SaveData
                     int idx = summary.SaveSlotIndex;
                     _currentSlotId = $"saveSlot{idx}";
                     _slotResolved = true;
-                    MelonLogger.Msg($"[SlimeCorralSpawn] Resolved save slot: {_currentSlotId} (index={idx})");
                     return _currentSlotId;
                 }
 
@@ -62,7 +60,6 @@ namespace SlimeCorralSpawn.SaveData
                     string sanitized = SanitizeSlotName(name);
                     _currentSlotId = sanitized;
                     _slotResolved = true;
-                    MelonLogger.Msg($"[SlimeCorralSpawn] Resolved save slot from name: {_currentSlotId}");
                     return _currentSlotId;
                 }
             }
@@ -93,22 +90,19 @@ namespace SlimeCorralSpawn.SaveData
             _currentSlotId = null;
             _slotResolved = false;
             currentData = null;
-            _backwardCompatLoaded = false;
         }
 
         // ── Initialization / loading ─────────────────────────────────────
 
         public static void Initialize()
         {
+            ModPackManager.EnsureDirectories();
             if (!Directory.Exists(SaveDirectory))
                 Directory.CreateDirectory(SaveDirectory);
 
             _currentSlotId = null;
             _slotResolved = false;
             currentData = null;
-
-            MelonLogger.Msg($"[SlimeCorralSpawn] ModDataManager initialized. Save directory: {SaveDirectory}");
-            MelonLogger.Msg($"[SlimeCorralSpawn] Using per-slot save files: moddata_<slot>.json");
         }
 
         /// <summary>
@@ -129,7 +123,6 @@ namespace SlimeCorralSpawn.SaveData
                 {
                     string json = File.ReadAllText(slotPath);
                     currentData = JsonSerializer.Deserialize<ModSaveData>(json);
-                    MelonLogger.Msg($"[SlimeCorralSpawn] Loaded save data: {slotPath}");
                 }
                 catch (Exception ex)
                 {
@@ -145,16 +138,10 @@ namespace SlimeCorralSpawn.SaveData
                 {
                     string json = File.ReadAllText(LegacySavePath);
                     currentData = JsonSerializer.Deserialize<ModSaveData>(json);
-                    _backwardCompatLoaded = true;
-                    MelonLogger.Msg($"[SlimeCorralSpawn] Loaded legacy save data: {LegacySavePath}");
 
-                    // Migrate to per-slot file immediately
                     string migratedPath = GetSlotPath();
                     if (migratedPath != null)
-                    {
                         Save();
-                        MelonLogger.Msg($"[SlimeCorralSpawn] Migrated legacy data to: {migratedPath}");
-                    }
                 }
                 catch (Exception ex)
                 {
@@ -172,12 +159,6 @@ namespace SlimeCorralSpawn.SaveData
                 EnsureLists();
             }
 
-            int plotCount = currentData?.Plots?.Count ?? 0;
-            int structCount = currentData?.Structures?.Count ?? 0;
-            int strokeCount = currentData?.Strokes?.Count ?? 0;
-            int polyCount = currentData?.Polygons?.Count ?? 0;
-            MelonLogger.Msg($"[SlimeCorralSpawn] Slot={CurrentSlotId} Plots={plotCount} Structures={structCount} Strokes={strokeCount} Polygons={polyCount}");
-
             return true;
         }
 
@@ -194,9 +175,8 @@ namespace SlimeCorralSpawn.SaveData
             if (currentData.Polygons != null)
                 foreach (var pg in currentData.Polygons)
                     Placement.PolygonTool.RegisterFromSave(pg);
-            Plots.PlotData.RestoreLinkedObjects();
-            UI.StructureManager.RestoreLinkedObjects();
-            MelonLogger.Msg($"[SlimeCorralSpawn] Registered {currentData.Plots.Count} plots from save.");
+            // NO respawnear aquí: PlotData/StructureManager.UpdateRetry lo hace con presupuesto
+            // de 1 objeto por frame para no congelar al entrar al rancho.
         }
 
         private static void EnsureLists()
@@ -245,6 +225,7 @@ namespace SlimeCorralSpawn.SaveData
                 existing.IsEditable = plot.IsEditable;
                 existing.PurchasedUpgrades = new List<string>(plot.PurchasedUpgrades);
                 existing.GardenCropId = plot.GardenCropId;
+                existing.FeederSpeed = plot.FeederSpeed;
                 existing.SiloContent = ToSiloEntries(plot.SiloContent);
             }
             else
@@ -263,6 +244,7 @@ namespace SlimeCorralSpawn.SaveData
                     IsEditable = plot.IsEditable,
                     PurchasedUpgrades = new List<string>(plot.PurchasedUpgrades),
                     GardenCropId = plot.GardenCropId,
+                    FeederSpeed = plot.FeederSpeed,
                     SiloContent = ToSiloEntries(plot.SiloContent)
                 });
             }
@@ -273,7 +255,7 @@ namespace SlimeCorralSpawn.SaveData
             var list = new List<SiloSlotEntry>();
             if (src != null)
                 foreach (var s in src)
-                    if (s != null) list.Add(new SiloSlotEntry { StorageIdx = s.StorageIdx, Slot = s.Slot, Id = s.Id, Count = s.Count });
+                    if (s != null) list.Add(new SiloSlotEntry { Role = s.Role, StorageIdx = s.StorageIdx, Slot = s.Slot, Id = s.Id, Count = s.Count });
             return list;
         }
 
@@ -372,15 +354,15 @@ namespace SlimeCorralSpawn.SaveData
                     return;
                 }
 
+                ModPackManager.EnsureDirectories();
                 if (!Directory.Exists(SaveDirectory))
                     Directory.CreateDirectory(SaveDirectory);
 
+                currentData.PackFormatVersion = ModPackManager.ModVersion;
                 currentData.LastSaveTime = DateTime.Now.ToString("o");
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 string json = JsonSerializer.Serialize(currentData, options);
                 File.WriteAllText(path, json);
-                int plotCount = currentData?.Plots?.Count ?? 0;
-                MelonLogger.Msg($"[SlimeCorralSpawn] Saved {plotCount} plots to: {path}");
             }
             catch (Exception ex)
             {
@@ -401,11 +383,63 @@ namespace SlimeCorralSpawn.SaveData
             EnsureSlotLoaded();
             return currentData;
         }
+
+        public static void ReplaceCurrentData(ModSaveData data)
+        {
+            currentData = data ?? new ModSaveData();
+            EnsureLists();
+        }
+
+        /// <summary>Fusiona por UniqueId (plots/structures/strokes/polygons); el paquete importado gana en conflictos.</summary>
+        public static void MergeData(ModSaveData incoming)
+        {
+            EnsureSlotLoaded();
+            if (incoming == null) return;
+            EnsureLists();
+
+            MergeById(currentData.Plots, incoming.Plots, p => p.UniqueId);
+            MergeById(currentData.Structures, incoming.Structures, s => s.UniqueId);
+            if (incoming.Strokes != null)
+            {
+                if (currentData.Strokes == null) currentData.Strokes = new List<StrokeSaveEntry>();
+                MergeById(currentData.Strokes, incoming.Strokes, s => s.UniqueId);
+            }
+            if (incoming.Polygons != null)
+            {
+                if (currentData.Polygons == null) currentData.Polygons = new List<PolygonSaveEntry>();
+                MergeById(currentData.Polygons, incoming.Polygons, p => p.UniqueId);
+            }
+            if (incoming.PurchasedLicenses != null)
+            {
+                if (currentData.PurchasedLicenses == null) currentData.PurchasedLicenses = new List<PurchasedPlotLicense>();
+                MergeById(currentData.PurchasedLicenses, incoming.PurchasedLicenses, l => l.LicenseId);
+            }
+
+            if (incoming.TotalPlotsPlaced > currentData.TotalPlotsPlaced)
+                currentData.TotalPlotsPlaced = incoming.TotalPlotsPlaced;
+            if (incoming.TotalNewbucksSpent > currentData.TotalNewbucksSpent)
+                currentData.TotalNewbucksSpent = incoming.TotalNewbucksSpent;
+        }
+
+        private static void MergeById<T>(List<T> dst, List<T> src, Func<T, string> idFn) where T : class
+        {
+            if (src == null || dst == null || idFn == null) return;
+            foreach (var item in src)
+            {
+                if (item == null) continue;
+                string id = idFn(item);
+                if (string.IsNullOrEmpty(id)) { dst.Add(item); continue; }
+                int idx = dst.FindIndex(x => x != null && idFn(x) == id);
+                if (idx >= 0) dst[idx] = item;
+                else dst.Add(item);
+            }
+        }
     }
 
     [System.Serializable]
     public class ModSaveData
     {
+        public string PackFormatVersion { get; set; } = ModPackManager.ModVersion;
         public List<PlotSaveEntry> Plots { get; set; } = new List<PlotSaveEntry>();
         public List<StructureSaveEntry> Structures { get; set; } = new List<StructureSaveEntry>();
         public List<StrokeSaveEntry> Strokes { get; set; } = new List<StrokeSaveEntry>();
@@ -431,12 +465,14 @@ namespace SlimeCorralSpawn.SaveData
         public bool IsEditable { get; set; }
         public List<string> PurchasedUpgrades { get; set; } = new List<string>();
         public string GardenCropId { get; set; }
+        public string FeederSpeed { get; set; }
         public List<SiloSlotEntry> SiloContent { get; set; } = new List<SiloSlotEntry>();
     }
 
     [System.Serializable]
     public class SiloSlotEntry
     {
+        public string Role { get; set; }
         public int StorageIdx { get; set; }
         public int Slot { get; set; }
         public string Id { get; set; }

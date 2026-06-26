@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 using Il2CppLandPlot = Il2Cpp.LandPlot;
 using Il2CppLandPlotLocation = Il2Cpp.LandPlotLocation;
@@ -53,7 +53,7 @@ namespace SlimeCorralSpawn.Placement
             catch (Exception ex) { ModEntry.LogErrorOnce("RealPlotManager.AddSavedUpgrade", ex); }
         }
 
-        /// <summary>Al construir un tipo via el menú real, guardar ese tipo (key = UniqueId del plot).</summary>
+        /// <summary>Al construir un tipo via el menÃº real, guardar ese tipo (key = UniqueId del plot).</summary>
         public static void UpdateSavedType(string plotKey, PlotType type)
         {
             try
@@ -67,79 +67,6 @@ namespace SlimeCorralSpawn.Placement
             catch (Exception ex) { ModEntry.LogErrorOnce("RealPlotManager.UpdateSavedType", ex); }
         }
 
-        public static void DumpRealPlots()
-        {
-            try
-            {
-                var plots = GetCachedPlots();
-                int n = plots != null ? plots.Length : 0;
-                ModEntry.Instance?.LoggerInstance.Msg($"[RealPlots] LandPlots en el rancho: {n} (F8 = detalle de contenido).");
-            }
-            catch (Exception ex) { ModEntry.LogErrorOnce("RealPlotManager.DumpRealPlots", ex); }
-        }
-
-        /// <summary>F8: vuelca el estado de CRECIMIENTO/contenido de NUESTROS plots para diagnosticar
-        /// por qué los cultivos no crecen/guardan (SpawnResource activo? GetAttachedCropId? slots silo?).</summary>
-        public static void DumpOurPlotContent()
-        {
-            try
-            {
-                var all = SlimeCorralSpawn.Plots.PlotData.GetAll();
-                ModEntry.Instance?.LoggerInstance.Msg($"[Diag] === Contenido de nuestros plots: {all.Count} ===");
-                foreach (var pd in all)
-                {
-                    if (pd == null) continue;
-                    GameObject go = pd.LinkedObject;
-                    Il2CppLandPlot lp = null;
-                    try { lp = go != null ? go.GetComponentInChildren<Il2CppLandPlot>(true) : null; } catch { }
-                    if (lp == null) { ModEntry.Instance?.LoggerInstance.Msg($"[Diag] {pd.UniqueId}: sin LandPlot vivo (linked={(go!=null)})"); continue; }
-
-                    string id = "?"; try { id = lp.GetPlotId().ToString(); } catch { }
-                    string crop = "null"; try { var c = lp.GetAttachedCropId(); crop = c != null ? c.name : "null"; } catch (Exception e) { crop = "ERR:" + e.Message; }
-                    ModEntry.Instance?.LoggerInstance.Msg($"[Diag] {pd.UniqueId}: type={id} ContentReady={pd.ContentReady} AttachedCrop={crop} savedCrop={pd.GardenCropId ?? "null"}");
-
-                    // SpawnResource (crecimiento de cultivos)
-                    try
-                    {
-                        var srs = lp.GetComponentsInChildren<Il2Cpp.SpawnResource>(true);
-                        int n = srs != null ? srs.Length : 0;
-                        ModEntry.Instance?.LoggerInstance.Msg($"[Diag]    SpawnResource={n}");
-                        if (srs != null)
-                            for (int i = 0; i < srs.Length; i++)
-                            {
-                                var sr = srs[i]; if (sr == null) continue;
-                                string sid = "?"; try { var pid = sr.GetPrimarySpawnId(); sid = pid != null ? pid.name : "null"; } catch { }
-                                bool act = false; try { act = sr.IsActiveAndEnabled(); } catch { }
-                                bool watered = false; try { watered = sr.IsWatered(); } catch { }
-                                ModEntry.Instance?.LoggerInstance.Msg($"[Diag]      SR[{i}] spawnId={sid} activeEnabled={act} watered={watered} goActive={sr.gameObject.activeInHierarchy} enabled={sr.enabled}");
-                            }
-                    }
-                    catch (Exception e) { ModEntry.Instance?.LoggerInstance.Msg($"[Diag]    SpawnResource ERR: {e.Message}"); }
-
-                    // GardenCatcher presente?
-                    try { var gcs = lp.GetComponentsInChildren<Il2Cpp.GardenCatcher>(true); ModEntry.Instance?.LoggerInstance.Msg($"[Diag]    GardenCatcher={(gcs!=null?gcs.Length:0)}"); } catch { }
-
-                    // Silo
-                    try
-                    {
-                        var silos = lp.GetComponentsInChildren<Il2Cpp.SiloStorage>(true);
-                        if (silos != null && silos.Length > 0)
-                        {
-                            for (int s = 0; s < silos.Length; s++)
-                            {
-                                var silo = silos[s]; if (silo == null) continue;
-                                int slotN = 0; try { slotN = silo.AmmoSlotDefinitions != null ? silo.AmmoSlotDefinitions.Length : 0; } catch { }
-                                int filled = 0;
-                                for (int k = 0; k < slotN; k++) { try { if (silo.GetSlotCount(k) > 0) filled++; } catch { } }
-                                ModEntry.Instance?.LoggerInstance.Msg($"[Diag]    Silo[{s}] slots={slotN} ocupados={filled}");
-                            }
-                        }
-                    }
-                    catch (Exception e) { ModEntry.Instance?.LoggerInstance.Msg($"[Diag]    Silo ERR: {e.Message}"); }
-                }
-            }
-            catch (Exception ex) { ModEntry.LogErrorOnce("RealPlotManager.DumpOurPlotContent", ex); }
-        }
 
         private static Il2CppLandPlot[] GetCachedPlots()
         {
@@ -168,18 +95,15 @@ namespace SlimeCorralSpawn.Placement
         }
 
         /// <summary>
-        /// Coloca un plot REAL del juego. Clona PRIMERO un patch VACÍO (LandPlot EMPTY) = la
-        /// cuadrícula real con su botón de construcción/mejoras (precios reales del juego). Si no
-        /// hay patch vacío, clona un plot del tipo ya construido. Si no hay ninguno, NO crea nada
-        /// (jamás geometría falsa). Devuelve true sólo si colocó un objeto real del juego.
+        /// Coloca un plot REAL del juego. Clona PRIMERO un patch VACÃO (LandPlot EMPTY) = la
+        /// cuadrÃ­cula real con su botÃ³n de construcciÃ³n/mejoras (precios reales del juego). Si no
+        /// hay patch vacÃ­o, clona un plot del tipo ya construido. Si no hay ninguno, NO crea nada
+        /// (jamÃ¡s geometrÃ­a falsa). Devuelve true sÃ³lo si colocÃ³ un objeto real del juego.
         /// </summary>
         public static bool TrySpawnRealClone(PlotType type, PlotSize size, Vector3 pos, Quaternion rot)
         {
             if (!RealPlotFactory.ContextReady())
-            {
-                ModEntry.Instance?.LoggerInstance.Msg("[RealPlots] Sin partida cargada (SceneContext null).");
                 return false;
-            }
 
             Il2CppLandPlot.Id id = (type == PlotType.Empty || type == PlotType.House)
                 ? Il2CppLandPlot.Id.EMPTY : ToRealId(type);
@@ -201,7 +125,7 @@ namespace SlimeCorralSpawn.Placement
 
         /// <summary>
         /// Crea un CLON del plot real (EMPTY/tipo) para usar como PREVIEW/ghost: se le desactivan
-        /// colisionadores y comportamientos (sólo se ve, no corre lógica ni bloquea). Devuelve null
+        /// colisionadores y comportamientos (sÃ³lo se ve, no corre lÃ³gica ni bloquea). Devuelve null
         /// si no hay fuente real para clonar (el llamador usa la losa simple como fallback).
         /// </summary>
         public static GameObject CreateGhostClone(PlotType type, PlotSize size)
@@ -239,7 +163,7 @@ namespace SlimeCorralSpawn.Placement
             catch (Exception ex) { ModEntry.LogErrorOnce("RealPlotManager.CreateGhostClone", ex); return null; }
         }
 
-        /// <summary>Escala el plot REAL según el tamaño elegido (0.5x0.5 chico … 6x6 grande).</summary>
+        /// <summary>Escala el plot REAL segÃºn el tamaÃ±o elegido (0.5x0.5 chico â€¦ 6x6 grande).</summary>
         private static void ApplyPlotSizeScale(GameObject obj, PlotSize size)
         {
             try
@@ -272,7 +196,7 @@ namespace SlimeCorralSpawn.Placement
             go.transform.localScale = new Vector3(s.x * f, s.y * (1f + (f - 1f) * 0.4f), s.z * f);
         }
 
-        /// <summary>Suelo plano sólido bajo el plot (para colocarlo en el aire / terreno irregular).</summary>
+        /// <summary>Suelo plano sÃ³lido bajo el plot (para colocarlo en el aire / terreno irregular).</summary>
         public static void AddFloorUnder(Vector3 pos, Quaternion rot, PlotSize size)
         {
             try
@@ -328,130 +252,6 @@ namespace SlimeCorralSpawn.Placement
             ApplyPlotSizeScale(obj, pd.PlotSize);
             pd.LinkedObject = obj;
             return obj;
-        }
-
-        private static string SafeName(GameObject go)
-        {
-            try { return go != null ? go.name : "null"; } catch { return "?"; }
-        }
-
-        // ═══════════════════════════════════════════════════════════════
-        //  F9 DIAGNÓSTICO: dump completo de registro de cada custom plot
-        // ═══════════════════════════════════════════════════════════════
-
-        public static void DumpPlotRegistration()
-        {
-            var sc = Il2Cpp.SceneContext.Instance;
-            var gc = Il2Cpp.GameContext.Instance;
-            if (sc == null || gc == null) { MelonLoader.MelonLogger.Msg("[DIAG] SceneContext/GameContext null"); return; }
-
-            var plots = Plots.PlotData.GetAll();
-            MelonLoader.MelonLogger.Msg("═══════════════════════════════════════════════════════");
-            MelonLoader.MelonLogger.Msg($"PLOT DUMP: {plots.Count} custom plots alive");
-            MelonLoader.MelonLogger.Msg("═══════════════════════════════════════════════════════");
-
-            foreach (var pd in plots)
-            {
-                if (pd == null) continue;
-                MelonLoader.MelonLogger.Msg($"");
-                MelonLoader.MelonLogger.Msg($"--- PLOT: {pd.UniqueId} ---");
-                MelonLoader.MelonLogger.Msg($"  UID: {pd.UniqueId}");
-
-                GameObject go = pd.LinkedObject;
-                MelonLoader.MelonLogger.Msg($"  GameObject.Name: {SafeName(go)}");
-                MelonLoader.MelonLogger.Msg($"  GameObject.InstanceID: {(go != null ? go.GetInstanceID().ToString() : "null")}");
-                MelonLoader.MelonLogger.Msg($"  PlotType (saved): {pd.PlotType}");
-                MelonLoader.MelonLogger.Msg($"  Position (saved): {pd.Position}");
-                MelonLoader.MelonLogger.Msg($"  Rotation (saved): {pd.Rotation}");
-                MelonLoader.MelonLogger.Msg($"  PurchasedUpgrades (saved): [{string.Join(", ", pd.PurchasedUpgrades)}]");
-
-                if (go == null) { MelonLoader.MelonLogger.Msg($"  [SKIP] LinkedObject null"); continue; }
-
-                // Transform
-                MelonLoader.MelonLogger.Msg($"  Transform.Position: {go.transform.position}");
-                MelonLoader.MelonLogger.Msg($"  Transform.Rotation: {go.transform.rotation}");
-
-                // LandPlotLocation
-                var lpl = go.GetComponent<Il2CppLandPlotLocation>();
-                MelonLoader.MelonLogger.Msg($"  LandPlotLocation:");
-                MelonLoader.MelonLogger.Msg($"    exists: {lpl != null}");
-                if (lpl != null) MelonLoader.MelonLogger.Msg($"    _id: \"{lpl._id}\"");
-
-                // LandPlot
-                var lp = go.GetComponentInChildren<Il2CppLandPlot>(true);
-                MelonLoader.MelonLogger.Msg($"  LandPlot:");
-                MelonLoader.MelonLogger.Msg($"    exists: {lp != null}");
-                if (lp != null)
-                {
-                    MelonLoader.MelonLogger.Msg($"    instanceId: {lp.GetInstanceID()}");
-                    MelonLoader.MelonLogger.Msg($"    GetPlotId(): {lp.GetPlotId()}");
-                    MelonLoader.MelonLogger.Msg($"    gameObject.name: {lp.gameObject.name}");
-                    MelonLoader.MelonLogger.Msg($"    transform.parent.name: {lp.transform.parent?.name ?? "null"}");
-
-                    bool w, f, a, p;
-                    w = lp.HasUpgrade(Il2CppLandPlot.Upgrade.WALLS);
-                    f = lp.HasUpgrade(Il2CppLandPlot.Upgrade.FEEDER);
-                    a = lp.HasUpgrade(Il2CppLandPlot.Upgrade.AIR_NET);
-                    p = lp.HasUpgrade(Il2CppLandPlot.Upgrade.PLORT_COLLECTOR);
-                    MelonLoader.MelonLogger.Msg($"    HasUpgrade(WALLS)={w} FEEDER={f} AIR_NET={a} PLORT_COLLECTOR={p}");
-
-                    // Model
-                    MelonLoader.MelonLogger.Msg($"  Model:");
-                    var model = sc.GameModel.GetLandPlotModel(pd.UniqueId);
-                    MelonLoader.MelonLogger.Msg($"    GetLandPlotModel(plotKey): {(model != null ? "found" : "null")}");
-                    var modelById = sc.GameModel.GetLandPlotModel("plot" + pd.UniqueId);
-                    MelonLoader.MelonLogger.Msg($"    GetLandPlotModel('plot'+key): {(modelById != null ? "found" : "null")}");
-
-                    // Root components
-                    MelonLoader.MelonLogger.Msg($"  Root Components:");
-                    var comps = lp.gameObject.GetComponents<UnityEngine.Component>();
-                    if (comps != null)
-                        foreach (var c in comps)
-                        {
-                            if (c == null) continue;
-                            string tn = c.GetIl2CppType()?.FullName ?? c.GetType()?.Name ?? "?";
-                            MelonLoader.MelonLogger.Msg($"    [{tn}] enabled={c.GetIl2CppType()?.IsAssignableFrom(c.GetIl2CppType())}");
-                        }
-
-                    // Native component checks
-                    bool hasWU = lp.gameObject.GetComponent<Il2Cpp.WallUpgrader>() != null;
-                    bool hasFU = lp.gameObject.GetComponent<Il2Cpp.FeederUpgrader>() != null;
-                    bool hasANU = lp.gameObject.GetComponent<Il2Cpp.AirNetUpgrader>() != null;
-                    bool hasPCU = lp.gameObject.GetComponent<Il2Cpp.PlortCollectorUpgrader>() != null;
-                    MelonLoader.MelonLogger.Msg($"  Native Upgraders: Wall={hasWU} Feeder={hasFU} AirNet={hasANU} PlortCollect={hasPCU}");
-
-                    // Storage/Crops
-                    bool hasSilo = lp.gameObject.GetComponent<Il2Cpp.SiloStorage>() != null;
-                    bool hasGard = lp.gameObject.GetComponent<Il2Cpp.GardenCatcher>() != null;
-                    MelonLoader.MelonLogger.Msg($"  Storage/Crops: SiloStorage={hasSilo} GardenCatcher={hasGard}");
-                }
-
-                // Registration checks
-                MelonLoader.MelonLogger.Msg($"  Registration:");
-                MelonLoader.MelonLogger.Msg($"    lpl._id = \"{lpl?._id ?? "null"}\"");
-                MelonLoader.MelonLogger.Msg($"    plotKey = \"{pd.UniqueId}\"");
-                MelonLoader.MelonLogger.Msg($"    go.name = \"{go.name}\"");
-
-                // Hierarchy
-                MelonLoader.MelonLogger.Msg($"  Hierarchy:");
-                DumpTransformTree(go.transform, "    ");
-            }
-
-            MelonLoader.MelonLogger.Msg("═══════════════════════════════════════════════════════");
-            MelonLoader.MelonLogger.Msg("END PLOT DUMP");
-        }
-
-        private static void DumpTransformTree(UnityEngine.Transform t, string indent)
-        {
-            if (t == null) return;
-            MelonLoader.MelonLogger.Msg($"{indent}+ {t.name} (childCount={t.childCount})");
-            if (t.childCount <= 0) return;
-            for (int i = 0; i < t.childCount; i++)
-            {
-                var child = t.GetChild(i);
-                if (child != null)
-                    DumpTransformTree(child, indent + "  ");
-            }
         }
     }
 }

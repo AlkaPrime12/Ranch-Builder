@@ -17,15 +17,16 @@ namespace SlimeCorralSpawn.Patches
             if (_harmony != null) return;
             _harmony = new HarmonyLib.Harmony("SlimeCorralSpawn.Patches");
 
-            // BuyPlot: save the constructed type + clear overlay
             PatchPostfix("Il2CppMonomiPark.SlimeRancher.UI.Plot.LandPlotUIRoot", "BuyPlot",
                          typeof(LandPlotBuyPlotPatch), "Postfix");
 
-            // Upgrade: save the purchased upgrade (re-apply on reload)
             PatchPostfix("Il2CppMonomiPark.SlimeRancher.UI.Plot.LandPlotUIRoot", "Upgrade",
                          typeof(LandPlotUpgradePatch), "Postfix");
 
-            MelonLogger.Msg("[SlimeCorralSpawn] Harmony patches applied.");
+            TryPatchFeederSpeedChange();
+
+            _harmony.PatchAll();
+            TryPatchFastForwardCorrals();
         }
 
         private static void PatchPostfix(string typeName, string method, Type patchType, string patchMethod)
@@ -43,26 +44,62 @@ namespace SlimeCorralSpawn.Patches
             _harmony.Patch(m, postfix: new HarmonyMethod(patchType.GetMethod(patchMethod)));
         }
 
-        private static void PatchFinalizer(string typeName, string method, Type patchType, string patchMethod)
-        {
-            var t = FindType(typeName);
-            if (t == null) { MelonLogger.Warning($"[SCS] type not found: {typeName}"); return; }
-            MethodInfo m = null;
-            try { m = AccessTools.Method(t, method); } catch { }
-            if (m == null)
-            {
-                try { m = t.GetMethod(method, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic); }
-                catch { }
-            }
-            if (m == null) { MelonLogger.Warning($"[SCS] method not found: {typeName}.{method}"); return; }
-            _harmony.Patch(m, finalizer: new HarmonyMethod(patchType.GetMethod(patchMethod, BindingFlags.Static | BindingFlags.Public)));
-        }
-
         private static Type FindType(string name)
         {
             foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
             { try { var t = asm.GetType(name); if (t != null) return t; } catch { } }
             return null;
+        }
+
+        private static void TryPatchFeederSpeedChange()
+        {
+            var uiType = FindType("Il2CppMonomiPark.SlimeRancher.UI.Plot.LandPlotUIRoot");
+            if (uiType == null) return;
+
+            foreach (var m in uiType.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+            {
+                if (m.Name.IndexOf("FeederSpeed", StringComparison.OrdinalIgnoreCase) < 0 &&
+                    m.Name.IndexOf("FeedSpeed", StringComparison.OrdinalIgnoreCase) < 0)
+                    continue;
+                if (m.GetParameters().Length > 2) continue;
+                try
+                {
+                    _harmony.Patch(m, postfix: new HarmonyMethod(typeof(FeederSpeedChangePatch).GetMethod(nameof(FeederSpeedChangePatch.Postfix))));
+                }
+                catch { }
+            }
+        }
+
+        private static void TryPatchFastForwardCorrals()
+        {
+            try
+            {
+                var ffType = typeof(Il2Cpp.RanchCellFastForwarder);
+                var ffcMethod = AccessTools.Method(ffType, "FastForwardCorrals");
+                if (ffcMethod != null)
+                {
+                    _harmony.Patch(ffcMethod,
+                        prefix: new HarmonyMethod(typeof(RanchCellFFPatch).GetMethod(nameof(RanchCellFFPatch.Prefix),
+                            BindingFlags.Static | BindingFlags.Public)));
+                    return;
+                }
+
+                foreach (var m in ffType.GetMethods(BindingFlags.Instance | BindingFlags.Public |
+                    BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.DeclaredOnly))
+                {
+                    if (m.Name.Contains("FastForward") && m.Name.Contains("Corral"))
+                    {
+                        _harmony.Patch(m,
+                            prefix: new HarmonyMethod(typeof(RanchCellFFPatch).GetMethod(nameof(RanchCellFFPatch.Prefix),
+                                BindingFlags.Static | BindingFlags.Public)));
+                        break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MelonLogger.Warning($"[FF] TryPatchFastForwardCorrals: {ex.Message}");
+            }
         }
 
         internal static bool IsOurLandPlot(Il2CppLandPlot lp)
@@ -81,6 +118,30 @@ namespace SlimeCorralSpawn.Patches
         }
     }
 
+    /// <summary>Fast-forward sin re-registrar plots (evita bucle).</summary>
+    public static class RanchCellFFPatch
+    {
+        public static void Prefix(Il2Cpp.RanchCellFastForwarder __instance, double __0, double __1, double __2)
+        {
+            try
+            {
+                var plots = UnityEngine.Object.FindObjectsOfType<Il2CppLandPlot>(true);
+                if (plots == null) return;
+
+                foreach (var lp in plots)
+                {
+                    if (lp == null || !GamePatches.IsOurLandPlot(lp)) continue;
+                    if (!Placement.CorralRegistrationHelper.IsRegistered(lp)) continue;
+                    Placement.CorralRegistrationHelper.RunFastForwardOps(lp, __instance);
+                }
+            }
+            catch (Exception ex)
+            {
+                MelonLogger.Warning($"[FF] Error: {ex.Message}");
+            }
+        }
+    }
+
     public static class LandPlotUpgradePatch
     {
         public static void Postfix(Il2CppMonomiPark.SlimeRancher.UI.Plot.LandPlotUIRoot __instance,
@@ -92,6 +153,31 @@ namespace SlimeCorralSpawn.Patches
             GameObject locGo = (lp.transform != null && lp.transform.parent != null) ? lp.transform.parent.gameObject : null;
             if (locGo != null)
                 Placement.RealPlotManager.AddSavedUpgrade(locGo.name, upgrade.ToString());
+
+            // Compra nueva: Apply + OnInitialPurchase (defaults), luego registrar y cablear.
+            Placement.CorralRegistrationHelper.SyncUpgradeVisibility(lp);
+            Placement.UpgradeActivationHelper.EnsureUpgradesActive(lp, freshPurchase: true, purchased: upgrade);
+            Deferred.Run(() =>
+            {
+                string key = null;
+                try { key = lp.transform?.parent?.name; } catch { }
+                Placement.CorralRegistrationHelper.RegisterPlotForInit(lp, key);
+                if (upgrade == Il2CppLandPlot.Upgrade.PLORT_COLLECTOR)
+                    Placement.CorralRegistrationHelper.ForceCollectNow(lp);
+            }, 5);
+
+            Placement.FeederSpeedHelper.CaptureAndSave(lp);
+        }
+    }
+
+    public static class FeederSpeedChangePatch
+    {
+        public static void Postfix(Il2CppMonomiPark.SlimeRancher.UI.Plot.LandPlotUIRoot __instance)
+        {
+            var lp = __instance?.Activator;
+            if (lp == null || !GamePatches.IsOurLandPlot(lp)) return;
+            Placement.FeederSpeedHelper.CaptureAndSave(lp);
+            Placement.FeederSpeedHelper.ApplySpeedToFeeder(lp);
         }
     }
 

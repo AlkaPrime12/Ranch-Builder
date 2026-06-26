@@ -19,6 +19,11 @@ namespace SlimeCorralSpawn.UI
         public Color Tint;
         public Vector3 Euler;
         public bool Cylinder;   // si true, la parte se construye como cilindro (radio = Size.x/2, alto = Size.y)
+        public bool Emissive;   // bombilla/antorcha: brilla sin depender de reflejos metálicos
+        public float EmissiveIntensity = 2.2f;
+        public bool PointLight;     // si true, además emite una LUZ puntual HDRP real que ilumina el entorno
+        public float LightRange = 8f;
+        public float LightIntensity = 1200f;   // unidades del template vanilla (lumen aprox.)
         public BoxPart() { Tint = Color.white; }
     }
 
@@ -237,6 +242,13 @@ namespace SlimeCorralSpawn.UI
 
         private static BoxPart B(float px, float py, float pz, float sx, float sy, float sz, Themes.MatKind m)
             => new BoxPart { Pos = new Vector3(px, py, pz), Size = new Vector3(sx, sy, sz), Mat = m, Tint = Color.white };
+        // Parte emisiva con LUZ puntual HDRP real + brillo tipo neón en el cubo.
+        private static BoxPart G(float px, float py, float pz, float sx, float sy, float sz, Color glow, float intensity = 2.2f)
+            => new BoxPart { Pos = new Vector3(px, py, pz), Size = new Vector3(sx, sy, sz), Mat = Themes.MatKind.Plain, Tint = glow,
+                             Emissive = true, EmissiveIntensity = intensity * 3.5f,
+                             PointLight = true, LightRange = 9f, LightIntensity = 500f + intensity * 250f };
+        private static readonly Color LampGlow = new Color(1f, 0.84f, 0.48f, 1f);
+        private static readonly Color FireGlow = new Color(1f, 0.48f, 0.12f, 1f);
         private static BoxPart Br(float px, float py, float pz, float sx, float sy, float sz, Themes.MatKind m, float ex, float ey, float ez)
         { var p = B(px, py, pz, sx, sy, sz, m); p.Euler = new Vector3(ex, ey, ez); return p; }
         private static BoxPart Cy(float px, float py, float pz, float diam, float height, Themes.MatKind m)
@@ -258,8 +270,7 @@ namespace SlimeCorralSpawn.UI
                 Sa = Themes.MatKind.Sandstone, Ma = Themes.MatKind.Marble, Gl = Themes.MatKind.Glass, Ir = Themes.MatKind.Iron,
                 Gs = Themes.MatKind.Grass, Di = Themes.MatKind.Dirt, Sl = Themes.MatKind.Slate,
                 Mt = Themes.MatKind.Metal, Go = Themes.MatKind.Gold, Cu = Themes.MatKind.Copper, Rt = Themes.MatKind.RoofTile,
-                Pl = Themes.MatKind.Planks, Th = Themes.MatKind.Thatch, Bk = Themes.MatKind.Bark, Lg = Themes.MatKind.Log,
-                Ce = Themes.MatKind.Ceramic, Ca = Themes.MatKind.Carpet, Ba = Themes.MatKind.Basalt, Sn = Themes.MatKind.Snow;
+                Pl = Themes.MatKind.Planks, Bk = Themes.MatKind.Bark, Lg = Themes.MatKind.Log;
             Vector3 wB = new Vector3(4, 3, 0.4f), hB = new Vector3(4, 1.4f, 0.4f), fB = new Vector3(4, 0.3f, 4);
 
             // ---- MUROS completos (3m) ----
@@ -345,10 +356,11 @@ namespace SlimeCorralSpawn.UI
             // ===== +20 DECORACIONES DETALLADAS =====
             Add("lamp_post", "Lamp Post", "Farola de metal con luz de cristal.", StructureCategory.Decoration, 320, new Vector3(0.6f, 3.2f, 0.6f),
                 B(0, 0.08f, 0, 0.6f, 0.16f, 0.6f, Ir), Cy(0, 1.4f, 0, 0.16f, 2.7f, Mt), B(0, 2.85f, 0, 0.45f, 0.2f, 0.45f, Ir),
-                B(0, 3.05f, 0, 0.34f, 0.34f, 0.34f, Gl), B(0, 3.26f, 0, 0.12f, 0.12f, 0.12f, Go));
+                B(0, 3.05f, 0, 0.34f, 0.34f, 0.34f, Gl), G(0, 3.08f, 0, 0.14f, 0.14f, 0.14f, LampGlow, 2.5f));
             Add("street_lamp", "Street Lamp", "Farola doble de calle.", StructureCategory.Decoration, 480, new Vector3(2.2f, 3.6f, 0.6f),
                 Cy(0, 1.6f, 0, 0.18f, 3.2f, Mt), B(0, 0.1f, 0, 0.7f, 0.2f, 0.7f, Ir), B(0, 3.2f, 0, 2f, 0.12f, 0.12f, Mt),
-                B(-0.9f, 3.0f, 0, 0.3f, 0.34f, 0.3f, Gl), B(0.9f, 3.0f, 0, 0.3f, 0.34f, 0.3f, Gl));
+                B(-0.9f, 3.0f, 0, 0.3f, 0.34f, 0.3f, Gl), G(-0.9f, 3.02f, 0, 0.12f, 0.12f, 0.12f, LampGlow, 2.2f),
+                B(0.9f, 3.0f, 0, 0.3f, 0.34f, 0.3f, Gl), G(0.9f, 3.02f, 0, 0.12f, 0.12f, 0.12f, LampGlow, 2.2f));
             Add("well", "Well", "Pozo de piedra con techo y balde.", StructureCategory.Decoration, 650, new Vector3(2.2f, 2.8f, 2.2f),
                 Cy(0, 0.5f, 0, 2f, 1f, Cb), Cy(0, 1.02f, 0, 2.05f, 0.12f, St),
                 B(-0.85f, 1.7f, 0, 0.16f, 1.5f, 0.16f, DWd), B(0.85f, 1.7f, 0, 0.16f, 1.5f, 0.16f, DWd),
@@ -381,15 +393,15 @@ namespace SlimeCorralSpawn.UI
                 Cy(-1.6f, 1.2f, -1.6f, 0.22f, 2.4f, Wd), Cy(1.6f, 1.2f, -1.6f, 0.22f, 2.4f, Wd), Cy(-1.6f, 1.2f, 1.6f, 0.22f, 2.4f, Wd), Cy(1.6f, 1.2f, 1.6f, 0.22f, 2.4f, Wd),
                 B(0, 0.1f, 0, 4f, 0.2f, 4f, Pl), B(0, 2.5f, 0, 4f, 0.2f, 4f, DWd), B(0, 2.95f, 0, 2.6f, 0.7f, 2.6f, Rt));
             Add("torch", "Torch", "Antorcha con llama.", StructureCategory.Decoration, 70, new Vector3(0.4f, 1.8f, 0.4f),
-                Cy(0, 0.7f, 0, 0.12f, 1.4f, DWd), B(0, 1.45f, 0, 0.26f, 0.26f, 0.26f, Ir), B(0, 1.65f, 0, 0.2f, 0.3f, 0.2f, Go));
+                Cy(0, 0.7f, 0, 0.12f, 1.4f, DWd), B(0, 1.45f, 0, 0.26f, 0.26f, 0.26f, Ir), G(0, 1.62f, 0, 0.18f, 0.28f, 0.18f, FireGlow, 3f));
             Add("hanging_lantern", "Hanging Lantern", "Linterna colgante con luz.", StructureCategory.Decoration, 150, new Vector3(0.5f, 1.6f, 0.5f),
                 Cy(0, 1.1f, 0, 0.12f, 0.3f, Ir), B(0, 1.3f, 0, 0.32f, 0.36f, 0.32f, Gl), B(0, 1.22f, 0, 0.34f, 0.06f, 0.34f, Ir),
-                B(0, 1.48f, 0, 0.26f, 0.06f, 0.26f, Ir), B(0, 1.35f, 0, 0.06f, 0.12f, 0.06f, Go));
+                B(0, 1.48f, 0, 0.26f, 0.06f, 0.26f, Ir), G(0, 1.34f, 0, 0.1f, 0.1f, 0.1f, LampGlow, 2.4f));
             Add("floor_lamp", "Floor Lamp", "Lámpara de pie con pantalla.", StructureCategory.Decoration, 200, new Vector3(0.5f, 2.6f, 0.5f),
                 B(0, 0.1f, 0, 0.5f, 0.2f, 0.5f, Ir), Cy(0, 1.3f, 0, 0.1f, 2.4f, Mt),
-                B(0, 2.5f, 0, 0.4f, 0.12f, 0.4f, Ir), B(0, 2.6f, 0, 0.28f, 0.28f, 0.28f, Gl), B(0, 2.72f, 0, 0.12f, 0.08f, 0.12f, Go));
+                B(0, 2.5f, 0, 0.4f, 0.12f, 0.4f, Ir), B(0, 2.6f, 0, 0.28f, 0.28f, 0.28f, Gl), G(0, 2.58f, 0, 0.12f, 0.1f, 0.12f, LampGlow, 2.5f));
             Add("brazier", "Brazier", "Pebetero de metal encendido.", StructureCategory.Decoration, 180, new Vector3(1f, 1.2f, 1f),
-                Cy(0, 0.35f, 0, 0.2f, 0.7f, Ir), Cy(0, 0.8f, 0, 0.8f, 0.4f, Mt), Cy(0, 1f, 0, 0.6f, 0.2f, Go));
+                Cy(0, 0.35f, 0, 0.2f, 0.7f, Ir), Cy(0, 0.8f, 0, 0.8f, 0.4f, Mt), G(0, 0.95f, 0, 0.45f, 0.18f, 0.45f, FireGlow, 3.2f));
             Add("cart", "Cart", "Carro de madera con ruedas.", StructureCategory.Decoration, 300, new Vector3(2.4f, 1.4f, 1.4f),
                 B(0, 0.7f, 0, 2f, 0.6f, 1.1f, Wd), B(0, 1f, -0.5f, 2f, 0.1f, 0.1f, DWd),
                 Br(-0.7f, 0.45f, 0.62f, 0.9f, 0.9f, 0.12f, Mt, 0, 0, 0), Br(0.7f, 0.45f, 0.62f, 0.9f, 0.9f, 0.12f, Mt, 0, 0, 0),
@@ -404,7 +416,7 @@ namespace SlimeCorralSpawn.UI
                 B(-0.75f, 3.2f, 1.31f, 0.6f, 1.4f, 0.12f, Gl), B(0.75f, 3.2f, 1.31f, 0.6f, 1.4f, 0.12f, Gl),
                 B(0, 5.5f, 0, 1.2f, 0.45f, 0.12f, Ma), B(0, 5.5f, 0, 0.12f, 0.45f, 1.2f, Ma),
                 B(0, 5.9f, 0, 2.4f, 0.4f, 2.4f, Sl), B(0, 6.4f, 0, 2.0f, 0.6f, 2.0f, Rt),
-                Cy(0, 7.0f, 0, 0.3f, 0.8f, Go), B(0, 7.1f, 0, 0.04f, 0.4f, 0.04f, Go));
+                Cy(0, 7.0f, 0, 0.3f, 0.8f, Go), G(0, 7.05f, 0, 0.08f, 0.12f, 0.08f, LampGlow, 2f));
             Add("pergola", "Pergola", "Pérgola de madera con vigas.", StructureCategory.Decoration, 520, new Vector3(4f, 2.6f, 2.4f),
                 Cy(-1.7f, 1.1f, -1f, 0.18f, 2.2f, DWd), Cy(1.7f, 1.1f, -1f, 0.18f, 2.2f, DWd), Cy(-1.7f, 1.1f, 1f, 0.18f, 2.2f, DWd), Cy(1.7f, 1.1f, 1f, 0.18f, 2.2f, DWd),
                 B(0, 2.25f, -1f, 3.8f, 0.16f, 0.16f, Wd), B(0, 2.25f, 1f, 3.8f, 0.16f, 0.16f, Wd),
@@ -666,41 +678,43 @@ namespace SlimeCorralSpawn.UI
 
         public static void RestoreLinkedObjects()
         {
-            foreach (var kv in _placed)
-            {
-                if (kv.Value.LinkedObject != null) continue;
-                kv.Value.LinkedObject = SpawnStructureFromData(kv.Value, false);
-            }
+            // Intencionalmente vacío: el respawn va por UpdateRetry (1 estructura/frame).
         }
 
-        private static bool _litRefreshed;
+        public static bool HasPendingRestore()
+        {
+            foreach (var kv in _placed)
+                if (kv.Value != null && kv.Value.LinkedObject == null) return true;
+            return false;
+        }
+
+        private static float _restoreWaitStart = -1f;
+
         public static void UpdateRetry()
         {
             if (_placed.Count == 0) return;
-            // Cuando el material Lit del juego recién aparece, las estructuras que se reconstruyeron ANTES
-            // salieron Unlit (sin normal map). Las reconstruimos UNA vez para que tengan relieve.
-            if (!_litRefreshed && Placement.PlacementManager.LitTemplateReady)
+            // Esperar a que el template Lit exista para crear las estructuras UNA sola vez con normal map.
+            // Timeout de seguridad: si tras 15s no aparece (caso raro), las creamos igual (Unlit de respaldo).
+            if (!Placement.PlacementManager.LitTemplateReady)
             {
-                _litRefreshed = true;
-                Placement.PlacementManager.ClearSharedMaterialCache();   // descartar Unlit cacheados
-                foreach (var kv in _placed)
-                    if (kv.Value.LinkedObject != null) { UnityEngine.Object.Destroy(kv.Value.LinkedObject); kv.Value.LinkedObject = null; }
+                if (_restoreWaitStart < 0f) _restoreWaitStart = Time.realtimeSinceStartup;
+                if (Time.realtimeSinceStartup - _restoreWaitStart < 15f) return;
             }
-            int spawned = 0;
+            // CLAVE anti-lag: crear como mucho 1 estructura por frame. Spawnear TODAS de golpe (con sus
+            // mallas de relieve y luces) congelaba el frame al entrar. Repartido es imperceptible.
             foreach (var kv in _placed)
             {
                 if (kv.Value.LinkedObject != null) continue;
                 kv.Value.LinkedObject = SpawnStructureFromData(kv.Value, false);
-                if (kv.Value.LinkedObject != null) spawned++;
+                if (kv.Value.LinkedObject != null) return;   // una por frame
             }
-            if (spawned > 0)
-                ModEntry.Instance?.LoggerInstance.Msg($"[Structures] Recreadas {spawned} estructura(s) guardada(s).");
         }
 
         public static void ResetLinksForSceneChange()
         {
             foreach (var kv in _placed)
                 kv.Value.LinkedObject = null;
+            _restoreWaitStart = -1f;
         }
 
         private static GameObject SpawnStructureFromData(PlacedStructureData data, bool save)
@@ -779,6 +793,7 @@ namespace SlimeCorralSpawn.UI
 
         internal static void ApplyMaterialToRenderers(GameObject root, Themes.MatKind kind)
         {
+            Themes.TextureFactory.EnsureMaterialReady(kind);
             Renderer[] rends = null;
             try { rends = root.GetComponentsInChildren<Renderer>(true); } catch { }
             if (rends == null) return;
@@ -906,8 +921,10 @@ namespace SlimeCorralSpawn.UI
                 foreach (var part in def.Recipe)
                 {
                     if (part == null) continue;
+                    Themes.TextureFactory.EnsureMaterialReady(part.Mat);
                     _currentMat = part.Mat;
-                    CreateBox(root, "part", part.Pos, part.Size, part.Tint, part.Euler, part.Cylinder);
+                    CreateBox(root, "part", part.Pos, part.Size, part.Tint, part.Euler, part.Cylinder, part.Emissive, part.EmissiveIntensity,
+                              part.PointLight, part.LightRange, part.LightIntensity);
                 }
                 return;
             }
@@ -1067,11 +1084,13 @@ namespace SlimeCorralSpawn.UI
         private static void BuildLampPost(GameObject root)
         {
             Color metal = new Color(0.24f, 0.23f, 0.26f, 1f);
-            Color light = new Color(1f, 0.85f, 0.45f, 0.85f);
+            Color lampShade = new Color(0.92f, 0.88f, 0.75f, 0.55f);
             CreateBox(root, "Base", new Vector3(0f, 0.15f, 0f), new Vector3(0.8f, 0.3f, 0.8f), metal);
             CreateBox(root, "Pole", new Vector3(0f, 2f, 0f), new Vector3(0.18f, 4f, 0.18f), metal);
             CreateBox(root, "Arm", new Vector3(0.42f, 3.7f, 0f), new Vector3(0.84f, 0.12f, 0.12f), metal);
-            CreateBox(root, "Lamp", new Vector3(0.78f, 3.35f, 0f), new Vector3(0.34f, 0.48f, 0.34f), light);
+            _currentMat = Themes.MatKind.Glass;
+            CreateBox(root, "Lamp", new Vector3(0.78f, 3.35f, 0f), new Vector3(0.34f, 0.48f, 0.34f), lampShade);
+            CreateBox(root, "Bulb", new Vector3(0.78f, 3.32f, 0f), new Vector3(0.12f, 0.12f, 0.12f), LampGlow, Vector3.zero, false, true, 2.5f, true, 9f, 1750f);
         }
 
         private static void BuildSignPost(GameObject root)
@@ -1164,36 +1183,53 @@ namespace SlimeCorralSpawn.UI
         }
 
         private static void CreateBox(GameObject parent, string name, Vector3 localPos, Vector3 size, Color color, Vector3 localEuler)
-            => CreateBox(parent, name, localPos, size, color, localEuler, false);
+            => CreateBox(parent, name, localPos, size, color, localEuler, false, false, 2.2f);
 
         private static void CreateBox(GameObject parent, string name, Vector3 localPos, Vector3 size, Color color, Vector3 localEuler, bool cylinder)
+            => CreateBox(parent, name, localPos, size, color, localEuler, cylinder, false, 2.2f);
+
+        private static void CreateBox(GameObject parent, string name, Vector3 localPos, Vector3 size, Color color, Vector3 localEuler, bool cylinder, bool emissive, float emissiveIntensity)
+            => CreateBox(parent, name, localPos, size, color, localEuler, cylinder, emissive, emissiveIntensity, false, 0f, 0f);
+
+        private static void CreateBox(GameObject parent, string name, Vector3 localPos, Vector3 size, Color color, Vector3 localEuler, bool cylinder, bool emissive, float emissiveIntensity,
+                                      bool pointLight, float lightRange, float lightIntensity)
         {
             GameObject child = new GameObject(name);
             child.transform.SetParent(parent.transform, false);
             child.transform.localPosition = localPos;
             child.transform.localRotation = Quaternion.Euler(localEuler);
 
-            bool brickRelief = _currentMat == Themes.MatKind.Brick || _currentMat == Themes.MatKind.StoneBrick;
-            // Materiales rugosos (grietas/piedra/etc.) => RELIEVE POR GEOMETRÍA real (profundidad garantizada).
-            bool geoRelief = !brickRelief && Themes.TextureFactory.NormalStrength(_currentMat) >= 2f;
+            // Relieve SOLO por normal map (plano). El mesh geométrico de ladrillos + normal map juntos
+            // hacía que las paredes se vieran "metidas hacia adentro" / doble relieve bugueado.
             MeshFilter mf = child.AddComponent<MeshFilter>();
             mf.mesh = cylinder
                 ? PlacementManager.CreateCylinderMesh(size.x * 0.5f, size.y, 20)
-                : brickRelief
-                    ? PlacementManager.CreateBrickBoxMesh(size)
-                    : geoRelief
-                        ? PlacementManager.CreateReliefBoxMesh(size, _currentMat, 0.06f)
-                        : PlacementManager.CreateBoxMesh(size);
+                : PlacementManager.CreateBoxMesh(size);
 
             MeshRenderer mr = child.AddComponent<MeshRenderer>();
-            // Tinte blanco => material COMPARTIDO por tipo (batching, menos lag). Coloreado => único.
-            bool whiteish = color.r > 0.92f && color.g > 0.92f && color.b > 0.92f && color.a > 0.99f;
-            mr.sharedMaterial = whiteish
-                ? PlacementManager.GetSharedMaterial(_currentMat)
-                : PlacementManager.CreateTexturedMaterial(color, _currentMat);
+            if (emissive)
+            {
+                mr.sharedMaterial = PlacementManager.CreateGlowMaterial(color, emissiveIntensity);
+            }
+            else if (color.a < 0.99f && _currentMat != Themes.MatKind.Glass)
+            {
+                // Parte translúcida (pantalla de lámpara, ventana): forzar material VIDRIO real transparente.
+                mr.sharedMaterial = PlacementManager.CreateTexturedMaterial(color, Themes.MatKind.Glass);
+            }
+            else
+            {
+                // Tinte blanco => material COMPARTIDO por tipo (batching, menos lag). Coloreado => único.
+                bool whiteish = color.r > 0.92f && color.g > 0.92f && color.b > 0.92f && color.a > 0.99f;
+                mr.sharedMaterial = whiteish
+                    ? PlacementManager.GetSharedMaterial(_currentMat)
+                    : PlacementManager.CreateTexturedMaterial(color, _currentMat);
+            }
 
             BoxCollider col = child.AddComponent<BoxCollider>();
             col.size = size;
+
+            if (pointLight)
+                Placement.StructureLightHelper.AttachPointLight(child, color, lightRange, lightIntensity);
         }
     }
 }

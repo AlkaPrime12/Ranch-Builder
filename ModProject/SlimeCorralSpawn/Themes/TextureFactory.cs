@@ -25,7 +25,9 @@ namespace SlimeCorralSpawn.Themes
         Oak, Walnut, Bamboo, Travertine, Obsidian, WhiteBrick, Terracotta, CorrugatedMetal,
         DiamondPlate, Chrome, Bronze, Brass, Gunmetal, GreenMarble, BlackMarble, PinkGranite,
         RedSandstone, Adobe, PebbleMosaic, Terrazzo, SubwayTile, CinderBlock, Wicker, Leather,
-        Denim, Burlap, Moss, Driftwood, Coal, Crystal
+        Denim, Burlap, Moss, Driftwood, Coal, Crystal,
+        // Espejo: superficie metálica perfectamente pulida (refleja el entorno via HDRP/Lit).
+        Mirror
     }
 
     /// <summary>
@@ -57,12 +59,12 @@ namespace SlimeCorralSpawn.Themes
         // NOTA: NO usar GetRawTextureData/LoadRawTextureData — en la versión de Unity de SR2
         // devuelven NativeArray<byte> (no byte[]) que Il2CppInterop NO puede marshalear (crash).
         // Usamos GetPixels/SetPixels (confiable) con Buffer.BlockCopy para máxima velocidad.
-        private static Texture2D LoadRawTex(string path)
+        private static Texture2D LoadRawTex(string path, bool linear = false)
         {
             if (!File.Exists(path)) return null;
             byte[] bytes = File.ReadAllBytes(path);
             if (bytes.Length < 12) return null;
-            if (bytes[0] != 0x53 || bytes[1] != 0x43 || bytes[2] != 0x03) { TryDelete(path); return null; }
+            if (bytes[0] != 0x53 || bytes[1] != 0x43 || bytes[2] != 0x08) { TryDelete(path); return null; }
             int w = BitConverter.ToInt32(bytes, 4);
             int h = BitConverter.ToInt32(bytes, 8);
             if (w <= 0 || w > 2048 || h <= 0 || h > 2048) { TryDelete(path); return null; }
@@ -73,7 +75,9 @@ namespace SlimeCorralSpawn.Themes
             Buffer.BlockCopy(bytes, 12, floats, 0, dataBytes);
             Color[] px = new Color[pxCount];
             for (int i = 0; i < pxCount; i++) { int o = i * 4; px[i] = new Color(floats[o], floats[o + 1], floats[o + 2], floats[o + 3]); }
-            var tex = new Texture2D(w, h, TextureFormat.RGBA32, true);
+            // CLAVE: normal/height son datos LINEALES. Sin linear=true, Unity los trata como sRGB y
+            // el normal map sale "cromático" (arcoíris) en runs cargados de caché.
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, true, linear);
             tex.wrapMode = TextureWrapMode.Repeat; tex.filterMode = FilterMode.Trilinear; tex.anisoLevel = 6;
             tex.hideFlags = HideFlags.HideAndDontSave;
             tex.SetPixels(px); tex.Apply(true, false);
@@ -90,7 +94,7 @@ namespace SlimeCorralSpawn.Themes
                 float[] floats = new float[pxCount * 4];
                 for (int i = 0; i < pxCount; i++) { int o = i * 4; floats[o] = px[i].r; floats[o + 1] = px[i].g; floats[o + 2] = px[i].b; floats[o + 3] = px[i].a; }
                 var buf = new byte[12 + dataBytes];
-                buf[0] = 0x53; buf[1] = 0x43; buf[2] = 0x03; buf[3] = 0;
+                buf[0] = 0x53; buf[1] = 0x43; buf[2] = 0x08; buf[3] = 0;
                 BitConverter.GetBytes(tex.width).CopyTo(buf, 4);
                 BitConverter.GetBytes(tex.height).CopyTo(buf, 8);
                 Buffer.BlockCopy(floats, 0, buf, 12, dataBytes);
@@ -101,6 +105,21 @@ namespace SlimeCorralSpawn.Themes
 
         public static bool IsTransparent(MatKind k) => k == MatKind.Glass;
 
+        public static bool IsEmissive(MatKind k)
+            => k == MatKind.Lava;
+
+        public static Color GetEmissiveColor(MatKind k)
+        {
+            if (k == MatKind.Lava) return new Color(1f, 0.38f, 0.06f, 1f);
+            return Color.black;
+        }
+
+        public static float GetEmissiveIntensity(MatKind k)
+        {
+            if (k == MatKind.Lava) return 2.8f;
+            return 0f;
+        }
+
         /// <summary>Suavidad/brillo del material (0 mate … 1 espejo). Para shaders Lit.</summary>
         public static float GetSmoothness(MatKind k)
         {
@@ -110,12 +129,16 @@ namespace SlimeCorralSpawn.Themes
                 case MatKind.Gold: return 0.92f;
                 case MatKind.Copper: return 0.84f;
                 case MatKind.Glass: return 0.96f;
+                case MatKind.Mirror: return 0.98f;
                 case MatKind.Marble: case MatKind.Ceramic: return 0.7f;
                 case MatKind.RoofTile: return 0.35f;
                 case MatKind.Carpet: case MatKind.Fabric: case MatKind.Bark: case MatKind.Asphalt: return 0.05f;
                 case MatKind.Ink: return 0.6f;
                 case MatKind.Spray: case MatKind.Chalk: return 0.05f;
                 case MatKind.Ice: return 0.88f;
+                case MatKind.Lava: return 0.15f;
+                case MatKind.Snow: return 0.08f;
+                case MatKind.Rust: return 0.62f;
                 case MatKind.Checker: return 0.5f;
                 case MatKind.Cardboard: case MatKind.Cork: case MatKind.Mud: case MatKind.Sand: return 0.05f;
                 case MatKind.Chrome: return 0.95f;
@@ -132,9 +155,9 @@ namespace SlimeCorralSpawn.Themes
         {
             switch (k)
             {
-                case MatKind.Gold: case MatKind.Copper: case MatKind.Chrome: case MatKind.Brass: case MatKind.Bronze: return 1f;
+                case MatKind.Gold: case MatKind.Copper: case MatKind.Chrome: case MatKind.Brass: case MatKind.Bronze: case MatKind.Mirror: return 1f;
                 case MatKind.Metal: case MatKind.Iron: case MatKind.Gunmetal: case MatKind.CorrugatedMetal: case MatKind.DiamondPlate: return 0.95f;
-                case MatKind.Rust: return 0.6f;
+                case MatKind.Rust: return 0.82f;
                 default: return 0f;
             }
         }
@@ -170,8 +193,8 @@ namespace SlimeCorralSpawn.Themes
         public static Texture2D GetNormal(MatKind kind)
         {
             if (_normalCache.TryGetValue(kind, out var n) && n != null) return n;
-            var disk = LoadRawTex(NormalPath(kind));
-            if (disk != null) { disk.filterMode = FilterMode.Point; _normalCache[kind] = disk; return disk; }
+            var disk = LoadRawTex(NormalPath(kind), linear: true);
+            if (disk != null) { disk.filterMode = FilterMode.Bilinear; _normalCache[kind] = disk; return disk; }
             Texture2D nm;
             try { nm = BuildNormal(kind); }
             catch (Exception ex) { ModEntry.LogErrorOnce("TextureFactory.GetNormal." + kind, ex); nm = null; }
@@ -179,10 +202,24 @@ namespace SlimeCorralSpawn.Themes
             return nm;
         }
 
-        // Materiales cuyas JUNTAS son CLARAS (más claras que la cara): hay que invertir la altura
-        // para que la junta quede HUNDIDA (si no, sobresaldría). El ladrillo es el caso típico.
+        // Juntas de mortero MÁS CLARAS que la cara del ladrillo => invertir altura para que la junta quede hundida.
         private static bool NormalInvert(MatKind k)
-            => k == MatKind.Brick || k == MatKind.Fabric;
+        {
+            switch (k)
+            {
+                case MatKind.Brick:
+                case MatKind.StoneBrick:
+                case MatKind.WhiteBrick:
+                case MatKind.SubwayTile:
+                case MatKind.CinderBlock:
+                case MatKind.Adobe:
+                case MatKind.Terracotta:
+                case MatKind.Fabric:
+                    return true;
+                default:
+                    return false;
+            }
+        }
 
         public static float NormalStrength(MatKind k)
         {
@@ -196,16 +233,23 @@ namespace SlimeCorralSpawn.Themes
                 case MatKind.Wood: case MatKind.DarkWood: case MatKind.Planks: return 3.5f;
                 case MatKind.Thatch: case MatKind.Carpet: case MatKind.Fabric: case MatKind.Asphalt: return 3f;
                 case MatKind.Grass: case MatKind.Dirt: case MatKind.Plaster: case MatKind.Sandstone: case MatKind.Concrete: case MatKind.Limestone: return 2.5f;
-                // +30 nuevos
                 case MatKind.WhiteBrick: case MatKind.SubwayTile: case MatKind.CinderBlock: case MatKind.Adobe: case MatKind.Terracotta: return 8f;
                 case MatKind.DiamondPlate: case MatKind.CorrugatedMetal: return 7f;
                 case MatKind.PebbleMosaic: case MatKind.Terrazzo: case MatKind.PinkGranite: case MatKind.Travertine: case MatKind.RedSandstone: return 5.5f;
                 case MatKind.Bamboo: case MatKind.Coal: return 4.5f;
                 case MatKind.Oak: case MatKind.Walnut: case MatKind.Driftwood: return 3.5f;
                 case MatKind.Wicker: case MatKind.Burlap: case MatKind.Denim: case MatKind.Leather: case MatKind.Moss: return 3.5f;
+                case MatKind.Ink: case MatKind.Spray: case MatKind.Chalk: return 0.6f;
+                case MatKind.Lava: return 0.4f;
+                case MatKind.Snow: return 0.35f;
+                case MatKind.Rust: return 2.8f;
+                case MatKind.Mirror: return 0.15f;
                 default: return 0.8f;
             }
         }
+
+        /// <summary>Escala HDRP _NormalScale. 1.0 = relieve a fuerza completa (balance "casi perfecto").</summary>
+        public static float GetNormalScale(MatKind k) => 1.0f;
 
         // Normal map por DETECCIÓN DE BORDES (edge-aware). Samplea el albedo 512×512 a 256×256
         // con bloque contiguo top-left (como funcionaba originalmente). Sin ruido, sin stride.
@@ -219,8 +263,8 @@ namespace SlimeCorralSpawn.Themes
             if (invert) strength = -strength;
             Color[] src = GetAlbedoPixels(kind);
             int w = NM_RES, sw = S;
-            float str = Mathf.Abs(strength) * 0.25f;
-            float edgeThresh = 0.04f, edgeHardness = 10f;
+            float str = Mathf.Abs(strength) * 0.18f;
+            float edgeThresh = 0.025f, edgeHardness = 8f;
             int stride = w + 2;
             float[] H = new float[stride * stride];
             for (int y = -1; y <= w; y++)
@@ -232,6 +276,19 @@ namespace SlimeCorralSpawn.Themes
                     H[(y + 1) * stride + (x + 1)] = Lum(src[sy * sw + sx]);
                 }
             }
+            // Blur 3×3 sobre el height map antes del Sobel: mata el ruido de textura,
+            // solo sobreviven las juntas de mortero/relieve real (clave del balance "casi perfecto").
+            float[] blur = new float[stride * stride];
+            for (int y = 1; y <= w; y++)
+                for (int x = 1; x <= w; x++)
+                {
+                    int c = y * stride + x;
+                    blur[c] = (H[c - stride - 1] + H[c - stride] + H[c - stride + 1]
+                             + H[c - 1]          + H[c]          + H[c + 1]
+                             + H[c + stride - 1] + H[c + stride] + H[c + stride + 1]) / 9f;
+                }
+            for (int y = 0; y <= w + 1; y++) { blur[y * stride] = H[y * stride]; blur[y * stride + w + 1] = H[y * stride + w + 1]; }
+            for (int x = 0; x <= w + 1; x++) { blur[x] = H[x]; blur[(w + 1) * stride + x] = H[(w + 1) * stride + x]; }
             var dst = new Color[w * w];
             for (int y = 0; y < w; y++)
             {
@@ -241,7 +298,7 @@ namespace SlimeCorralSpawn.Themes
                     for (int ky = -1; ky <= 1; ky++)
                         for (int kx = -1; kx <= 1; kx++)
                         {
-                            float hval = H[(y + 1 + ky) * stride + (x + 1 + kx)];
+                            float hval = blur[(y + 1 + ky) * stride + (x + 1 + kx)];
                             float wx = (kx == 0) ? 0f : (kx * (ky == 0 ? 2f : 1f));
                             float wy = (ky == 0) ? 0f : (ky * (kx == 0 ? 2f : 1f));
                             gx += wx * hval;
@@ -294,7 +351,7 @@ namespace SlimeCorralSpawn.Themes
                     if (inv) h = 1f - h;
                     dst[y * HM_RES + x] = new Color(h, h, h, 1f);
                 }
-            var t = new Texture2D(HM_RES, HM_RES, TextureFormat.RGBA32, true);
+            var t = new Texture2D(HM_RES, HM_RES, TextureFormat.RGBA32, true, true);
             t.wrapMode = TextureWrapMode.Repeat; t.filterMode = FilterMode.Trilinear; t.anisoLevel = 6;
             t.hideFlags = HideFlags.HideAndDontSave;
             t.SetPixels(dst); t.Apply();
@@ -303,7 +360,7 @@ namespace SlimeCorralSpawn.Themes
         public static Texture2D GetHeightMap(MatKind kind)
         {
             if (_heightTexCache.TryGetValue(kind, out var h) && h != null) return h;
-            var disk = LoadRawTex(HeightPath(kind));
+            var disk = LoadRawTex(HeightPath(kind), linear: true);
             if (disk != null) { _heightTexCache[kind] = disk; return disk; }
             Texture2D hm;
             try { hm = BuildHeightMap(kind); }
@@ -346,46 +403,62 @@ namespace SlimeCorralSpawn.Themes
             return hm[y * HS + x];
         }
 
+        // ---- Miniaturas 64×64 para el PICKER de materiales: barato de dibujar y se genera 1 sola vez.
+        // Solo se construye si el albedo ya está en RAM (warm), si no devuelve null (placeholder) para
+        // NO disparar generación 512² síncrona que congelaría el frame al abrir el menú.
+        private const int THUMB = 64;
+        private static readonly Dictionary<MatKind, Texture2D> _thumbCache = new Dictionary<MatKind, Texture2D>();
+        private static int _thumbBudget;
+        public static void BeginThumbFrame() { _thumbBudget = 0; }
+        public static Texture2D GetThumb(MatKind kind)
+        {
+            if (_thumbCache.TryGetValue(kind, out var t) && t != null) return t;
+            if (_thumbBudget >= 3) return null;                 // máx 3 miniaturas nuevas por frame
+            if (!_cache.TryGetValue(kind, out var src) || src == null) return null;   // albedo aún no warm
+            _thumbBudget++;
+            try
+            {
+                var sp = src.GetPixels();
+                int W = src.width, H = src.height;
+                var dp = new Color[THUMB * THUMB];
+                for (int y = 0; y < THUMB; y++)
+                    for (int x = 0; x < THUMB; x++)
+                        dp[y * THUMB + x] = sp[(y * H / THUMB) * W + (x * W / THUMB)];
+                var tex = new Texture2D(THUMB, THUMB, TextureFormat.RGBA32, false);
+                tex.wrapMode = TextureWrapMode.Clamp; tex.filterMode = FilterMode.Bilinear;
+                tex.hideFlags = HideFlags.HideAndDontSave;
+                tex.SetPixels(dp); tex.Apply(false, false);
+                _thumbCache[kind] = tex;
+                return tex;
+            }
+            catch { return null; }
+        }
+
         // ---- Pre-warm: carga texturas+normales de disco (instantáneo si ya existen).----
         private static MatKind[] _warmOrder;
         private static int _warmIdx;
         public static bool AllWarm { get; private set; }
 
+        /// <summary>Garantiza albedo + normal map en RAM/disco antes de usar un material (relieve HDRP).</summary>
+        public static void EnsureMaterialReady(MatKind kind)
+        {
+            try { Get(kind); GetNormal(kind); } catch { }
+        }
+
         /// <summary>
-        /// Pre-warm: procesa 12 materiales por frame (albedo + normal + height = 3 texturas cada uno).
-        /// El disco ahora es instantáneo (LoadRawTextureData directo, sin loop por-pixel).
-        /// Si es 1ª ejecución, genera y guarda — el lag solo esa vez.
+        /// Pre-warm suave: 1 material (albedo + normal) por frame cuando no hay respawn pendiente.
         /// </summary>
         public static void WarmStep()
         {
             if (AllWarm) return;
+            if (Plots.PlotData.HasPendingRestore() || UI.StructureManager.HasPendingRestore()) return;
             if (_warmOrder == null) _warmOrder = (MatKind[])Enum.GetValues(typeof(MatKind));
-            for (int i = 0; i < 12 && _warmIdx < _warmOrder.Length; i++)
+            if (_warmIdx < _warmOrder.Length)
             {
-                try { Get(_warmOrder[_warmIdx]); GetNormal(_warmOrder[_warmIdx]); GetHeightMap(_warmOrder[_warmIdx]); } catch { }
+                try { EnsureMaterialReady(_warmOrder[_warmIdx]); } catch { }
                 _warmIdx++;
             }
-            if (_warmIdx >= _warmOrder.Length)
-            {
-                AllWarm = true;
-                string src = File.Exists(AlbedoPath(_warmOrder[0])) ? "disco" : "generación procedural";
-                ModEntry.Instance?.LoggerInstance.Msg($"[TextureFactory] Pre-warm completo: {_warmOrder.Length} texturas+normales+height ({src}).");
-            }
-        }
-
-        /// <summary>Fuerza a completar el pre-warm inmediatamente.</summary>
-        public static void ForceWarmAll()
-        {
-            if (AllWarm) return;
-            if (_warmOrder == null) _warmOrder = (MatKind[])Enum.GetValues(typeof(MatKind));
-            while (_warmIdx < _warmOrder.Length)
-            {
-                try { Get(_warmOrder[_warmIdx]); GetNormal(_warmOrder[_warmIdx]); GetHeightMap(_warmOrder[_warmIdx]); } catch { }
-                _warmIdx++;
-            }
-            AllWarm = true;
-            string src = File.Exists(AlbedoPath(_warmOrder[0])) ? "disco" : "generación procedural";
-            ModEntry.Instance?.LoggerInstance.Msg($"[TextureFactory] Pre-warm forzado ({src}): {_warmOrder.Length} texturas.");
+            if (_warmIdx >= _warmOrder.Length) AllWarm = true;
         }
 
         // ======================= RUIDO PERIÓDICO (TILEABLE) =======================
@@ -566,6 +639,7 @@ namespace SlimeCorralSpawn.Themes
                 case MatKind.Driftwood: return Wood(new Color(0.58f, 0.58f, 0.56f), new Color(0.40f, 0.40f, 0.38f), false);
                 case MatKind.Coal: return Coal();
                 case MatKind.Crystal: return Crystal();
+                case MatKind.Mirror: return Mirror();
                 default: return Solid(Color.white);
             }
         }
@@ -691,6 +765,15 @@ namespace SlimeCorralSpawn.Themes
             return Cl(c);
         });
 
+        // Espejo: superficie plateada casi plana y uniforme. El reflejo real lo da el shader
+        // HDRP/Lit (metallic=1, smoothness=0.98). Albedo claro con micro-variación mínima.
+        private static Texture2D Mirror() => Build((x, y) =>
+        {
+            float micro = Fbm(x, y, 2, 2, 0.5f);
+            float l = 0.90f + micro * 0.06f;
+            return Cl(new Color(0.86f * l, 0.88f * l, 0.92f * l, 1f));
+        });
+
         // Oro: muy pulido, brillante, sin veta marcada, amarillo cálido.
         private static Texture2D Gold() => Build((x, y) =>
         {
@@ -769,10 +852,22 @@ namespace SlimeCorralSpawn.Themes
 
         private static Texture2D Snow() => Build((x, y) =>
         {
-            float n = Fbm(x, y, 20, 3, 0.5f);
-            float spark = N(x, y, 435, 435, 9);
-            Color c = Color.Lerp(new Color(0.86f, 0.89f, 0.95f), Color.white, n);
-            if (spark > 0.93f) c = Color.white;
+            // Montículos suaves (baja frecuencia) + grano de cristal (alta frecuencia) para relieve real.
+            float dune = Fbm(x, y, 9, 4, 0.55f);
+            float grain = Fbm(x, y, 64, 3, 0.5f);
+            float drift = Mathf.Sin((float)y / S * Mathf.PI * 2f * 6f + dune * 3f) * 0.5f + 0.5f;
+            // Sombras azuladas MÁS profundas en los valles, blanco casi puro en las crestas.
+            Color shadow = new Color(0.55f, 0.66f, 0.86f);
+            Color mid = new Color(0.84f, 0.89f, 0.97f);
+            Color highlight = new Color(1f, 1f, 1f);
+            float h = dune * 0.55f + grain * 0.25f + drift * 0.20f;
+            h = Mathf.Clamp01((h - 0.5f) * 1.5f + 0.5f);   // más contraste
+            Color c = Lerp3(shadow, mid, highlight, h);
+            // Destellos de cristal finos y brillantes (sal y pimienta de alta frecuencia).
+            float spark = N(x, y, 540, 540, 9);
+            if (spark > 0.90f) c = Color.Lerp(c, Color.white, (spark - 0.90f) / 0.10f);
+            float sparkBlue = N(x, y, 300, 300, 17);
+            if (sparkBlue > 0.95f) c = Color.Lerp(c, new Color(0.80f, 0.92f, 1f), 0.8f);
             return Cl(c);
         });
 
@@ -998,25 +1093,40 @@ namespace SlimeCorralSpawn.Themes
 
         // ---------- MÁS MATERIALES ----------
 
-        // Lava: roca oscura agrietada con vetas incandescentes.
+        // Lava: roca volcánica negra agrietada con vetas incandescentes finas (brilla vía emisión).
         private static Texture2D Lava() => Build((x, y) =>
         {
-            float crack = Fbm(x, y, 8, 5, 0.6f);
-            float glow = Mathf.SmoothStep(0.42f, 0.5f, crack) * (1f - Mathf.SmoothStep(0.5f, 0.58f, crack));  // vetas finas
-            Color rock = Lerp3(new Color(0.08f, 0.06f, 0.06f), new Color(0.20f, 0.12f, 0.10f), new Color(0.30f, 0.16f, 0.12f), Fbm(x, y, 24, 4, 0.55f));
-            Color hot = Lerp3(new Color(0.6f, 0.1f, 0.0f), new Color(1f, 0.45f, 0.05f), new Color(1f, 0.9f, 0.3f), glow * 2f);
-            return Cl(Color.Lerp(rock, hot, Mathf.Clamp01(glow * 3f)));
+            float warp = Fbm(x, y, 6, 3, 0.55f);
+            // Red de grietas principal (celular) + grietas finas secundarias para detalle nítido.
+            float crackA = Mathf.Abs(Fbm(x, y, 14, 5, 0.62f, 3) - 0.5f + warp * 0.06f);
+            float crackB = Mathf.Abs(Fbm(x, y, 32, 4, 0.6f, 11) - 0.5f);
+            float crack = Mathf.Min(crackA, crackB * 1.4f);
+            float glow = Mathf.Clamp01(1f - crack * 11f);
+            glow = Mathf.Pow(glow, 1.6f);   // grietas más finas y definidas
+
+            // Roca casi negra con costra: más contraste entre placas frías.
+            float rockN = Fbm(x, y, 28, 4, 0.55f);
+            float plate = N(x, y, 12, 12, 23);
+            Color rock = Lerp3(new Color(0.02f, 0.015f, 0.015f), new Color(0.09f, 0.05f, 0.04f), new Color(0.17f, 0.09f, 0.06f), rockN);
+            if (plate > 0.6f) rock *= 0.7f;   // placas oscuras
+            Color hot = Lerp3(new Color(0.75f, 0.08f, 0.01f), new Color(1f, 0.45f, 0.03f), new Color(1f, 0.95f, 0.55f), glow);
+            Color c = Color.Lerp(rock, hot, glow);
+            if (glow > 0.78f) c = Color.Lerp(c, new Color(1f, 1f, 0.85f), (glow - 0.78f) * 3f);   // núcleos blancos
+            return Cl(c);
         });
 
-        // Hielo: azulado claro con grietas/burbujas.
+        // Hielo: azulado claro con grietas nítidas y burbujas atrapadas.
         private static Texture2D Ice() => Build((x, y) =>
         {
-            float n = Fbm(x, y, 10, 4, 0.55f);
-            Color c = Lerp3(new Color(0.62f, 0.78f, 0.9f), new Color(0.78f, 0.9f, 0.98f), new Color(0.9f, 0.97f, 1f), n);
-            float crack = Mathf.Abs(Fbm(x, y, 12, 3, 0.6f, 4) - 0.5f);
-            if (crack < 0.02f) c = Color.Lerp(c, new Color(0.5f, 0.65f, 0.8f), 0.6f);
-            float bub = N(x, y, 200, 200, 8);
-            if (bub > 0.92f) c = Color.Lerp(c, Color.white, 0.5f);
+            float n = Fbm(x, y, 12, 4, 0.55f);
+            Color c = Lerp3(new Color(0.55f, 0.74f, 0.88f), new Color(0.76f, 0.89f, 0.98f), new Color(0.93f, 0.98f, 1f), n);
+            // Fracturas internas finas y profundas (dos redes a distinta escala).
+            float crackA = Mathf.Abs(Fbm(x, y, 14, 3, 0.6f, 4) - 0.5f);
+            float crackB = Mathf.Abs(Fbm(x, y, 30, 3, 0.6f, 9) - 0.5f);
+            if (crackA < 0.015f) c = Color.Lerp(c, new Color(0.40f, 0.56f, 0.74f), 0.7f);
+            else if (crackB < 0.01f) c = Color.Lerp(c, new Color(0.60f, 0.74f, 0.88f), 0.5f);
+            float bub = N(x, y, 220, 220, 8);
+            if (bub > 0.93f) c = Color.Lerp(c, Color.white, 0.6f);
             return Cl(c);
         });
 
@@ -1029,16 +1139,32 @@ namespace SlimeCorralSpawn.Themes
             return Cl(c);
         });
 
-        // Óxido/herrumbre: BASE METÁLICA cepillada + parches de óxido encima (se ve metal corroído, no tierra).
+        // Óxido: metal cepillado brillante con parches de herrumbre de bordes duros (metal vs óxido nítido).
         private static Texture2D Rust() => Build((x, y) =>
         {
-            float brush = FbmA(x, y, 4, 180, 3, 0.5f);
-            Color metal = new Color(0.5f, 0.51f, 0.54f) * (0.8f + brush * 0.3f);
-            float amt = Mathf.SmoothStep(0.42f, 0.72f, Fbm(x, y, 10, 5, 0.6f, 11));
-            Color rustC = Lerp3(new Color(0.5f, 0.26f, 0.12f), new Color(0.72f, 0.38f, 0.16f), new Color(0.86f, 0.52f, 0.26f), N(x, y, 60, 60, 5));
+            // Cepillado metálico más definido (veta horizontal fina) + arañazos.
+            float brush = FbmA(x, y, 2, 320, 5, 0.45f);
+            float scratch = FbmA(x, y, 60, 6, 2, 0.55f);
+            Color metal = Color.Lerp(new Color(0.46f, 0.48f, 0.53f), new Color(0.74f, 0.77f, 0.82f), brush);
+            metal *= 0.80f + scratch * 0.40f;
+
+            // Parches de óxido con BORDES DUROS: transición brusca metal↔óxido (más contraste).
+            float patch = Fbm(x, y, 7, 5, 0.62f, 17);
+            float fine = Fbm(x, y, 22, 3, 0.6f, 29);
+            float field = patch * 0.8f + fine * 0.2f;
+            float amt = Mathf.SmoothStep(0.46f, 0.56f, field);   // borde estrecho => corte nítido
+
+            float rn = N(x, y, 60, 60, 4);
+            float rgrain = Fbm(x, y, 40, 3, 0.55f, 7);
+            Color rustDark = new Color(0.34f, 0.15f, 0.06f);
+            Color rustMid = new Color(0.60f, 0.28f, 0.11f);
+            Color rustLight = new Color(0.86f, 0.47f, 0.20f);
+            Color rustC = Lerp3(rustDark, rustMid, rustLight, rn * 0.6f + rgrain * 0.4f);
+
             Color c = Color.Lerp(metal, rustC, amt);
-            float pit = N(x, y, 220, 220, 7);
-            if (pit > 0.9f) c = Color.Lerp(c, new Color(0.2f, 0.1f, 0.06f), 0.5f);
+            float pit = N(x, y, 240, 240, 7);
+            if (pit > 0.9f && amt > 0.4f) c *= 0.55f;                                              // picaduras profundas en óxido
+            else if (pit > 0.94f && amt < 0.3f) c = Color.Lerp(c, new Color(0.88f, 0.90f, 0.94f), 0.6f); // destellos en metal limpio
             return Cl(c);
         });
 

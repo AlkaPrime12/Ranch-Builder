@@ -481,12 +481,56 @@ namespace SlimeCorralSpawn.Placement
             try { if (m.HasProperty(prop)) m.SetTexture(prop, tex); } catch { }
         }
 
+        /// <summary>Emisión HDRP estilo neón: Unlit + emisión fuerte, cacheado (sin texturas ni Lit template).</summary>
+        private static readonly System.Collections.Generic.Dictionary<int, Material> _glowCache
+            = new System.Collections.Generic.Dictionary<int, Material>();
+
+        internal static Material CreateGlowMaterial(Color color, float intensity = 2.2f)
+        {
+            int key = ((int)(color.r * 255f) << 24) ^ ((int)(color.g * 255f) << 16)
+                    ^ ((int)(color.b * 255f) << 8) ^ (int)(intensity * 20f);
+            if (_glowCache.TryGetValue(key, out var cached) && cached != null) return cached;
+
+            float em = Mathf.Max(intensity, 1f) * 8f;   // HDRP: brillo neón visible
+            Color neon = Color.Lerp(color, Color.white, 0.35f);
+            neon.a = 1f;
+            Color bright = neon * (1f + em * 0.12f);
+            bright.a = 1f;
+
+            Shader sh = FindUnlitShader();
+            if (sh == null) sh = Shader.Find("Sprites/Default");
+            var m = new Material(sh);
+            try { m.color = bright; } catch { }
+            TrySetColor(m, "_BaseColor", bright);
+            TrySetColor(m, "_UnlitColor", bright);
+            TrySetColor(m, "_Color", bright);
+            ApplyEmission(m, neon, em);
+            try { if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", 0f); } catch { }
+            try { if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", 0f); } catch { }
+            m.hideFlags = HideFlags.HideAndDontSave;
+            _glowCache[key] = m;
+            return m;
+        }
+
+        internal static void ApplyEmission(Material m, Color color, float intensity = 1f)
+        {
+            if (m == null) return;
+            Color em = color * Mathf.Max(0.1f, intensity);
+            TrySetColor(m, "_EmissiveColor", em);
+            TrySetColor(m, "_EmissionColor", em);
+            try { if (m.HasProperty("_EmissiveIntensity")) m.SetFloat("_EmissiveIntensity", intensity); } catch { }
+            try { if (m.HasProperty("_UseEmissiveIntensity")) m.SetFloat("_UseEmissiveIntensity", 1f); } catch { }
+            try { m.EnableKeyword("_EMISSIVE_COLOR"); } catch { }
+            try { m.EnableKeyword("_EMISSION"); } catch { }
+            try { m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive; } catch { }
+        }
+
         /// <summary>Configura un material para que renderice TRANSPARENTE (vidrio). Best-effort multi-pipeline.</summary>
         internal static void MakeTransparent(Material m, Color tint)
         {
             try
             {
-                Color c = tint; c.a = 0.25f;
+                Color c = tint; c.a = 0.10f;   // ~90% transparente (vidrio real)
                 try { m.color = c; } catch { }
                 TrySetColor(m, "_BaseColor", c);
                 TrySetColor(m, "_UnlitColor", c);
@@ -557,40 +601,63 @@ namespace SlimeCorralSpawn.Placement
         // Template de un material HDRP/Lit REAL del juego (variante válida del build => refleja de verdad,
         // a diferencia de un HDRP/Lit creado a mano que sale negro). Se busca una sola vez.
         private static Material _litTemplate;
+        // Template de un material HDRP TRANSPARENTE real del juego (vidrio de ventanas/invernadero):
+        // clonarlo da transparencia REAL (la variante shader transparente ya está compilada en el build).
+        private static Material _glassTemplate;
+        private static bool _glassScanned;
         private static float _lastTemplateScan = -999f;
+        private static MeshRenderer[] _litScanPool;
+        private static int _litScanIdx;
         public static bool LitTemplateReady => _litTemplate != null;
         /// <summary>Pre-busca el template Lit (llamado en la carga) para que el escaneo caro no caiga en pausa.</summary>
         public static void WarmLitTemplate() { GetLitTemplate(); }
+        internal static Material GetGlassTemplate() { GetLitTemplate(); return _glassTemplate; }
         private static Material GetLitTemplate()
         {
-            if (_litTemplate != null) return _litTemplate;
-            // El escaneo de toda la escena es caro (~2s en el rancho). Lo limitamos a 1 cada 2.5s para
-            // que NO se repita en cada material/pausa, y usamos la API rápida de Unity 6.
-            if (Time.realtimeSinceStartup - _lastTemplateScan < 2.5f) return null;
+            if (_litTemplate != null && _glassScanned) return _litTemplate;
+            if (Time.realtimeSinceStartup - _lastTemplateScan < 0.15f) return _litTemplate;
             _lastTemplateScan = Time.realtimeSinceStartup;
             try
             {
-                var rends = UnityEngine.Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None);
-                if (rends != null)
+                if (_litScanPool == null)
+                    _litScanPool = UnityEngine.Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None);
+                if (_litScanPool == null) return _litTemplate;
+
+                Material fallback = null;
+                int budget = (Plots.PlotData.HasPendingRestore() || UI.StructureManager.HasPendingRestore()) ? 256 : 64;
+                while (_litScanIdx < _litScanPool.Length && budget-- > 0)
                 {
-                    Material fallback = null;
-                    foreach (var r in rends)
+                    var r = _litScanPool[_litScanIdx++];
+                    if (r == null) continue;
+                    Material m = null; try { m = r.sharedMaterial; } catch { }
+                    if (m == null || m.shader == null) continue;
+                    string sn = m.shader.name;
+                    if (string.IsNullOrEmpty(sn)) continue;
+                    bool isLit = sn == "HDRP/Lit";
+                    if (_glassTemplate == null && isLit && IsMaterialTransparent(m)) _glassTemplate = m;
+                    if (_litTemplate == null)
                     {
-                        if (r == null) continue;
-                        Material m = null; try { m = r.sharedMaterial; } catch { }
-                        if (m == null || m.shader == null) continue;
-                        string sn = m.shader.name;
-                        if (string.IsNullOrEmpty(sn)) continue;
-                        if (sn == "HDRP/Lit") { _litTemplate = m; break; }
-                        if (fallback == null && sn.Contains("Lit") && !sn.Contains("Unlit")) fallback = m;
+                        if (isLit) { _litTemplate = m; }
+                        else if (fallback == null && sn.Contains("Lit") && !sn.Contains("Unlit")) fallback = m;
                     }
-                    if (_litTemplate == null) _litTemplate = fallback;
+                    if (_litTemplate != null && (_glassTemplate != null || _glassScanned)) break;
                 }
-                if (_litTemplate != null)
-                    ModEntry.Instance?.LoggerInstance.Msg($"[Mat] Lit template OK: {_litTemplate.shader.name}");
+                if (_litTemplate == null && _litScanIdx >= _litScanPool.Length) _litTemplate = fallback;
+                if (_litScanIdx >= _litScanPool.Length) _glassScanned = true;
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("GetLitTemplate", ex); }
             return _litTemplate;
+        }
+
+        private static bool IsMaterialTransparent(Material m)
+        {
+            try
+            {
+                if (m.renderQueue >= (int)UnityEngine.Rendering.RenderQueue.Transparent) return true;
+                if (m.HasProperty("_SurfaceType") && m.GetFloat("_SurfaceType") > 0.5f) return true;
+            }
+            catch { }
+            return false;
         }
 
         /// <summary>Material LIT real (clonado de uno del juego): metales que REFLEJAN, vidrio con refracción.</summary>
@@ -598,7 +665,10 @@ namespace SlimeCorralSpawn.Placement
         {
             try
             {
-                var tpl = GetLitTemplate();
+                bool transparent = Themes.TextureFactory.IsTransparent(kind);
+                // Para vidrio: si existe una variante transparente real del juego, clonarla da
+                // transparencia DE VERDAD (la variante shader ya está compilada). Si no, cae al Lit normal.
+                var tpl = transparent ? (GetGlassTemplate() ?? GetLitTemplate()) : GetLitTemplate();
                 if (tpl == null) return null;
                 var m = new Material(tpl);    // clona shader + variante válida => refleja con el cielo/probes
                 Texture2D tex = Themes.TextureFactory.Get(kind);
@@ -615,7 +685,7 @@ namespace SlimeCorralSpawn.Placement
                 Texture2D nrm = Themes.TextureFactory.GetNormal(kind);
                 if (nrm != null)
                 {
-                    float ns = 1f;
+                    float ns = Themes.TextureFactory.GetNormalScale(kind);
                     TrySetTexture(m, "_NormalMap", nrm);
                     TrySetTexture(m, "_BumpMap", nrm);
                     try { if (m.HasProperty("_NormalScale")) m.SetFloat("_NormalScale", ns); } catch { }
@@ -632,12 +702,21 @@ namespace SlimeCorralSpawn.Placement
 
                     float met = Themes.TextureFactory.GetMetallic(kind);
                     float smo = Themes.TextureFactory.GetSmoothness(kind);
-                    if (Themes.TextureFactory.IsTransparent(kind))
+                    if (transparent)
                     {
-                        met = 0.05f; smo = 0.35f;
+                        met = 0f;
+                        smo = 0.92f;
+                        MakeTransparent(m, tint);
                     }
                 try { if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", met); } catch { }
                 try { if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", smo); } catch { }
+
+                if (Themes.TextureFactory.IsEmissive(kind))
+                {
+                    ApplyEmission(m, Themes.TextureFactory.GetEmissiveColor(kind), Themes.TextureFactory.GetEmissiveIntensity(kind));
+                    TrySetTexture(m, "_EmissiveColorMap", tex);
+                }
+
                 return m;
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("CreateRealLitMaterial." + kind, ex); return null; }

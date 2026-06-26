@@ -56,7 +56,7 @@ namespace SlimeCorralSpawn
             MatKind.RedSandstone, MatKind.Adobe, MatKind.PebbleMosaic, MatKind.Terrazzo,
             MatKind.SubwayTile, MatKind.CinderBlock, MatKind.Wicker, MatKind.Leather,
             MatKind.Denim, MatKind.Burlap, MatKind.Moss, MatKind.Driftwood,
-            MatKind.Coal, MatKind.Crystal
+            MatKind.Coal, MatKind.Crystal, MatKind.Mirror
         };
         private static readonly string[] MatNames = {
             "Madera", "Madera Osc.", "Tablones", "Corteza",
@@ -77,7 +77,7 @@ namespace SlimeCorralSpawn
             "Arenisca R", "Adobe", "Mosaico", "Terrazo",
             "Azulejo", "Bloque", "Mimbre", "Cuero",
             "Vaquero", "Arpillera", "Musgo", "Madera Fl.",
-            "Carbón", "Cristal"
+            "Carbón", "Cristal", "Espejo"
         };
 
         public static void Toggle() { Active = !Active; if (!Active) _picker = Picker.None; }
@@ -92,7 +92,7 @@ namespace SlimeCorralSpawn
             if (_picker == Picker.None)
             {
                 if (InputHelper.GetKeyDown(KeyCode.E)) _picker = Picker.Color;
-                if (InputHelper.GetKeyDown(KeyCode.Q)) { _picker = Picker.Material; Themes.TextureFactory.ForceWarmAll(); }
+                if (InputHelper.GetKeyDown(KeyCode.Q)) _picker = Picker.Material;
             }
 
             if (_picker != Picker.None)
@@ -196,6 +196,7 @@ namespace SlimeCorralSpawn
 
         private static void ApplyMaterial(GameObject root, MatKind kind)
         {
+            Themes.TextureFactory.EnsureMaterialReady(kind);
             var rends = SafeRenderers(root);
             if (rends == null) return;
             foreach (var r in rends)
@@ -389,16 +390,18 @@ namespace SlimeCorralSpawn
             GUI.Label(new Rect(sb.x + 6, sb.y + 1, sb.width - 10, 22), new GUIContent(shown), _small);
 
             Event e = Event.current;
+            TextureFactory.BeginThumbFrame();
             float gx0 = panel.x + pad, gy = panel.y + 74;
             int col = 0;
             for (int k = 0; k < filt.Count; k++)
             {
                 int i = filt[k];
                 Rect cell = new Rect(gx0 + col * cw, gy, cw - 6, ch);
-                var tex = TextureFactory.Get(MatOptions[i]);
+                var tex = TextureFactory.GetThumb(MatOptions[i]);   // miniatura barata; null = aún no warm
                 bool sel = _mat == MatOptions[i] && _mode == Mode.Material;
                 Fill(new Rect(cell.x - 2, cell.y - 2, cell.width + 4, cell.height + 4), sel ? new Color(0.4f, 0.85f, 0.5f) : new Color(0.25f, 0.22f, 0.3f));
                 if (tex != null) GUI.DrawTexture(new Rect(cell.x, cell.y, cell.width, 44), tex);
+                else Fill(new Rect(cell.x, cell.y, cell.width, 44), new Color(0.18f, 0.16f, 0.22f));
                 GUI.Label(new Rect(cell.x, cell.y + 44, cell.width, 18), new GUIContent(MatNames[i]), _small);
                 if (e.type == EventType.MouseDown && e.button == 0 && cell.Contains(e.mousePosition))
                 { _mat = MatOptions[i]; _mode = Mode.Material; _picker = Picker.None; _matSearch = ""; _suppressClickUntil = Time.time + 0.3f; e.Use(); }

@@ -24,8 +24,6 @@ namespace SlimeCorralSpawn.UI
         private static bool showEditPanel;
         private static string editingPlotUniqueId;
         private static int cachedBalance = -1;
-        private static Quaternion lockedCamRotation;
-        private static bool camLocked;
 
         private enum MenuTab { Plots, Houses, Structures, FreeBuild, Config }
         private static MenuTab currentTab = MenuTab.Plots;
@@ -54,6 +52,11 @@ namespace SlimeCorralSpawn.UI
         private static bool stylesReady;
 
         private static string tooltipText;
+        private static string _packStatus;
+        private static float _packStatusUntil;
+        private static int _selectedPackIndex;
+        private static List<ModPackManager.PackEntry> _packList = new List<ModPackManager.PackEntry>();
+        private static float _packListRefresh;
 
         public static void ToggleMenu()
         {
@@ -366,7 +369,79 @@ namespace SlimeCorralSpawn.UI
             y += 56f;
 
             GUI.Label(new Rect(x + 4, y, w - 8, 110), new GUIContent(Loc.T("cfg_keys")), smallLabelStyle);
-            y += 114f;
+            y += 118f;
+
+            GUI.Label(new Rect(x, y, w, 22), new GUIContent(Loc.T("cfg_save_title")), headerStyle);
+            y += 28f;
+
+            if (Time.realtimeSinceStartup - _packListRefresh > 2f)
+            {
+                _packListRefresh = Time.realtimeSinceStartup;
+                try { _packList = ModPackManager.ListPacks(); } catch { _packList = new List<ModPackManager.PackEntry>(); }
+                if (_selectedPackIndex >= _packList.Count) _selectedPackIndex = 0;
+            }
+
+            Rect backupRect = new Rect(x, y, w, 36);
+            if (ClickableBox(backupRect, Loc.T("cfg_backup_now"), SlimeTheme.BackgroundButton, labelStyle))
+            {
+                string p = ModPackManager.CreateBackup("manual");
+                SetPackStatus(p != null ? Loc.T("cfg_pack_ok") + System.IO.Path.GetFileName(p) : Loc.T("cfg_pack_fail"));
+            }
+            y += 42f;
+
+            Rect exportRect = new Rect(x, y, w, 36);
+            if (ClickableBox(exportRect, Loc.T("cfg_export"), SlimeTheme.BackgroundButton, labelStyle))
+            {
+                string p = ModPackManager.ExportCurrent("menu");
+                SetPackStatus(p != null ? Loc.T("cfg_pack_ok") + System.IO.Path.GetFileName(p) : Loc.T("cfg_pack_fail"));
+            }
+            y += 42f;
+
+            if (_packList.Count > 0)
+            {
+                var entry = _packList[Mathf.Clamp(_selectedPackIndex, 0, _packList.Count - 1)];
+                string packLabel = $"{entry.Kind} | {entry.FileName}";
+                Rect selRect = new Rect(x, y, w, 36);
+                if (ClickableBox(selRect, $"◄  {packLabel}  ►", SlimeTheme.BackgroundButtonActive, smallLabelStyle))
+                {
+                    _selectedPackIndex = (_selectedPackIndex + 1) % _packList.Count;
+                }
+                y += 42f;
+
+                Rect restoreRect = new Rect(x, y, w * 0.48f, 36);
+                if (ClickableBox(restoreRect, Loc.T("cfg_restore"), SlimeTheme.BackgroundButton, smallLabelStyle))
+                {
+                    bool ok = ModPackManager.RestoreBackup(entry.Path);
+                    SetPackStatus(ok ? Loc.T("cfg_reload_hint") : Loc.T("cfg_pack_fail"));
+                }
+                Rect mergeRect = new Rect(x + w * 0.52f, y, w * 0.48f, 36);
+                if (ClickableBox(mergeRect, Loc.T("cfg_import_merge"), SlimeTheme.BackgroundButton, smallLabelStyle))
+                {
+                    bool ok = ModPackManager.ImportPack(entry.Path, replaceAll: false);
+                    SetPackStatus(ok ? Loc.T("cfg_reload_hint") : Loc.T("cfg_pack_fail"));
+                }
+                y += 42f;
+
+                Rect replaceRect = new Rect(x, y, w, 36);
+                if (ClickableBox(replaceRect, Loc.T("cfg_import_replace"), SlimeTheme.BackgroundButton, smallLabelStyle))
+                {
+                    bool ok = ModPackManager.ImportPack(entry.Path, replaceAll: true);
+                    SetPackStatus(ok ? Loc.T("cfg_reload_hint") : Loc.T("cfg_pack_fail"));
+                }
+                y += 42f;
+            }
+
+            GUI.Label(new Rect(x + 4, y, w - 8, 72), new GUIContent(Loc.T("cfg_pack_hint")), smallLabelStyle);
+            y += 76f;
+
+            if (!string.IsNullOrEmpty(_packStatus) && Time.realtimeSinceStartup < _packStatusUntil)
+                GUI.Label(new Rect(x, y, w, 40), new GUIContent(_packStatus), smallLabelStyle);
+        }
+
+        private static void SetPackStatus(string msg)
+        {
+            _packStatus = msg;
+            _packStatusUntil = Time.realtimeSinceStartup + 6f;
         }
 
         private static void DrawPlotsTab(float x, ref float y, float w)

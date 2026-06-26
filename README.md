@@ -4,7 +4,7 @@
 
 **A MelonLoader mod that turns Slime Rancher 2 into a full sandbox builder**
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue?style=flat-square)](https://github.com/AlkaPrime12/Ranch-Builder/releases)
+[![Version](https://img.shields.io/badge/version-1.5.0-blue?style=flat-square)](https://github.com/AlkaPrime12/Ranch-Builder/releases)
 [![Game](https://img.shields.io/badge/game-Slime%20Rancher%202-ff69b4?style=flat-square)](https://www.slimerancher.com/)
 [![Loader](https://img.shields.io/badge/loader-MelonLoader_0.7+-orange?style=flat-square)](https://melonloader.net/)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)

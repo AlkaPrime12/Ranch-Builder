@@ -54,7 +54,14 @@ namespace SlimeCorralSpawn.Placement
         }
 
         public static void RestoreLinkedObjects() { foreach (var kv in _polys) if (kv.Value.Go == null) Build(kv.Value); }
-        private static void RetryPending() { foreach (var kv in _polys) if (kv.Value.Go == null && kv.Value.Pts.Count >= 3) Build(kv.Value); }
+        private static void RetryPending()
+        {
+            if (!Placement.PlacementManager.LitTemplateReady) return;
+            foreach (var kv in _polys)
+            {
+                if (kv.Value.Go == null && kv.Value.Pts.Count >= 3) { Build(kv.Value); return; }
+            }
+        }
 
         public static void UpdateStatic()
         {
