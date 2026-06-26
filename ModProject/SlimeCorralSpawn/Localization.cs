@@ -79,6 +79,22 @@ namespace SlimeCorralSpawn
                 "Клавиши: F5 = это меню · F7 = кисть.\nПри строительстве: ЛКМ ставит (несколько подряд), ПКМ/Esc выход, колесо/R поворот, ↑/↓ высота, [ ] масштаб, G сетка.",
                 "Touches: F5 = ce menu · F7 = pinceau.\nEn construction: clic gauche place (plusieurs), clic droit/Esc quitte, molette/R rotation, ↑/↓ hauteur, [ ] échelle, G grille." } },
 
+            { "cfg_save_title", new[] { "GUARDADO DEL MOD", "MOD SAVE / BACKUP", "模组存档", "СОХРАНЕНИЕ МОДА", "SAUVEGARDE DU MOD" } },
+            { "cfg_backup_now", new[] { "Crear copia de seguridad ahora", "Create backup now", "立即创建备份", "Создать резервную копию", "Créer une sauvegarde" } },
+            { "cfg_export", new[] { "Exportar build completo", "Export full build", "导出完整建造", "Экспорт всей постройки", "Exporter la construction" } },
+            { "cfg_import_merge", new[] { "Importar y fusionar", "Import and merge", "导入并合并", "Импорт и слияние", "Importer et fusionner" } },
+            { "cfg_import_replace", new[] { "Importar y reemplazar todo", "Import and replace all", "导入并全部替换", "Импорт с заменой", "Importer et tout remplacer" } },
+            { "cfg_restore", new[] { "Restaurar copia seleccionada", "Restore selected backup", "恢复所选备份", "Восстановить выбранную копию", "Restaurer la sauvegarde" } },
+            { "cfg_pack_hint", new[] {
+                "Los archivos .scs-pack.json van en:\nDocuments/SlimeRancher2/SlimeCorralSpawn/imports/\nTras importar, recarga el rancho (salir y volver a entrar).",
+                "Place .scs-pack.json files in:\nDocuments/SlimeRancher2/SlimeCorralSpawn/imports/\nAfter import, reload the ranch (leave and re-enter).",
+                "将 .scs-pack.json 放入:\nDocuments/SlimeRancher2/SlimeCorralSpawn/imports/\n导入后请重新进入牧场。",
+                "Положите .scs-pack.json в:\nDocuments/SlimeRancher2/SlimeCorralSpawn/imports/\nПосле импорта перезайдите в ранчо.",
+                "Placez les .scs-pack.json dans:\nDocuments/SlimeRancher2/SlimeCorralSpawn/imports/\nAprès import, rechargez le ranch." } },
+            { "cfg_pack_ok", new[] { "Listo: ", "Done: ", "完成：", "Готово: ", "OK : " } },
+            { "cfg_pack_fail", new[] { "Error al guardar/importar.", "Save/import failed.", "保存/导入失败。", "Ошибка сохранения/импорта.", "Échec sauvegarde/import." } },
+            { "cfg_reload_hint", new[] { "Recarga el rancho para ver los cambios.", "Reload the ranch to see changes.", "重新进入牧场以查看更改。", "Перезайдите в ранчо.", "Rechargez le ranch." } },
+
             { "paint_paint",   new[] { "PINTAR", "PAINT", "上色", "ЦВЕТ", "PEINDRE" } },
             { "paint_texture", new[] { "TEXTURA", "TEXTURE", "材质", "ТЕКСТУРА", "TEXTURE" } },
             { "paint_hint",    new[] {

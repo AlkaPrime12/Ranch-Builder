@@ -23,12 +23,26 @@ namespace SlimeCorralSpawn.Placement
             if (lp == null) return;
             var pd = SlimeCorralSpawn.Plots.PlotData.Find(plotKey);
             if (pd == null || pd.PurchasedUpgrades == null || pd.PurchasedUpgrades.Count == 0) return;
+
+            var sc = Il2Cpp.SceneContext.Instance;
+            if (sc == null) return;
+
+            var lpl = lp.transform.parent != null ? lp.transform.parent.GetComponent<Il2CppLandPlotLocation>() : null;
+            var model = lpl != null ? sc.GameModel.GetLandPlotModel(lpl._id) : null;
+            if (model != null)
+            {
+                lp.InitModel(model);
+                FeederSpeedHelper.RestoreToModel(model, pd);
+            }
+
             foreach (var u in pd.PurchasedUpgrades)
             {
                 if (!Enum.TryParse<Il2CppLandPlot.Upgrade>(u, out var up)) continue;
                 if (lp.HasUpgrade(up)) continue;
-                lp.AddUpgrade(up);
+                try { lp.AddUpgrade(up); } catch { }
             }
+
+            // Apply + cableado van en RegisterAndInitialize (después de RegisterToRanchMetadata).
         }
 
         public static bool ContextReady()
@@ -53,20 +67,49 @@ namespace SlimeCorralSpawn.Placement
 
             if (plotId == Il2CppLandPlot.Id.NONE) plotId = Il2CppLandPlot.Id.EMPTY;
 
-            // Register BEFORE Instantiate — same key everywhere (lpl._id).
-            // LandPlot.Start() will find its model via lpl._id on the next frame.
             sc.GameModel.RegisterLandPlot(lpl._id, obj);
-            sc.GameModel.InitializeLandPlotModel(lpl._id);
 
             Deferred.Run(() =>
             {
                 var emptyPrefab = gc.LookupDirector.GetPlotPrefab(Il2CppLandPlot.Id.EMPTY);
+                if (emptyPrefab == null) return;
                 var plotObj = UnityEngine.Object.Instantiate(emptyPrefab, obj.transform);
-                lpl.enabled = true;
 
                 if (plotId != Il2CppLandPlot.Id.EMPTY)
                 {
-                    TryReplace(lpl, plotObj, obj, plotId, plotKey);
+                    Deferred.Run(() =>
+                    {
+                        var landPlot = plotObj.GetComponent<Il2CppLandPlot>();
+                        if (landPlot == null) landPlot = obj.GetComponentInChildren<Il2CppLandPlot>();
+                        var targetPrefab = gc.LookupDirector.GetPlotPrefab(plotId);
+                        if (landPlot == null || targetPrefab == null) return;
+
+                        var newPlot = lpl.Replace(landPlot, targetPrefab);
+
+                        // Re-initialize the model now that the LandPlot is CORRAL (not EMPTY).
+                        // InitializeLandPlotModel creates a model with internal state matching
+                        // the current LandPlot type — calling it after Replace ensures the model
+                        // supports CORRAL-specific upgrades (WALLS, AIR_NET, etc.).
+                        sc.GameModel.InitializeLandPlotModel(lpl._id);
+
+                        Deferred.Run(() =>
+                        {
+                            var newLp = newPlot != null ? newPlot.GetComponent<Il2CppLandPlot>() : null;
+                            if (newLp == null) newLp = obj.GetComponentInChildren<Il2CppLandPlot>();
+                            ApplySavedUpgrades(newLp, plotKey);
+                            CorralRegistrationHelper.SyncUpgradeVisibility(newLp);
+
+                            Deferred.Run(() =>
+                            {
+                                var pdc = SlimeCorralSpawn.Plots.PlotData.Find(plotKey);
+                                if (pdc != null)
+                                {
+                                    var lp2 = newLp ?? obj.GetComponentInChildren<Il2CppLandPlot>();
+                                    CorralRegistrationHelper.RegisterPlotForInit(lp2, plotKey);
+                                }
+                            }, 6);
+                        }, 4);
+                    }, 3);
                 }
                 else
                 {
@@ -76,47 +119,6 @@ namespace SlimeCorralSpawn.Placement
             }, 2);
 
             return obj;
-        }
-
-        private static void TryReplace(Il2CppLandPlotLocation lpl, GameObject plotObj, GameObject obj,
-                                        Il2CppLandPlot.Id plotId, string plotKey)
-        {
-            Deferred.Run(() =>
-            {
-                var sc = Il2Cpp.SceneContext.Instance;
-                var gc = Il2Cpp.GameContext.Instance;
-                if (lpl == null || obj == null || sc == null || gc == null) return;
-
-                var landPlot = plotObj.GetComponent<Il2CppLandPlot>();
-                if (landPlot == null) landPlot = obj.GetComponentInChildren<Il2CppLandPlot>();
-                var targetPrefab = gc.LookupDirector.GetPlotPrefab(plotId);
-                if (landPlot == null || targetPrefab == null) return;
-
-                // Associate model with LandPlot before Replace
-                var model = sc.GameModel.GetLandPlotModel(lpl._id);
-                if (model != null) landPlot.InitModel(model);
-
-                var newPlot = lpl.Replace(landPlot, targetPrefab);
-
-                Deferred.Run(() =>
-                {
-                    var newLp = newPlot != null ? newPlot.GetComponent<Il2CppLandPlot>() : null;
-                    if (newLp == null) newLp = obj.GetComponentInChildren<Il2CppLandPlot>();
-                    ApplySavedUpgrades(newLp, plotKey);
-
-                    Deferred.Run(() =>
-                    {
-                        var pdc = SlimeCorralSpawn.Plots.PlotData.Find(plotKey);
-                        if (pdc != null)
-                        {
-                            var lp2 = newLp ?? obj.GetComponentInChildren<Il2CppLandPlot>();
-                            if (!string.IsNullOrEmpty(pdc.GardenCropId) || pdc.SiloContent.Count > 0)
-                                SlimeCorralSpawn.Plots.ContentPersistence.RestoreContent(lp2, pdc);
-                            pdc.ContentReady = true;
-                        }
-                    }, 6);
-                }, 4);
-            }, 3);
         }
 
         private static GameObject GetRootForPosition(Vector3 pos)
@@ -140,6 +142,11 @@ namespace SlimeCorralSpawn.Placement
             return go;
         }
 
-        public static void ResetRoots() { _roots.Clear(); OurLocations.Clear(); }
+        public static void ResetRoots()
+        {
+            _roots.Clear();
+            OurLocations.Clear();
+            CorralRegistrationHelper.ClearRegistrationState();
+        }
     }
 }

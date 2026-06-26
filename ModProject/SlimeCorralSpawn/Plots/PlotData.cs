@@ -24,12 +24,14 @@ namespace SlimeCorralSpawn.Plots
         // Contenido persistido por nosotros (no depende del modelo del juego).
         public string GardenCropId;                                     // cultivo plantado (jardín)
         public List<SiloSlotData> SiloContent = new List<SiloSlotData>(); // plorts/recursos del silo
+        public string FeederSpeed;                                      // SlimeFeeder.FeedSpeed enum name
         // Runtime-only: el contenido ya fue restaurado tras recargar. Hasta entonces NO capturar
         // (evita pisar lo guardado con un plot recién spawneado y vacío).
         [System.NonSerialized] public bool ContentReady;
 
         public class SiloSlotData
         {
+            public string Role;       // "Feeder" | "Collector" | null (legacy)
             public int StorageIdx;
             public int Slot;
             public string Id;
@@ -37,10 +39,6 @@ namespace SlimeCorralSpawn.Plots
         }
 
         private static Dictionary<string, PlotData> allPlots = new Dictionary<string, PlotData>();
-        private static float _lastRetryTime;
-        private static float _retryInterval = 2f;
-        private static int _retryCount = 0;
-        private static int _maxRetries = 15;
         private static bool _dataLoaded;
 
         public static void Register(PlotData data)
@@ -107,10 +105,11 @@ namespace SlimeCorralSpawn.Plots
             pd.IsEditable = entry.IsEditable;
             pd.PurchasedUpgrades = entry.PurchasedUpgrades != null ? new List<string>(entry.PurchasedUpgrades) : new List<string>();
             pd.GardenCropId = entry.GardenCropId;
+            pd.FeederSpeed = entry.FeederSpeed;
             pd.SiloContent = new List<SiloSlotData>();
             if (entry.SiloContent != null)
                 foreach (var s in entry.SiloContent)
-                    if (s != null) pd.SiloContent.Add(new SiloSlotData { StorageIdx = s.StorageIdx, Slot = s.Slot, Id = s.Id, Count = s.Count });
+                    if (s != null) pd.SiloContent.Add(new SiloSlotData { Role = s.Role, StorageIdx = s.StorageIdx, Slot = s.Slot, Id = s.Id, Count = s.Count });
             pd.ContentReady = false; // se restaura al re-construir el plot
             pd.LinkedObject = null;
             allPlots[uid] = pd;
@@ -118,13 +117,7 @@ namespace SlimeCorralSpawn.Plots
 
         public static void RestoreLinkedObjects()
         {
-            foreach (var kv in allPlots)
-            {
-                if (kv.Value.LinkedObject != null) continue;
-                kv.Value.LinkedObject = SlimeCorralSpawn.Placement.RealPlotManager.RespawnFromSave(kv.Value);
-            }
-            _retryCount = 0;
-            _lastRetryTime = Time.time;
+            // Intencionalmente vacío: UpdateRetry respawnea con presupuesto (1 plot/intervalo).
         }
 
         /// <summary>Al volver al menú principal: desvincular todo para re-spawnear limpio al re-entrar.</summary>
@@ -132,21 +125,40 @@ namespace SlimeCorralSpawn.Plots
         {
             foreach (var kv in allPlots) kv.Value.LinkedObject = null;
             ContentPersistence.ClearCache();
-            _retryCount = 0;
-            _lastRetryTime = 0f;
+            Placement.CorralRegistrationHelper.ClearRegistrationState();
+            Placement.UpgradeActivationHelper.ClearState();
+        }
+
+        /// <summary>Captura inmediata de todo el contenido vivo y guarda moddata.</summary>
+        public static void FlushAllContentToModData()
+        {
+            if (allPlots.Count == 0) return;
+
+            bool any = false;
+            foreach (var kv in allPlots)
+            {
+                var pd = kv.Value;
+                if (pd == null || !pd.ContentReady || pd.LinkedObject == null) continue;
+                Il2Cpp.LandPlot lp = null;
+                try { lp = pd.LinkedObject.GetComponentInChildren<Il2Cpp.LandPlot>(true); } catch { }
+                if (lp == null) continue;
+                if (!Placement.CorralRegistrationHelper.ContentCaptureReady(lp)) continue;
+                ContentPersistence.CaptureContent(lp, pd);
+                SaveData.ModDataManager.SyncPlot(pd);
+                any = true;
+            }
+            if (any) SaveData.ModDataManager.Save();
         }
 
         private static float _lastContentCapture;
 
         /// <summary>
-        /// Cada ~12s captura el CONTENIDO vivo (cultivo del jardín, plorts del silo) de los plots ya
-        /// restaurados y lo persiste. Sólo plots con ContentReady (ya restaurados) — así nunca pisa
-        /// lo guardado con un plot recién spawneado y vacío.
+        /// Cada ~3s captura el CONTENIDO vivo de plots restaurados.
         /// </summary>
         public static void UpdateContentCapture()
         {
             if (allPlots.Count == 0) return;
-            if (Time.time - _lastContentCapture < 12f) return;
+            if (Time.time - _lastContentCapture < 3f) return;
             _lastContentCapture = Time.time;
 
             bool any = false;
@@ -157,6 +169,7 @@ namespace SlimeCorralSpawn.Plots
                 Il2Cpp.LandPlot lp = null;
                 try { lp = pd.LinkedObject.GetComponentInChildren<Il2Cpp.LandPlot>(true); } catch { }
                 if (lp == null) continue;
+                if (!Placement.CorralRegistrationHelper.ContentCaptureReady(lp)) continue;
                 ContentPersistence.CaptureContent(lp, pd);
                 SlimeCorralSpawn.SaveData.ModDataManager.SyncPlot(pd);
                 any = true;
@@ -173,9 +186,7 @@ namespace SlimeCorralSpawn.Plots
                 {
                     SaveData.ModDataManager.RegisterAllPlots();
                     _dataLoaded = true;
-                    MelonLogger.Msg($"[Load] RegisterAllPlots executed. Plots={allPlots.Count} Structures={UI.StructureManager.PlacedCount}");
-                    // RestoreLinkedObjects already attempted respawn inside RegisterAllPlots.
-                    // Fall through to retry logic for any that failed.
+                    // El respawn va por UpdateRetry con presupuesto (1 plot por intervalo).
                 }
                 else
                 {
@@ -184,26 +195,29 @@ namespace SlimeCorralSpawn.Plots
             }
 
             if (allPlots.Count == 0) return;
-            if (Time.time - _lastRetryTime < _retryInterval) return;
-            _lastRetryTime = Time.time;
+
+            // Esperar material Lit del juego para que los materiales tengan normal map real.
+            if (!Placement.PlacementManager.LitTemplateReady) return;
 
             // ¿Queda algún plot sin re-crear? Si no, nada que hacer.
             bool anyUnlinked = false;
             foreach (var kv in allPlots) if (kv.Value.LinkedObject == null) { anyUnlinked = true; break; }
             if (!anyUnlinked) return;
 
-            // Reintenta SIN TOPE: en el menú principal el rancho no está cargado (RespawnFromSave da
-            // null) y se reintenta; cuando carga, se re-crean los LandPlots reales en su posición.
-            int resolved = 0, remaining = 0;
+            // 1 plot por frame (sin intervalo de 2s): aparece rápido pero sin congelón.
             foreach (var kv in allPlots)
             {
-                if (kv.Value.LinkedObject != null) { resolved++; continue; }
+                if (kv.Value.LinkedObject != null) continue;
                 kv.Value.LinkedObject = SlimeCorralSpawn.Placement.RealPlotManager.RespawnFromSave(kv.Value);
-                if (kv.Value.LinkedObject != null) resolved++;
-                else remaining++;
+                if (kv.Value.LinkedObject != null) return;
             }
-            if (resolved > 0)
-                MelonLogger.Msg($"[SlimeCorralSpawn] Plots cargados desde save: {resolved}/{allPlots.Count} ({remaining} esperando el rancho).");
+        }
+
+        public static bool HasPendingRestore()
+        {
+            foreach (var kv in allPlots)
+                if (kv.Value != null && kv.Value.LinkedObject == null) return true;
+            return false;
         }
 
         private static Vector3 GetDefaultScale(PlotSize s)
