@@ -16,6 +16,8 @@ namespace SlimeCorralSpawn
     /// </summary>
     public static class EconomyHelper
     {
+        private static PlayerState _cachedPlayerState;
+
         private static ICurrency Newbucks()
         {
             try { return CurrencyUtility.DefaultCurrency; }
@@ -24,8 +26,15 @@ namespace SlimeCorralSpawn
 
         private static PlayerState FindPlayerState()
         {
-            try { return UnityEngine.Object.FindObjectOfType<PlayerState>(); }
+            if (_cachedPlayerState != null) return _cachedPlayerState;
+            try
+            {
+                _cachedPlayerState = UnityEngine.Object.FindObjectOfType<PlayerState>();
+                // Si no hay PlayerState (menú principal), no cacheamos null — re-intentamos cada frame.
+                if (_cachedPlayerState == null) return null;
+            }
             catch (Exception ex) { ModEntry.LogErrorOnce("EconomyHelper.FindPlayerState", ex); return null; }
+            return _cachedPlayerState;
         }
 
         /// <summary>Saldo actual de Newbucks, o -1 si la economía no es alcanzable.</summary>

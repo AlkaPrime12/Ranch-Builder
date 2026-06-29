@@ -144,10 +144,10 @@ namespace SlimeCorralSpawn.UI
                 }
                 catch (Exception e) { ModEntry.LogErrorOnce("PlotsMenuUI.InputDirectorFreeze", e); }
 
-                // Cacheamos SRCameraController; si es null (scene change), lo re-buscamos.
+                // Cacheamos SRCameraController; re-buscamos solo cada 60 frames como máximo.
                 try
                 {
-                    if (_camCtrl == null)
+                    if (_camCtrl == null && Time.frameCount % 60 == 0)
                         _camCtrl = UnityEngine.Object.FindObjectOfType<Il2CppSRCameraController>();
                     if (_camCtrl != null) _camCtrl.enabled = !frozen;
                 }

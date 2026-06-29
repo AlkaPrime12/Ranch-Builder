@@ -27,6 +27,7 @@ namespace SlimeCorralSpawn.Placement
         private static float placementScale = 1f;    // escala de la construcción ([ / ]) — free build
         private static bool gridSnapEnabled = true;  // ajuste a grilla (G para alternar)
         private static float placementStartTime;   // para debounce del click de compra
+        private static readonly Collider[] _overlapBuffer = new Collider[32];
 
         public static event Action OnPlacementStarted;
         public static event Action OnPlacementCompleted;
@@ -387,10 +388,10 @@ namespace SlimeCorralSpawn.Placement
             // Sólo bloquea contra OTRO plot nuestro; el terreno/slimes/props NO invalidan.
             Vector3 center = position + new Vector3(0f, scale.y * 0.5f, 0f);
             Vector3 half = scale * 0.45f;
-            Collider[] hits = Physics.OverlapBox(center, half, Quaternion.identity);
-            if (hits == null) return false;
-            foreach (Collider hit in hits)
+            int nHits = Physics.OverlapBoxNonAlloc(center, half, _overlapBuffer, Quaternion.identity);
+            for (int i = 0; i < nHits; i++)
             {
+                var hit = _overlapBuffer[i];
                 if (hit == null) continue;
                 GameObject go = hit.gameObject;
                 if (go == null || go == ghostObject) continue;
