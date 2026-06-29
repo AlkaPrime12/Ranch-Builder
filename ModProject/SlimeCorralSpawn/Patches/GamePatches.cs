@@ -26,6 +26,7 @@ namespace SlimeCorralSpawn.Patches
             TryPatchFeederSpeedChange();
 
             _harmony.PatchAll();
+            GadgetPlacementPatchInstaller.Apply(_harmony);
             TryPatchFastForwardCorrals();
         }
 
@@ -118,18 +119,18 @@ namespace SlimeCorralSpawn.Patches
         }
     }
 
-    /// <summary>Fast-forward sin re-registrar plots (evita bucle).</summary>
+    /// <summary>Fast-forward usando PlotData.GetAll() en vez de FindObjectsOfType (EVITA ALLOC LAG).</summary>
     public static class RanchCellFFPatch
     {
         public static void Prefix(Il2Cpp.RanchCellFastForwarder __instance, double __0, double __1, double __2)
         {
             try
             {
-                var plots = UnityEngine.Object.FindObjectsOfType<Il2CppLandPlot>(true);
-                if (plots == null) return;
-
-                foreach (var lp in plots)
+                foreach (var pd in Plots.PlotData.GetAll())
                 {
+                    if (pd?.LinkedObject == null) continue;
+                    Il2CppLandPlot lp = null;
+                    try { lp = pd.LinkedObject.GetComponentInChildren<Il2CppLandPlot>(true); } catch { }
                     if (lp == null || !GamePatches.IsOurLandPlot(lp)) continue;
                     if (!Placement.CorralRegistrationHelper.IsRegistered(lp)) continue;
                     Placement.CorralRegistrationHelper.RunFastForwardOps(lp, __instance);

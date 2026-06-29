@@ -702,11 +702,12 @@ namespace SlimeCorralSpawn.UI
             }
             // CLAVE anti-lag: crear como mucho 1 estructura por frame. Spawnear TODAS de golpe (con sus
             // mallas de relieve y luces) congelaba el frame al entrar. Repartido es imperceptible.
+            int budget = RestoreBudget.StructuresPerFrame;
             foreach (var kv in _placed)
             {
                 if (kv.Value.LinkedObject != null) continue;
                 kv.Value.LinkedObject = SpawnStructureFromData(kv.Value, false);
-                if (kv.Value.LinkedObject != null) return;   // una por frame
+                if (kv.Value.LinkedObject != null && --budget <= 0) return;
             }
         }
 

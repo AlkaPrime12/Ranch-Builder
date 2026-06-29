@@ -445,15 +445,14 @@ namespace SlimeCorralSpawn.Themes
             try { Get(kind); GetNormal(kind); } catch { }
         }
 
-        /// <summary>
-        /// Pre-warm suave: 1 material (albedo + normal) por frame cuando no hay respawn pendiente.
-        /// </summary>
+        /// <summary>Pre-warm: 2 materiales/frame; sigue durante respawn (1/frame) para no alargar la carga total.</summary>
         public static void WarmStep()
         {
             if (AllWarm) return;
-            if (Plots.PlotData.HasPendingRestore() || UI.StructureManager.HasPendingRestore()) return;
             if (_warmOrder == null) _warmOrder = (MatKind[])Enum.GetValues(typeof(MatKind));
-            if (_warmIdx < _warmOrder.Length)
+            bool restoring = Plots.PlotData.HasPendingRestore() || UI.StructureManager.HasPendingRestore();
+            int steps = restoring ? 1 : 2;
+            for (int s = 0; s < steps && _warmIdx < _warmOrder.Length; s++)
             {
                 try { EnsureMaterialReady(_warmOrder[_warmIdx]); } catch { }
                 _warmIdx++;

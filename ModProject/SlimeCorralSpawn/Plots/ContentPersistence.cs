@@ -262,6 +262,9 @@ namespace SlimeCorralSpawn.Plots
         private static int RestoreSlot(Il2CppSiloStorage silo, PlotData.SiloSlotData slot)
         {
             if (silo == null || slot == null || slot.Count <= 0) return 0;
+            // ANTI-DOBLE: si el juego YA restauró este item en cualquier slot del silo, no agregar de nuevo
+            // (eso causaba el contenido "mostrando dos cosas a la vez" en los contenedores).
+            if (SiloAlreadyHas(silo, slot.Id)) return 0;
             int current = 0;
             try { current = silo.GetSlotCount(slot.Slot); } catch { }
             int toAdd = slot.Count - current;
@@ -269,6 +272,23 @@ namespace SlimeCorralSpawn.Plots
             var id = Lookup(slot.Id);
             if (id == null) return 0;
             try { return silo.MaybeAddAsResource(id, slot.Slot, toAdd, false) ? toAdd : 0; } catch { return 0; }
+        }
+
+        private static bool SiloAlreadyHas(Il2CppSiloStorage silo, string id)
+        {
+            if (silo == null || string.IsNullOrEmpty(id)) return false;
+            int n = 0;
+            try { n = silo.AmmoSlotDefinitions != null ? silo.AmmoSlotDefinitions.Length : 0; } catch { }
+            for (int i = 0; i < n; i++)
+            {
+                try
+                {
+                    var sid = silo.GetSlotIdentifiable(i);
+                    if (sid != null && sid.name == id && silo.GetSlotCount(i) > 0) return true;
+                }
+                catch { }
+            }
+            return false;
         }
 
         private static Il2CppSiloStorage ResolveSiloForRestore(Il2CppSiloStorage[] silos,

@@ -22,8 +22,34 @@ namespace SlimeCorralSpawn.Placement
         private static readonly Dictionary<int, int> _retryCount = new Dictionary<int, int>();
         private static readonly Dictionary<int, string> _pendingContentRestore = new Dictionary<int, string>();
         private const int MaxRetries = 5;
-        private const int RetryFrameGap = 30;
+        private const int RetryFrameGap = 12;
         private static MethodInfo _registerToRanchMetadata;
+
+        // CACHÉ de escaneos pesados de escena (FindObjectsOfType). Sin esto, los plots LEJANOS del rancho
+        // (que nunca resuelven región/metadata) re-escaneaban TODA la escena cada 1.5s = lag al construir lejos.
+        private const float SceneScanCacheSec = 8f;
+        private static Il2CppLandPlot[] _cachedAllPlots; private static float _cachedAllPlotsTime = -999f;
+        private static Il2Cpp.RanchCellFastForwarder[] _cachedFFs; private static float _cachedFFsTime = -999f;
+
+        private static Il2CppLandPlot[] GetAllLandPlotsCached()
+        {
+            if (_cachedAllPlots == null || Time.time - _cachedAllPlotsTime > SceneScanCacheSec)
+            {
+                try { _cachedAllPlots = UnityEngine.Object.FindObjectsOfType<Il2CppLandPlot>(true); } catch { }
+                _cachedAllPlotsTime = Time.time;
+            }
+            return _cachedAllPlots;
+        }
+
+        private static Il2Cpp.RanchCellFastForwarder[] GetAllFFsCached()
+        {
+            if (_cachedFFs == null || Time.time - _cachedFFsTime > SceneScanCacheSec)
+            {
+                try { _cachedFFs = UnityEngine.Object.FindObjectsOfType<Il2Cpp.RanchCellFastForwarder>(true); } catch { }
+                _cachedFFsTime = Time.time;
+            }
+            return _cachedFFs;
+        }
 
         internal static bool IsRegistered(Il2CppLandPlot lp)
         {
@@ -51,15 +77,25 @@ namespace SlimeCorralSpawn.Placement
             RegisterAndInitialize(lp);
         }
 
-        /// <summary>Asegura lp._region (RegisterToRanchMetadata o vecino cercano).</summary>
+        /// <summary>Asegura lp._region. PRIORIDAD: REGIÓN PROPIA del plot — esa contiene los plorts que
+        /// están físicamente DENTRO del corral, y `PlortCollector.DoCollection()` filtra qué aspira por
+        /// `_region`. Si se pone la región de un VECINO, los plorts del corral no pertenecen a ella y el
+        /// collector NO aspira (dump fix #1). El vecino queda sólo de último recurso (build-anywhere).</summary>
         internal static void EnsurePlotRegion(Il2CppLandPlot lp)
         {
             if (lp == null) return;
             try { if (lp._region != null) return; } catch { }
+
+            PlortCollectorHelper.EnsurePlotOwnRegion(lp);
+            try { if (lp._region != null) return; } catch { }
+
+            TryRegisterToRanchMetadata(lp);                 // engancha la región propia al tick del rancho
+            PlortCollectorHelper.EnsurePlotOwnRegion(lp);
+            try { if (lp._region != null) return; } catch { }
+
             var sc = Il2Cpp.SceneContext.Instance;
             if (sc == null) return;
-            TryRegisterToRanchMetadata(lp);
-            EnsureRegionFromCell(lp, sc);
+            EnsureRegionFromNeighbor(lp, sc);               // último recurso: región de un vecino
         }
 
         /// <summary>Cablea feeder/collector sin depender de RanchMetadata (idempotente).</summary>
@@ -83,7 +119,8 @@ namespace SlimeCorralSpawn.Placement
                 if (lp._region == null)
                 {
                     TryRegisterToRanchMetadata(lp);
-                    EnsureRegionFromCell(lp, sc);
+                    PlortCollectorHelper.EnsurePlotOwnRegion(lp);           // región propia (contiene los plorts)
+                    EnsureRegionFromNeighbor(lp, sc);                       // último recurso
                 }
                 UpgradeActivationHelper.EnsureUpgradesActive(lp, freshPurchase: false, purchased: null);
                 SyncUpgradeVisibility(lp);
@@ -278,8 +315,11 @@ namespace SlimeCorralSpawn.Placement
 
                 // Orden vanilla (LandPlot.Start): InitModel → RegisterToRanchMetadata → Apply upgrades
                 // → OnUpgradesChanged → cableado. Apply ANTES de Register deja Awake sin _region.
+                // PRIORIDAD región: la PROPIA del plot — contiene los plorts del corral (DoCollection
+                // filtra por _region). El vecino sólo de último recurso (dump fix #1).
                 TryRegisterToRanchMetadata(lp);
-                EnsureRegionFromCell(lp, sc);
+                PlortCollectorHelper.EnsurePlotOwnRegion(lp);
+                EnsureRegionFromNeighbor(lp, sc);
 
                 UpgradeActivationHelper.EnsureUpgradesActive(lp, freshPurchase: false, purchased: null);
                 SyncUpgradeVisibility(lp);
@@ -360,6 +400,7 @@ namespace SlimeCorralSpawn.Placement
             pdc.ContentReady = true;
         }
 
+
         internal static void EnsureFeederRunning(Il2CppLandPlot lp)
         {
             if (!HasUpgradeSafe(lp, Il2CppLandPlot.Upgrade.FEEDER)) return;
@@ -369,7 +410,11 @@ namespace SlimeCorralSpawn.Placement
                 var sf = ResolveSlimeFeederInternal(fu, lp);
                 if (sf == null) return;
                 try { if (sf._storage == null || sf._region == null) return; } catch { return; }
+                if (!sf.enabled) sf.enabled = true;
+                if (sf.gameObject != null && !sf.gameObject.activeInHierarchy)
+                    sf.gameObject.SetActive(true);
                 FeederSpeedHelper.ApplySpeedToFeeder(lp);
+                try { sf.ResetFeedingTime(); } catch { }
             }
             catch { }
         }
@@ -394,6 +439,10 @@ namespace SlimeCorralSpawn.Placement
             }
             catch { }
         }
+
+        private static readonly Il2CppSystem.Collections.Generic.List<Il2Cpp.IdentifiableType> _ffEaters = new Il2CppSystem.Collections.Generic.List<Il2Cpp.IdentifiableType>();
+        private static readonly Il2CppSystem.Collections.Generic.List<Il2Cpp.IdentifiableType> _ffPlorts = new Il2CppSystem.Collections.Generic.List<Il2Cpp.IdentifiableType>();
+        private static readonly Il2CppSystem.Collections.Generic.List<Il2Cpp.IdentifiableType> _ffGadgets = new Il2CppSystem.Collections.Generic.List<Il2Cpp.IdentifiableType>();
 
         internal static void RunFastForwardOps(Il2CppLandPlot lp, Il2Cpp.RanchCellFastForwarder ff)
         {
@@ -422,9 +471,9 @@ namespace SlimeCorralSpawn.Placement
                 var pc = ResolvePlortCollector(pcu, lp);
                 if (pc == null) return;
 
-                var eaters = new Il2CppSystem.Collections.Generic.List<Il2Cpp.IdentifiableType>();
-                var plorts = new Il2CppSystem.Collections.Generic.List<Il2Cpp.IdentifiableType>();
-                var gadgets = new Il2CppSystem.Collections.Generic.List<Il2Cpp.IdentifiableType>();
+                _ffEaters.Clear();
+                _ffPlorts.Clear();
+                _ffGadgets.Clear();
 
                 if (ff != null)
                 {
@@ -433,12 +482,12 @@ namespace SlimeCorralSpawn.Placement
                         var notCollected = Il2Cpp.RanchCellFastForwarder._notCollected;
                         if (notCollected != null)
                             foreach (var ident in notCollected)
-                                if (ident != null) plorts.Add(ident);
+                                if (ident != null) _ffPlorts.Add(ident);
                     }
                     catch { }
                 }
 
-                pc.FastForward(eaters, plorts, gadgets);
+                pc.FastForward(_ffEaters, _ffPlorts, _ffGadgets);
             }
             catch (Exception ex) { Warn(lp, $"FF collect: {ex.Message}"); }
         }
@@ -555,6 +604,7 @@ namespace SlimeCorralSpawn.Placement
                     silo = ResolveFeederSilo(fu, sf, lp);
                     if (silo != null) sf._storage = silo;
                 }
+                WireSiloStorage(silo, model);
             }
             catch { }
 
@@ -566,16 +616,12 @@ namespace SlimeCorralSpawn.Placement
             Il2CppLandPlot lp, Il2Cpp.TimeDirector timeDir,
             Il2CppMonomiPark.SlimeRancher.DataModel.LandPlotModel model)
         {
-            try
-            {
-                if (pc.gameObject != null && !pc.gameObject.activeSelf)
-                    pc.gameObject.SetActive(true);
-                if (!pc.enabled) pc.enabled = true;
-            }
-            catch { }
-
+            PlortCollectorHelper.EnsurePlotOwnRegion(lp);
             try { if (timeDir != null) pc._timeDir = timeDir; } catch { }
             try { if (lp._region != null) pc._region = lp._region; } catch { }
+
+            PlortCollectorHelper.EnsureRuntimeRefs(lp, pc);
+
             InvokeVanillaAwake(pc);
 
             try { if (model != null) { pc.InitModel(model); pc.SetModel(model); } } catch { }
@@ -589,20 +635,14 @@ namespace SlimeCorralSpawn.Placement
                     silo = ResolveCollectorSilo(pcu, pc, lp);
                     if (silo != null) pc._storage = silo;
                 }
+                WireSiloStorage(silo, model);
             }
             catch { }
 
-            try
-            {
-                var area = pc.CollectionArea;
-                if (area != null)
-                {
-                    if (!area.enabled) area.enabled = true;
-                    if (area.gameObject != null && !area.gameObject.activeSelf)
-                        area.gameObject.SetActive(true);
-                }
-            }
-            catch { }
+            PlortCollectorHelper.WireUpgraderRoot(pcu, pc);
+            PlortCollectorHelper.WireActivators(lp, pc);
+
+            EnsureCollectorRunning(lp, force: true);
         }
 
         private static void InvokeVanillaAwake(Il2Cpp.SlimeFeeder sf)
@@ -623,11 +663,50 @@ namespace SlimeCorralSpawn.Placement
             finally { _invokingAwake.Remove(id); }
         }
 
-        /// <summary>Aspira plorts ahora mismo (botón manual / al registrar con plorts dentro).</summary>
+        internal static void EnsureCollectorSiloReady(Il2CppLandPlot lp)
+        {
+            if (lp == null || !HasUpgradeSafe(lp, Il2CppLandPlot.Upgrade.PLORT_COLLECTOR)) return;
+            try
+            {
+                var sc = Il2Cpp.SceneContext.Instance;
+                if (sc == null) return;
+                var lpl = FindLocation(lp);
+                if (lpl == null) return;
+                var model = sc.GameModel.GetLandPlotModel(lpl._id);
+                var pcu = lp.GetComponent<Il2Cpp.PlortCollectorUpgrader>();
+                var pc = ResolvePlortCollectorInternal(pcu, lp);
+                if (pc == null) return;
+                Il2CppSiloStorage silo = null;
+                try { silo = pc._storage; } catch { }
+                if (silo == null)
+                {
+                    silo = ResolveCollectorSilo(pcu, pc, lp);
+                    if (silo != null) try { pc._storage = silo; } catch { }
+                }
+                WireSiloStorage(silo, model);
+            }
+            catch { }
+        }
+
+        private static void WireSiloStorage(Il2CppSiloStorage silo,
+            Il2CppMonomiPark.SlimeRancher.DataModel.LandPlotModel model)
+        {
+            if (silo == null) return;
+            int id = silo.GetInstanceID();
+            if (_invokingAwake.Add(id))
+            {
+                try { silo.Awake(); } catch { }
+                finally { _invokingAwake.Remove(id); }
+            }
+            try { if (model != null) { silo.InitModel(model); silo.SetModel(model); } } catch { }
+            try { silo.InitAmmo(); } catch { }
+        }
+
         internal static void ForceCollectNow(Il2CppLandPlot lp)
         {
             if (lp == null) return;
             if (!HasUpgradeSafe(lp, Il2CppLandPlot.Upgrade.PLORT_COLLECTOR)) return;
+            PlortCollectorHelper.WireForPlot(lp);
             WirePlotComponents(lp);
             EnsureCollectorRunning(lp);
             try
@@ -636,7 +715,7 @@ namespace SlimeCorralSpawn.Placement
                 if (pcu == null) return;
                 var pc = ResolvePlortCollector(pcu, lp);
                 if (pc == null) return;
-                try { pc.DoCollection(); } catch { }
+                PlortCollectorHelper.PulseCollection(pc, manual: true);
             }
             catch { }
         }
@@ -695,7 +774,7 @@ namespace SlimeCorralSpawn.Placement
             catch { }
         }
 
-        private static void EnsureRegionFromCell(Il2CppLandPlot lp, Il2Cpp.SceneContext sc)
+        private static void EnsureRegionFromNeighbor(Il2CppLandPlot lp, Il2Cpp.SceneContext sc)
         {
             try
             {
@@ -719,11 +798,12 @@ namespace SlimeCorralSpawn.Placement
                     }
                 }
 
-                // Fallback: cualquier LandPlot vanilla cercano en la escena
+                // Fallback: cualquier LandPlot vanilla cercano en la escena (CACHEADO: este FindObjects
+                // corría cada 1.5s por cada plot lejano sin región = lag. Ahora se refresca cada ~8s).
                 var pos = lp.transform.position;
                 Il2CppLandPlot best = null;
                 float bestDist = float.MaxValue;
-                var all = UnityEngine.Object.FindObjectsOfType<Il2CppLandPlot>(true);
+                var all = GetAllLandPlotsCached();
                 if (all != null)
                 {
                     foreach (var other in all)
@@ -888,7 +968,7 @@ namespace SlimeCorralSpawn.Placement
                 var pos = lp.transform.position;
                 Il2Cpp.RanchCellFastForwarder bestFf = null;
                 float bestDist = float.MaxValue;
-                var ffs = UnityEngine.Object.FindObjectsOfType<Il2Cpp.RanchCellFastForwarder>(true);
+                var ffs = GetAllFFsCached();
                 if (ffs != null)
                 {
                     foreach (var ff in ffs)

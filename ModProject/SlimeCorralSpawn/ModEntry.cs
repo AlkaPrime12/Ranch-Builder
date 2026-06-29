@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Slime Corral Spawn", "1.6.0", "SlimeRancherModder")]
+[assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Slime Corral Spawn", "1.7.33", "SlimeRancherModder")]
 [assembly: MelonGame("MonomiPark", "SlimeRancher2")]
 
 namespace SlimeCorralSpawn
@@ -53,13 +53,26 @@ namespace SlimeCorralSpawn
                 // Culling de luces: solo deja encendidas las más cercanas (HDRP cobra caro por luz).
                 try { Placement.StructureLightHelper.Update(); }
                 catch (Exception ex) { LogErrorOnce("StructureLightHelper.Update", ex); }
+
+                try { Gadgets.GadgetPlacementHelper.Tick(); }
+                catch (Exception ex) { LogErrorOnce("GadgetPlacementHelper.Tick", ex); }
+
+                try { Gadgets.GadgetEditor.Update(); }
+                catch (Exception ex) { LogErrorOnce("GadgetEditor.Update", ex); }
             }
 
             try { Placement.PlortCollectorDriver.Update(); }
             catch (Exception ex) { LogErrorOnce("PlortCollectorDriver.Update", ex); }
 
+            try { Placement.SceneArtifactCleanup.Tick(); }
+            catch (Exception ex) { LogErrorOnce("SceneArtifactCleanup.Tick", ex); }
+
             try { Placement.SlimeFeederDriver.Update(); }
             catch (Exception ex) { LogErrorOnce("SlimeFeederDriver.Update", ex); }
+
+            try { Placement.GardenDriver.Update(); }
+            catch (Exception ex) { LogErrorOnce("GardenDriver.Update", ex); }
+
 
             try { Placement.PlacementManager.UpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("PlacementManager.UpdateStatic", ex); }
@@ -117,12 +130,17 @@ namespace SlimeCorralSpawn
                 _ranchWasActive = Placement.RealPlotFactory.ContextReady();
 
                 Placement.RealPlotFactory.ResetRoots();
+                Placement.SceneArtifactCleanup.OnSceneLoaded();
 
+                // Reset COMPLETO sólo al volver al MENÚ (no estamos en rancho). Acá sí limpiamos todo y
+                // marcamos para recargar desde disco en la próxima partida.
                 if (!Placement.RealPlotFactory.ContextReady())
                 {
                     Plots.PlotData.ResetLinksForSceneChange();
                     UI.StructureManager.ResetLinksForSceneChange();
                     Placement.StructureLightHelper.Reset();
+                    SaveData.ModDataManager.ClearSlot();
+                    Plots.PlotData.ResetLoadState();
                 }
             }
             catch (Exception ex) { LogErrorOnce("OnSceneWasLoaded", ex); }
@@ -132,6 +150,9 @@ namespace SlimeCorralSpawn
         {
             try
             {
+                // Solo GUARDAR. NO limpiar/recargar acá: al MORIR el juego descarga/recarga sub-escenas y
+                // esto disparaba allPlots.Clear()+re-lectura+re-spawn de TODO = hiper lag + luces duplicadas
+                // (flicker). El reset real va sólo al volver al MENÚ (arriba, en OnSceneWasLoaded).
                 Plots.PlotData.FlushAllContentToModData();
             }
             catch (Exception ex) { LogErrorOnce("OnSceneWasUnloaded", ex); }
@@ -143,6 +164,10 @@ namespace SlimeCorralSpawn
             // sobre el controlador de cámara del juego).
             try { UI.PlotsMenuUI.OnLateUpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("PlotsMenuUI.OnLateUpdateStatic", ex); }
+
+            // Re-aplicar FreeCam (el juego reactiva cosas en su Update).
+            try { Gadgets.GadgetEditor.OnLateUpdateStatic(); }
+            catch (Exception ex) { LogErrorOnce("GadgetEditor.OnLateUpdateStatic", ex); }
         }
 
         public override void OnGUI()
@@ -174,6 +199,9 @@ namespace SlimeCorralSpawn
             try { Gadgets.GadgetPlacementHelper.DrawHud(); }
             catch (Exception ex) { LogErrorOnce("GadgetPlacementHelper.DrawHud", ex); }
 
+            try { Gadgets.GadgetEditor.DrawHud(); }
+            catch (Exception ex) { LogErrorOnce("GadgetEditor.DrawHud", ex); }
+
             try { PaintTool.OnGUIStatic(); }
             catch (Exception ex) { LogErrorOnce("PaintTool.OnGUIStatic", ex); }
         }
@@ -182,6 +210,8 @@ namespace SlimeCorralSpawn
         {
             try { Plots.PlotData.FlushAllContentToModData(); }
             catch (Exception ex) { LogErrorOnce("ContentCapture.OnQuit", ex); }
+            try { SaveData.ModDataManager.FlushBeforeQuit(); }
+            catch (Exception ex) { LogErrorOnce("ModDataManager.FlushBeforeQuit", ex); }
         }
 
         /// <summary>

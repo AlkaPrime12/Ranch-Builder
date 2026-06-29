@@ -141,12 +141,10 @@ namespace SlimeCorralSpawn.Houses
                     case 1: target = td.GetNextHour(21f); break;    // noche
                     default: target = td.HoursFromNow(6f); break;   // 6 horas
                 }
-                // PROTEGER la comida: capturar el contenido de NUESTROS plots ANTES de dormir; el fast-forward
-                // se la "come", pero la RESTAURAMOS al despertar (así al salir los slimes la comen => plorts).
-                CaptureOurPlots();
+                // NO capturar/restaurar a mano: ahora los plots están registrados y el fast-forward del
+                // juego los procesa NATIVAMENTE. Restaurar encima causaba HIPER LAG al despertar +
+                // contenido "doble" en los silos. Dejamos que el juego haga su fast-forward solo.
                 td.FastForwardTo(target);
-                _restorePending = true;
-                ModEntry.Instance?.LoggerInstance.Msg("[Casa] Durmiendo… (comida protegida)");
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("HouseInteraction.Sleep", ex); }
             Close();

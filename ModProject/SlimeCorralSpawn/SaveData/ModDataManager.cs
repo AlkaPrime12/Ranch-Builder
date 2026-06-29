@@ -17,11 +17,12 @@ namespace SlimeCorralSpawn.SaveData
         private static string LegacySavePath => Path.Combine(SaveDirectory, "moddata.json");
 
         private static string _currentSlotId;
+        private static string _lastKnownSlotId;
         private static ModSaveData currentData;
         private static bool _slotResolved;
 
-        public static string CurrentSlotId => _currentSlotId ?? "unknown";
-        public static bool IsSlotResolved => _slotResolved;
+        public static string CurrentSlotId => _currentSlotId ?? _lastKnownSlotId ?? "unknown";
+        public static bool IsSlotResolved => _slotResolved || !string.IsNullOrEmpty(_lastKnownSlotId);
 
         // ── Slot resolution ──────────────────────────────────────────────
 
@@ -47,8 +48,7 @@ namespace SlimeCorralSpawn.SaveData
                 if (summary != null)
                 {
                     int idx = summary.SaveSlotIndex;
-                    _currentSlotId = $"saveSlot{idx}";
-                    _slotResolved = true;
+                    RememberSlot($"saveSlot{idx}");
                     return _currentSlotId;
                 }
 
@@ -57,9 +57,7 @@ namespace SlimeCorralSpawn.SaveData
                 try { name = asd.CurrentSaveGameName(); } catch { }
                 if (!string.IsNullOrEmpty(name))
                 {
-                    string sanitized = SanitizeSlotName(name);
-                    _currentSlotId = sanitized;
-                    _slotResolved = true;
+                    RememberSlot(SanitizeSlotName(name));
                     return _currentSlotId;
                 }
             }
@@ -68,9 +66,19 @@ namespace SlimeCorralSpawn.SaveData
             return null;
         }
 
+        private static void RememberSlot(string slot)
+        {
+            if (string.IsNullOrEmpty(slot)) return;
+            _currentSlotId = slot;
+            _lastKnownSlotId = slot;
+            _slotResolved = true;
+        }
+
         private static string GetSlotPath()
         {
             string slot = ResolveSlotId();
+            if (string.IsNullOrEmpty(slot))
+                slot = _lastKnownSlotId;
             if (string.IsNullOrEmpty(slot)) return null;
             return Path.Combine(SaveDirectory, $"moddata_{slot}.json");
         }
@@ -127,6 +135,13 @@ namespace SlimeCorralSpawn.SaveData
                 catch (Exception ex)
                 {
                     MelonLogger.Warning($"[SlimeCorralSpawn] Failed to load slot save '{slotPath}': {ex.Message}");
+                    try
+                    {
+                        string bak = slotPath + ".corrupt_" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".bak";
+                        File.Move(slotPath, bak);
+                        MelonLogger.Msg($"[SlimeCorralSpawn] Save corrupto movido a: {bak}");
+                    }
+                    catch { }
                     currentData = null;
                 }
             }
@@ -338,6 +353,23 @@ namespace SlimeCorralSpawn.SaveData
             if (currentData == null || currentData.Polygons == null) return;
             currentData.Polygons.RemoveAll(s => s.UniqueId == uniqueId);
             Save();
+        }
+
+        /// <summary>Fuerza guardado antes de salir (usa el último slot conocido si hace falta).</summary>
+        public static void FlushBeforeQuit()
+        {
+            try
+            {
+                if (currentData == null)
+                    LoadForCurrentSlot();
+                if (currentData == null && !string.IsNullOrEmpty(_lastKnownSlotId))
+                    currentData = new ModSaveData();
+                Save();
+            }
+            catch (Exception ex)
+            {
+                MelonLogger.Error($"[SlimeCorralSpawn] FlushBeforeQuit failed: {ex.Message}");
+            }
         }
 
         public static void Save()

@@ -50,19 +50,6 @@ namespace SlimeCorralSpawn.Patches
         {
             if (!GamePatches.IsOurLandPlot(__instance)) return;
 
-            var sc = Il2Cpp.SceneContext.Instance;
-            if (sc == null) return;
-
-            var lpl = FindLPL(__instance);
-            if (lpl == null) return;
-
-            var model = sc.GameModel.GetLandPlotModel(lpl._id);
-            if (model == null) return;
-
-            __instance.InitModel(model);
-
-            // Disparo único: RegisterAndInitialize se auto-reintenta de forma acotada si
-            // queda incompleto (evita pipelines en competencia y _done prematuro).
             Deferred.Run(() =>
             {
                 if (__instance == null || !GamePatches.IsOurLandPlot(__instance)) return;

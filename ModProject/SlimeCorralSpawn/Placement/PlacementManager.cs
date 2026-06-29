@@ -175,7 +175,7 @@ namespace SlimeCorralSpawn.Placement
         }
 
         /// <summary>Subir/bajar la construcción con las flechas ↑/↓ (estilo LEGO Fortnite).</summary>
-        private static void HandleHeight() => PlacementHeightInput.Tick();
+        private static void HandleHeight() => PlacementHeightInput.TickModBuild();
 
         /// <summary>HUD de colocación: crosshair central + panel de instrucciones y estado.</summary>
         public static void OnGUIStatic()
@@ -596,7 +596,59 @@ namespace SlimeCorralSpawn.Placement
         public static bool LitTemplateReady => _litTemplate != null;
         /// <summary>Pre-busca el template Lit (llamado en la carga) para que el escaneo caro no caiga en pausa.</summary>
         public static void WarmLitTemplate() { GetLitTemplate(); }
+        /// <summary>Descarta templates contaminados (p. ej. holograma EMPTY) al cambiar de escena.</summary>
+        internal static void ResetLitTemplates()
+        {
+            _litTemplate = null;
+            _glassTemplate = null;
+            _glassScanned = false;
+            _litScanPool = null;
+            _litScanIdx = 0;
+            _lastTemplateScan = -999f;
+            ClearSharedMaterialCache();
+        }
         internal static Material GetGlassTemplate() { GetLitTemplate(); return _glassTemplate; }
+        private static bool ShouldSkipRendererForTemplate(MeshRenderer r)
+        {
+            if (r == null) return true;
+            GameObject go = null;
+            try { go = r.gameObject; } catch { return true; }
+            if (go == null) return true;
+
+            string gn = go.name;
+            if (gn == "RealPlotGhostPreview" || gn == "PlacementGhost") return true;
+
+            Transform t = go.transform;
+            int depth = 0;
+            while (t != null && depth++ < 12)
+            {
+                string n = t.name;
+                if (!string.IsNullOrEmpty(n))
+                {
+                    if (n.StartsWith("SCP_") || n.StartsWith("SCS_")) return true;
+                    if (n.IndexOf("Ghost", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+                }
+                try
+                {
+                    if (t.GetComponent<Il2Cpp.LandPlot>() != null) return true;
+                    if (t.GetComponent<Il2Cpp.LandPlotLocation>() != null) return true;
+                }
+                catch { }
+                t = t.parent;
+            }
+
+            Material m = null;
+            try { m = r.sharedMaterial; } catch { }
+            if (m == null) return false;
+            string mn = m.name ?? "";
+            if (mn.IndexOf("hologram", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            if (mn.IndexOf("grid", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            if (mn.IndexOf("plot", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            if (mn.IndexOf("empty", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            if (mn.IndexOf("preview", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            return false;
+        }
+
         private static Material GetLitTemplate()
         {
             if (_litTemplate != null && _glassScanned) return _litTemplate;
@@ -613,17 +665,18 @@ namespace SlimeCorralSpawn.Placement
                 while (_litScanIdx < _litScanPool.Length && budget-- > 0)
                 {
                     var r = _litScanPool[_litScanIdx++];
-                    if (r == null) continue;
+                    if (r == null || ShouldSkipRendererForTemplate(r)) continue;
                     Material m = null; try { m = r.sharedMaterial; } catch { }
                     if (m == null || m.shader == null) continue;
                     string sn = m.shader.name;
                     if (string.IsNullOrEmpty(sn)) continue;
                     bool isLit = sn == "HDRP/Lit";
-                    if (_glassTemplate == null && isLit && IsMaterialTransparent(m)) _glassTemplate = m;
+                    bool transparent = IsMaterialTransparent(m);
+                    if (_glassTemplate == null && isLit && transparent) _glassTemplate = m;
                     if (_litTemplate == null)
                     {
-                        if (isLit) { _litTemplate = m; }
-                        else if (fallback == null && sn.Contains("Lit") && !sn.Contains("Unlit")) fallback = m;
+                        if (isLit && !transparent) { _litTemplate = m; }
+                        else if (fallback == null && sn.Contains("Lit") && !sn.Contains("Unlit") && !transparent) fallback = m;
                     }
                     if (_litTemplate != null && (_glassTemplate != null || _glassScanned)) break;
                 }
