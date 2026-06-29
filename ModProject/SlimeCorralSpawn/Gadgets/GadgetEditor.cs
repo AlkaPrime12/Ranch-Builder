@@ -96,13 +96,12 @@ namespace SlimeCorralSpawn.Gadgets
                     if (_editing != null) return;
                 }
 
-                // Si se abre el menú F5 o el modo artefacto del juego → pausar edición pero NO cancelarla.
-                bool blocked;
-                try { blocked = UI.PlotsMenuUI.IsVisible || GadgetPlacementHelper.IsPlacingGadget(); } catch { blocked = true; }
+                // Si se abre el menú F5 o el modo artefacto del juego → pausar
+                // PERO si ya estamos en modo edición, NO bloquear — el jugador eligió editar.
+                bool blocked = _editing == null && (UI.PlotsMenuUI.IsVisible || GadgetPlacementHelper.IsPlacingGadget());
                 if (blocked)
                 {
                     if (_freeCam) ExitFreeCam();
-                    // NUNCA limpiar _editing aquí — el jugador eligió editar y solo [Esc]/[Enter]/error lo cierra.
                     return;
                 }
 
