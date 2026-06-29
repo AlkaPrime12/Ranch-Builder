@@ -27,8 +27,6 @@ namespace SlimeCorralSpawn.Gadgets
         private static bool _airMode;
         /// <summary>Siempre el gadget bajo la mira (se actualiza cada frame incluso en estado bloqueado).</summary>
         private static GameObject _hoverAlways;
-        /// <summary>true cuando el jugador acaba de pulsar [R] este frame (impide que el bloqueo cancele la edición).</summary>
-        private static bool _pendingEnter;
         private const float RotSpeed = 90f;
         private const float DragRotPerPixel = 1.2f;
         private const float ScaleSpeed = 0.6f;
@@ -94,26 +92,19 @@ namespace SlimeCorralSpawn.Gadgets
                 // Detectar [R] SIEMPRE — incluso durante el bloqueo — para que la entrada nunca se pierda.
                 if (_editing == null && _hoverAlways != null && InputHelper.GetKeyDown(KeyCode.R))
                 {
-                    // Guardamos que la intención fue entrar a edición; si el bloqueo está activo, saltamos
-                    // la limpieza de _editing que hace el bloque abajo. Así aunque el menú artefacto esté
-                    // cerrando su frame fantasma, la edición queda firme.
-                    _pendingEnter = true;
                     EnterEdit(_hoverAlways);
                     if (_editing != null) return;
                 }
 
-                // Si se abre el menú F5 o el modo artefacto del juego → abortar edición.
+                // Si se abre el menú F5 o el modo artefacto del juego → pausar edición pero NO cancelarla.
                 bool blocked;
                 try { blocked = UI.PlotsMenuUI.IsVisible || GadgetPlacementHelper.IsPlacingGadget(); } catch { blocked = true; }
                 if (blocked)
                 {
                     if (_freeCam) ExitFreeCam();
-                    // Si justo entramos a edición este frame (por el [R] de arriba), no la cancelamos.
-                    if (_editing != null && !_pendingEnter) { SetDragAxis(-1); _editing = null; }
-                    _pendingEnter = false;
+                    // NUNCA limpiar _editing aquí — el jugador eligió editar y solo [Esc]/[Enter]/error lo cierra.
                     return;
                 }
-                _pendingEnter = false;
 
                 // === FREE CAM (tecla F) ===
                 if (InputHelper.GetKeyDown(KeyCode.F)) ToggleFreeCam();
