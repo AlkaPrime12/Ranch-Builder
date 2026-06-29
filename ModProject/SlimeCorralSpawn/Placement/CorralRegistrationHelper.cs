@@ -126,6 +126,7 @@ namespace SlimeCorralSpawn.Placement
                 SyncUpgradeVisibility(lp);
                 ActivateUpgradeObjects(lp);
                 WireMinimalComponents(lp, sc, model);
+                WireGarden(lp, sc);   // jardín: inicializa el SpawnResource vanilla (crece comida solo)
                 LogWireStatus(lp);
             }
             finally
@@ -643,6 +644,89 @@ namespace SlimeCorralSpawn.Placement
             PlortCollectorHelper.WireActivators(lp, pc);
 
             EnsureCollectorRunning(lp, force: true);
+        }
+
+        /// <summary>JARDÍN VANILLA: inicializa el <c>SpawnResource</c> (el "grower" del juego) para que crezca
+        /// comida SOLO, exactamente como un jardín normal. Mismo patrón que el silo del collector: refs base
+        /// (timeDir/region/landPlot) → Awake vanilla → modelo (InitializeSpawnResourceModel + InitModel/SetModel)
+        /// → RegisterResourceSpawner (para que el FAST-FORWARD del juego lo avance al dormir/morir/pasar tiempo).
+        /// El crecimiento real y el fast-forward los hace el JUEGO; nosotros solo lo dejamos "enchufado".</summary>
+        internal static void WireGarden(Il2CppLandPlot lp, Il2Cpp.SceneContext sc)
+        {
+            if (lp == null) return;
+            try { if (sc == null) sc = Il2Cpp.SceneContext.Instance; } catch { }
+            if (sc == null) return;
+
+            Il2Cpp.SpawnResource sr = null;
+            try { sr = lp.GetComponentInChildren<Il2Cpp.SpawnResource>(true); } catch { }
+            if (sr == null) return;   // no es un jardín → nada que hacer
+
+            Il2Cpp.TimeDirector timeDir = null;
+            try { timeDir = sc.TimeDirector; } catch { }
+            if (timeDir == null) { try { timeDir = UnityEngine.Object.FindObjectOfType<Il2Cpp.TimeDirector>(); } catch { } }
+
+            // Componente/GO activos (si no, Unity no llama Update() → no crece en tiempo real).
+            try { if (sr.gameObject != null && !sr.gameObject.activeSelf) sr.gameObject.SetActive(true); } catch { }
+            try { if (!sr.enabled) sr.enabled = true; } catch { }
+
+            // Refs base ANTES del Awake vanilla.
+            try { if (timeDir != null) sr._timeDir = timeDir; } catch { }
+            try { if (lp._region != null) sr._region = lp._region; } catch { }
+            try { sr._landPlot = lp; } catch { }
+
+            InvokeVanillaAwake(sr);
+
+            // Modelo del spawner (lo usa Update()/FastForward()). Si Awake no lo creó, crearlo + registrarlo.
+            bool freshModel = false;
+            try
+            {
+                object existing = null; try { existing = sr._model; } catch { }
+                if (existing == null)
+                {
+                    Vector3 pos = sr.transform.position;
+                    var srModel = sc.GameModel.InitializeSpawnResourceModel(pos);
+                    if (srModel != null)
+                    {
+                        try { sr.InitModel(srModel); } catch { }
+                        try { sr.SetModel(srModel); } catch { }
+                        freshModel = true;
+                        // Registrar el participante → el RanchCellFastForwarder del juego lo avanza
+                        // al dormir / morir / pasar el tiempo (crecimiento "offline" vanilla).
+                        try { var part = srModel.part; if (part != null) sc.GameModel.RegisterResourceSpawner(pos, part); } catch { }
+                    }
+                }
+            }
+            catch { }
+
+            // Sin bloqueadores: con _spawnBlockers > 0 el Update/FastForward NO spawnea.
+            try { sr._spawnBlockers = 0; } catch { }
+
+            // Re-sincronizar las posiciones de los SPAWN JOINTS al lugar real del plot. Los cultivos de PARCHE
+            // (zanahoria, etc.) spawnean en joints del SUELO; si el plot se movió tras el Awake, esos joints
+            // quedan en la posición vieja (origen del prefab) → la comida sale fuera/bajo el mapa y "no aparece"
+            // (a los árboles como el pogo no les pasa: sus joints van pegados a la malla del árbol). Método vanilla.
+            try { sr.RefreshSpawnJointObjectPositions(); } catch { }
+
+            // GardenCatcher: enganchar el plot para que "plantar" (jugador o restore) funcione.
+            try { var cgc = lp.GetComponentInChildren<Il2Cpp.GardenCatcher>(true); if (cgc != null) cgc.Activator = lp; } catch { }
+
+            // Si ya hay cultivo plantado pero acabamos de crear el modelo (p.ej. tras recargar), arrancar el ciclo.
+            if (freshModel)
+            {
+                try { if (lp.GetAttachedCropId() != null) sr.PlantCrops(); } catch { }
+            }
+        }
+
+        /// <summary>Asegura que el jardín esté "enchufado" justo antes de plantar (idempotente).</summary>
+        internal static void EnsureGardenWired(Il2CppLandPlot lp) => WireGarden(lp, null);
+
+        private static void InvokeVanillaAwake(Il2Cpp.SpawnResource sr)
+        {
+            if (sr == null) return;
+            int id = sr.GetInstanceID();
+            if (!_invokingAwake.Add(id)) return;
+            try { sr.Awake(); } catch { }
+            finally { _invokingAwake.Remove(id); }
         }
 
         private static void InvokeVanillaAwake(Il2Cpp.SlimeFeeder sf)

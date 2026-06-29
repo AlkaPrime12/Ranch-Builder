@@ -91,6 +91,76 @@ namespace SlimeCorralSpawn.SaveData
             return raw;
         }
 
+        // ── Backups + escritura segura ───────────────────────────────────
+        private const int MaxBackups = 6;
+        private static string BackupDirectory => Path.Combine(SaveDirectory, "backups");
+
+        /// <summary>Escritura ATÓMICA: escribe a .tmp y reemplaza. Si el juego crashea a mitad de guardar,
+        /// el save original NO queda a medias (la causa típica de saves corruptos).</summary>
+        private static void AtomicWrite(string path, string content)
+        {
+            string tmp = path + ".tmp";
+            File.WriteAllText(tmp, content);
+            if (File.Exists(path))
+            {
+                try { File.Replace(tmp, path, null); return; } catch { }
+                try { File.Delete(path); } catch { }
+            }
+            File.Move(tmp, path);
+        }
+
+        /// <summary>Copia el save válido a backups/ con timestamp y rota (conserva los últimos MaxBackups por slot).
+        /// Punto de rollback: si una versión futura rompe algo, el rancho se puede recuperar.</summary>
+        private static void CreateRotatingBackup(string slotPath)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(slotPath) || !File.Exists(slotPath)) return;
+                if (!Directory.Exists(BackupDirectory)) Directory.CreateDirectory(BackupDirectory);
+
+                string slot = Path.GetFileNameWithoutExtension(slotPath);   // "moddata_{slot}"
+                string dest = Path.Combine(BackupDirectory, $"{slot}.{DateTime.Now:yyyyMMdd_HHmmss}.bak");
+                if (!File.Exists(dest)) File.Copy(slotPath, dest, false);
+
+                var files = Directory.GetFiles(BackupDirectory, slot + ".*.bak");
+                if (files != null && files.Length > MaxBackups)
+                {
+                    Array.Sort(files, (a, b) => File.GetLastWriteTimeUtc(b).CompareTo(File.GetLastWriteTimeUtc(a)));
+                    for (int i = MaxBackups; i < files.Length; i++)
+                        try { File.Delete(files[i]); } catch { }
+                }
+            }
+            catch (Exception ex) { MelonLogger.Warning($"[SlimeCorralSpawn] backup falló: {ex.Message}"); }
+        }
+
+        /// <summary>Carga el backup VÁLIDO más reciente de este slot (para recuperar de un save corrupto).</summary>
+        private static ModSaveData TryLoadNewestBackup(string slotPath)
+        {
+            try
+            {
+                if (!Directory.Exists(BackupDirectory)) return null;
+                string slot = Path.GetFileNameWithoutExtension(slotPath);
+                var files = Directory.GetFiles(BackupDirectory, slot + ".*.bak");
+                if (files == null || files.Length == 0) return null;
+                Array.Sort(files, (a, b) => File.GetLastWriteTimeUtc(b).CompareTo(File.GetLastWriteTimeUtc(a)));
+                foreach (var f in files)
+                {
+                    try
+                    {
+                        var data = JsonSerializer.Deserialize<ModSaveData>(File.ReadAllText(f));
+                        if (data != null)
+                        {
+                            MelonLogger.Msg($"[SlimeCorralSpawn] Rancho RECUPERADO desde backup: {Path.GetFileName(f)}");
+                            return data;
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+            return null;
+        }
+
         /// <summary>
         /// Clears the resolved slot — used on scene unload / return to menu.
         /// </summary>
@@ -136,6 +206,8 @@ namespace SlimeCorralSpawn.SaveData
                 catch (Exception ex)
                 {
                     MelonLogger.Warning($"[SlimeCorralSpawn] Failed to load slot save '{slotPath}': {ex.Message}");
+                    // ANTES de descartar: intentar recuperar del backup válido más reciente (no perder el rancho).
+                    currentData = TryLoadNewestBackup(slotPath);
                     try
                     {
                         string bak = slotPath + ".corrupt_" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".bak";
@@ -143,9 +215,11 @@ namespace SlimeCorralSpawn.SaveData
                         MelonLogger.Msg($"[SlimeCorralSpawn] Save corrupto movido a: {bak}");
                     }
                     catch { }
-                    currentData = null;
                 }
             }
+
+            // Punto de rollback: backup del save válido recién cargado (1 por sesión; rota últimos MaxBackups).
+            if (currentData != null) CreateRotatingBackup(slotPath);
 
             // Backward compatibility: migrate legacy moddata.json
             if (currentData == null && File.Exists(LegacySavePath))
@@ -403,7 +477,7 @@ namespace SlimeCorralSpawn.SaveData
                 currentData.LastSaveTime = DateTime.Now.ToString("o");
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 string json = JsonSerializer.Serialize(currentData, options);
-                File.WriteAllText(path, json);
+                AtomicWrite(path, json);   // escritura segura: no deja el save a medias si crashea
             }
             catch (Exception ex)
             {
@@ -489,6 +563,11 @@ namespace SlimeCorralSpawn.SaveData
         public string LastSaveTime { get; set; }
         public int TotalPlotsPlaced { get; set; }
         public int TotalNewbucksSpent { get; set; }
+
+        // Forward-compat: campos de versiones MÁS NUEVAS que esta build no conoce se conservan al re-guardar
+        // (no se pierden datos si el jugador abre el save con una versión vieja y vuelve a la nueva).
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public Dictionary<string, JsonElement> ExtraData { get; set; }
     }
 
     [System.Serializable]
@@ -508,6 +587,9 @@ namespace SlimeCorralSpawn.SaveData
         public string GardenCropId { get; set; }
         public string FeederSpeed { get; set; }
         public List<SiloSlotEntry> SiloContent { get; set; } = new List<SiloSlotEntry>();
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public Dictionary<string, JsonElement> ExtraData { get; set; }
     }
 
     [System.Serializable]

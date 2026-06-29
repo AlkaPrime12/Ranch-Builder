@@ -46,6 +46,10 @@ namespace SlimeCorralSpawn
                 case KeyCode.LeftAlt: return Key.LeftAlt;
                 case KeyCode.Comma: return Key.Comma;
                 case KeyCode.Period: return Key.Period;
+                case KeyCode.Minus: return Key.Minus;
+                case KeyCode.Equals: return Key.Equals;
+                case KeyCode.KeypadPlus: return Key.NumpadPlus;
+                case KeyCode.KeypadMinus: return Key.NumpadMinus;
                 default: return Key.None;
             }
         }

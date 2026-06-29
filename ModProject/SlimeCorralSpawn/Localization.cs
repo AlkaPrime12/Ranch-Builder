@@ -347,11 +347,11 @@ namespace SlimeCorralSpawn
             { "gadget_ground",  new[]{ "SUELO", "GROUND", "地面", "ЗЕМЛЯ", "SOL" } },
             { "gadget_freecam_on", new[]{ " [F] FreeCam activa", " [F] FreeCam on", " [F] 自由视角开", " [F] FreeCam вкл", " [F] FreeCam on" } },
             { "gadget_edit_hud", new[]{
-                "Editando gadget — [1] Mover [2] Rotar [+/-] Tamaño [F] FreeCam [H] {0}{1} [Enter] OK [Esc] Salir",
-                "Editing gadget — [1] Move [2] Rotate [+/-] Scale [F] FreeCam [H] {0}{1} [Enter] OK [Esc] Exit",
-                "编辑小工具 — [1] 移动 [2] 旋转 [+/-] 缩放 [F] 自由视角 [H] {0}{1} [Enter] 确定 [Esc] 退出",
-                "Редактирование — [1] Двигать [2] Вращать [+/-] Размер [F] FreeCam [H] {0}{1} [Enter] OK [Esc] Выход",
-                "Édition gadget — [1] Déplacer [2] Pivoter [+/-] Taille [F] FreeCam [H] {0}{1} [Enter] OK [Esc] Quitter" } },
+                "Editando gadget — [1] Mover [2] Rotar [+/-] Tamaño [Inicio] Reset [F] FreeCam [H] {0}{1} [Enter] OK [Click Der] Cancelar",
+                "Editing gadget — [1] Move [2] Rotate [+/-] Scale [Home] Reset [F] FreeCam [H] {0}{1} [Enter] OK [R-Click] Cancel",
+                "编辑小工具 — [1] 移动 [2] 旋转 [+/-] 缩放 [Home] 重置 [F] 自由视角 [H] {0}{1} [Enter] 确定 [右击] 取消",
+                "Редактирование — [1] Двигать [2] Вращать [+/-] Размер [Home] Сброс [F] FreeCam [H] {0}{1} [Enter] OK [ПКМ] Отмена",
+                "Édition gadget — [1] Déplacer [2] Pivoter [+/-] Taille [Début] Réinit [F] FreeCam [H] {0}{1} [Enter] OK [Clic D] Annuler" } },
             { "gadget_move_hint", new[]{
                 "MOVER: mirá hacia dónde poner — ↑/↓ altura",
                 "MOVE: aim where to place — ↑/↓ height",
@@ -365,11 +365,11 @@ namespace SlimeCorralSpawn
                 "ВРАЩЕНИЕ: наведите на круг + зажмите · Q/E · Z/C · V/B",
                 "PIVOTER : visez un cercle + maintien clic · Q/E · Z/C · V/B" } },
             { "gadget_freecam_hud", new[]{
-                "FREE CAM — WASD volar · Mouse mirar · Space/Ctrl subir-bajar · Shift turbo · [F] / [Esc] salir",
-                "FREE CAM — WASD fly · Mouse look · Space/Ctrl up-down · Shift boost · [F] / [Esc] exit",
-                "自由视角 — WASD 飞行 · 鼠标观察 · Space/Ctrl 上升下降 · Shift 加速 · [F] / [Esc] 退出",
-                "FREE CAM — WASD полёт · Мышь осмотр · Space/Ctrl вверх-вниз · Shift ускорение · [F] / [Esc] выход",
-                "FREE CAM — WASD voler · Souris regarder · Space/Ctrl monter-descendre · Shift turbo · [F] / [Esc] quitter" } },
+                "FREE CAM — WASD volar · Mouse mirar · Space/Ctrl subir-bajar · Shift turbo · [F] / [Click Der] salir",
+                "FREE CAM — WASD fly · Mouse look · Space/Ctrl up-down · Shift boost · [F] / [R-Click] exit",
+                "自由视角 — WASD 飞行 · 鼠标观察 · Space/Ctrl 上升下降 · Shift 加速 · [F] / [右击] 退出",
+                "FREE CAM — WASD полёт · Мышь осмотр · Space/Ctrl вверх-вниз · Shift ускорение · [F] / [ПКМ] выход",
+                "FREE CAM — WASD voler · Souris regarder · Space/Ctrl monter-descendre · Shift turbo · [F] / [Clic D] quitter" } },
 
             // ---- PLACEMENT HUD ----
             { "pos_valid",    new[]{ "VÁLIDA", "VALID", "有效", "ДОПУСТИМО", "VALIDE" } },

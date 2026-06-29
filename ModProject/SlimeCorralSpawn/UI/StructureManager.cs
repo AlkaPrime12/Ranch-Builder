@@ -1208,23 +1208,10 @@ namespace SlimeCorralSpawn.UI
                 : PlacementManager.CreateBoxMesh(size);
 
             MeshRenderer mr = child.AddComponent<MeshRenderer>();
-            if (emissive)
-            {
-                mr.sharedMaterial = PlacementManager.CreateGlowMaterial(color, emissiveIntensity);
-            }
-            else if (color.a < 0.99f && _currentMat != Themes.MatKind.Glass)
-            {
-                // Parte translúcida (pantalla de lámpara, ventana): forzar material VIDRIO real transparente.
-                mr.sharedMaterial = PlacementManager.CreateTexturedMaterial(color, Themes.MatKind.Glass);
-            }
-            else
-            {
-                // Tinte blanco => material COMPARTIDO por tipo (batching, menos lag). Coloreado => único.
-                bool whiteish = color.r > 0.92f && color.g > 0.92f && color.b > 0.92f && color.a > 0.99f;
-                mr.sharedMaterial = whiteish
-                    ? PlacementManager.GetSharedMaterial(_currentMat)
-                    : PlacementManager.CreateTexturedMaterial(color, _currentMat);
-            }
+            // Asignar material (misma lógica de siempre, ahora centralizada) y REGISTRAR el renderer para
+            // auto-reparación: si alguna vez queda con shader inválido (violeta), se le re-asigna solo.
+            PlacementManager.ApplyStructureMaterial(mr, _currentMat, color, emissive, emissiveIntensity);
+            Placement.MaterialRepair.Track(mr, _currentMat, color, emissive, emissiveIntensity);
 
             BoxCollider col = child.AddComponent<BoxCollider>();
             col.size = size;

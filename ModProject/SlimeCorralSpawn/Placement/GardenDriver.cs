@@ -1,189 +1,182 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
-using Il2CppLandPlot = Il2Cpp.LandPlot;
+using HarmonyLib;
 
 namespace SlimeCorralSpawn.Placement
 {
+    /// <summary>
+    /// JARDÍN = lógica 100% VANILLA. El SpawnResource (grower del juego) lo cablea
+    /// <see cref="CorralRegistrationHelper.WireGarden"/> y su estado queda IDÉNTICO al de un jardín vanilla
+    /// (verificado con diagnóstico). Lo que faltaba: el juego no llamaba el <c>Update()</c> de nuestro
+    /// SpawnResource (SR2 usa un registro de updates central al que un componente cableado a mano no se suma),
+    /// así que acá lo llamamos NOSOTROS cada frame. Es el mismo método del juego que hace crecer Y soltar la
+    /// fruta en los joints (con región/vacuumable correctos) — no instanciamos nada propio.
+    ///
+    /// TIMER: el juego NO suelta un backlog muy viejo (si <c>nextSpawnTime</c> quedó MUCHO en el pasado, p.ej.
+    /// tras dormir varias veces antes de que existiera este driver, el cultivo se "traba" y nunca dropea — le
+    /// pasaba a la zanahoria pero no al pogo, cuyo timer estaba cerca). Por eso:
+    ///   - Kickstart (1 vez por jardín): adelanta el PRIMER drop a "ahora".
+    ///   - Anti-trabado (throttle 5s): si el timer queda muy atrás y no spawnea, lo re-anclamos a "ahora".
+    /// El <c>Update()</c> avanza nextSpawnTime al spawnear, así que en operación normal no se toca y NO hay
+    /// spawn infinito (el anti-trabado está limitado a 1 cada 5s por jardín).
+    /// </summary>
     internal static class GardenDriver
     {
-        private const int MaxCrops = 50;
-        private static readonly Collider[] _cropBuffer = new Collider[MaxCrops];
-        private static float _nextTick;
-        private const float TickInterval = 3f;
-        private const int MAX_CROPS = 24;
-        private const int MAX_CATCHUP = 8;
-        private const double MIN_INTERVAL_H = 2.0;
-        private const double DEFAULT_INTERVAL_H = 6.0;
-        private const float REAL_TIME_COOLDOWN = 45f;
+        private static float _nextScan;
+        private const float ScanInterval = 2f;       // refrescar la LISTA de jardines (barato); el tick es por-frame
+        private const double StaleGap = 40000.0;     // ~11h-juego en el pasado = "trabado" (1h ≈ 3699 unidades)
+        private const float ReanchorCooldown = 5f;   // segundos reales entre re-anclajes por jardín
 
-        private static readonly Dictionary<string, double> _nextDrop = new Dictionary<string, double>();
-        private static readonly Dictionary<string, float> _lastRealSpawn = new Dictionary<string, float>();
-
-        // Cache nombre → IdentifiableType: se llena en la primera llamada a Update()
-        // cuando el juego ya ha cargado todos los tipos de recursos.
-        private static Dictionary<string, Il2Cpp.IdentifiableType> _typeCache = null;
+        private static readonly List<Il2Cpp.SpawnResource> _gardens = new List<Il2Cpp.SpawnResource>();
+        private static readonly HashSet<int> _kicked = new HashSet<int>();        // 1er drop ya adelantado
+        private static readonly Dictionary<int, float> _lastReanchor = new Dictionary<int, float>();
 
         internal static void Update()
         {
-            if (Time.time < _nextTick) return;
-            _nextTick = Time.time + TickInterval;
-            if (!RealPlotFactory.ContextReady()) return;
+            if (!RealPlotFactory.ContextReady())
+            {
+                if (_gardens.Count > 0) _gardens.Clear();
+                return;
+            }
 
-            // Llenar cache de tipos si aún no existe
-            if (_typeCache == null) BuildTypeCache();
+            if (Time.time >= _nextScan)
+            {
+                _nextScan = Time.time + ScanInterval;
+                RefreshGardens();
+            }
 
-            Il2Cpp.TimeDirector timeDir = null;
-            try { var sc = Il2Cpp.SceneContext.Instance; if (sc != null) timeDir = sc.TimeDirector; } catch { }
-            if (timeDir == null) return;
-            double now; try { now = timeDir.WorldTime(); } catch { return; }
+            if (_gardens.Count == 0) return;
+
+            double now = GetWorldTime();
+            float rt = Time.realtimeSinceStartup;
+
+            // CADA FRAME: tickear el SpawnResource vanilla (crece + dropea), y re-anclar si quedó trabado.
+            for (int i = 0; i < _gardens.Count; i++)
+            {
+                var sr = _gardens[i];
+                if (sr == null) continue;
+                try { sr.Update(); } catch { }
+                ReanchorIfStuck(sr, now, rt);
+            }
+        }
+
+        private static void RefreshGardens()
+        {
+            _gardens.Clear();
+            double now = GetWorldTime();
 
             foreach (var pd in Plots.PlotData.GetAll())
             {
                 if (pd?.LinkedObject == null) continue;
-                Il2CppLandPlot lp = pd.GetLandPlot();
+                Il2Cpp.LandPlot lp = null;
+                try { lp = pd.GetLandPlot(); } catch { }
                 if (lp == null || !Patches.GamePatches.IsOurLandPlot(lp)) continue;
 
-                double interval = Math.Max(GetIntervalHours(lp), MIN_INTERVAL_H);
+                Il2Cpp.SpawnResource sr = null;
+                try { sr = lp.GetComponentInChildren<Il2Cpp.SpawnResource>(true); } catch { }
+                if (sr == null) continue;
 
-                Il2Cpp.IdentifiableType crop = lp.GetAttachedCropId();
-                if (crop == null) continue;
-
-                // Obtener el tipo de COMIDA real (recolectable), no el crop plantado.
-                Il2Cpp.IdentifiableType foodType = ResolveFoodType(crop);
-
-                if (!_nextDrop.TryGetValue(pd.UniqueId, out var nextDrop))
-                {
-                    _nextDrop[pd.UniqueId] = now;
-                    continue;
-                }
-                if (now < nextDrop) continue;
-
-                float rn = Time.time;
-                string uid = pd.UniqueId;
-                if (_lastRealSpawn.TryGetValue(uid, out var lastSpawn) && rn - lastSpawn < REAL_TIME_COOLDOWN)
-                    continue;
-                _lastRealSpawn[uid] = rn;
-
-                int drops = 0;
-                while (now >= nextDrop && drops < MAX_CATCHUP)
-                {
-                    if (CountFood(lp, foodType) >= MAX_CROPS) { nextDrop = now + interval; break; }
-                    SpawnFood(lp, foodType);
-                    nextDrop += interval;
-                    drops++;
-                }
-                _nextDrop[pd.UniqueId] = nextDrop;
+                _gardens.Add(sr);
+                TryKickstart(sr, now);
             }
         }
 
-        /// <summary>Escanea todos los IdentifiableType del juego y los guarda por nombre.
-        /// Se llama una sola vez en la primera Update() en el ranch.</summary>
-        private static void BuildTypeCache()
+        private static void TryKickstart(Il2Cpp.SpawnResource sr, double now)
         {
-            _typeCache = new Dictionary<string, Il2Cpp.IdentifiableType>();
-            try
-            {
-                var all = UnityEngine.Resources.FindObjectsOfTypeAll<Il2Cpp.IdentifiableType>();
-                if (all != null)
-                    foreach (var t in all)
-                        if (t != null && t.name != null && !_typeCache.ContainsKey(t.name))
-                            _typeCache[t.name] = t;
-            }
-            catch (Exception ex) { ModEntry.LogErrorOnce("GardenDriver.BuildTypeCache", ex); }
+            if (now <= 0) return;
+            int id;
+            try { id = sr.GetInstanceID(); } catch { return; }
+            if (_kicked.Contains(id)) return;
+
+            double ns = ReadNextSpawnTime(sr);
+            if (ns <= 0) return;
+            if (SetNextSpawnTime(sr, now))
+                _kicked.Add(id);
         }
 
-        private static double GetIntervalHours(Il2CppLandPlot lp)
+        private static void ReanchorIfStuck(Il2Cpp.SpawnResource sr, double now, float rt)
         {
+            if (now <= 0) return;
+            int id;
+            try { id = sr.GetInstanceID(); } catch { return; }
+
+            double ns = ReadNextSpawnTime(sr);
+            if (ns <= 0) return;
+            if (now - ns <= StaleGap) return;
+
+            if (_lastReanchor.TryGetValue(id, out var last) && rt - last < ReanchorCooldown) return;
+            _lastReanchor[id] = rt;
+            SetNextSpawnTime(sr, now);
+        }
+
+        private static double ReadNextSpawnTime(Il2Cpp.SpawnResource sr)
+        {
+            // 1) Intentar _model.nextSpawnTime (modelo interno del juego)
             try
             {
-                var sr = lp.GetComponentInChildren<Il2Cpp.SpawnResource>(true);
-                if (sr != null)
+                var model = sr._model;
+                if (model != null)
                 {
-                    var def = sr._resourceGrowerDefinition;
-                    if (def != null) { float h = def.MinSpawnIntervalGameHours; return Math.Max(h, (float)MIN_INTERVAL_H); }
+                    foreach (var n in new[] { "nextSpawnTime", "_nextSpawnTime", "m_nextSpawnTime" })
+                    {
+                        try { var v = Traverse.Create(model).Field(n).GetValue<double>(); if (v > 0) return v; } catch { }
+                    }
                 }
             }
             catch { }
-            return DEFAULT_INTERVAL_H;
-        }
 
-        /// <summary>Dado el crop plantado (ej: "PogofruitPlant"), devuelve el
-        /// IdentifiableType de la COMIDA real (ej: "Pogofruit"). Usa el cache.</summary>
-        private static Il2Cpp.IdentifiableType ResolveFoodType(Il2Cpp.IdentifiableType crop)
-        {
-            string name = crop.name;
-            if (name != null && name.EndsWith("Plant"))
+            // 2) Intentar campo directo en SpawnResource
+            foreach (var n in new[] { "nextSpawnTime", "_nextSpawnTime", "m_nextSpawnTime", "_nextResourceTime" })
             {
-                string foodName = name.Substring(0, name.Length - 5);
-                Il2Cpp.IdentifiableType ft;
-                if (_typeCache != null && _typeCache.TryGetValue(foodName, out ft))
-                    return ft;
+                try
+                {
+                    var v = Traverse.Create(sr).Field(n).GetValue<double>();
+                    if (v > 0) return v;
+                }
+                catch { }
             }
-            return crop;
+
+            return 0;
         }
 
-        private static int CountFood(Il2CppLandPlot lp, Il2Cpp.IdentifiableType foodType)
+        private static bool SetNextSpawnTime(Il2Cpp.SpawnResource sr, double now)
         {
-            int c = 0;
+            // 1) Intentar _model.nextSpawnTime
             try
             {
-                int n = Physics.OverlapSphereNonAlloc(lp.transform.position, 10f, _cropBuffer);
-                for (int i = 0; i < n; i++)
+                var model = sr._model;
+                if (model != null)
                 {
-                    var col = _cropBuffer[i]; if (col == null) continue;
-                    Il2Cpp.Identifiable id = null;
-                    try { id = col.GetComponentInParent<Il2Cpp.Identifiable>(); } catch { }
-                    if (id == null) continue;
-                    try { if (id.identType != null && id.identType.name == foodType.name) c++; } catch { }
+                    foreach (var n in new[] { "nextSpawnTime", "_nextSpawnTime", "m_nextSpawnTime" })
+                    {
+                        try { Traverse.Create(model).Field(n).SetValue(now); return true; } catch { }
+                    }
                 }
             }
             catch { }
-            return c;
-        }
 
-        /// <summary>Spawn simple: Instantiate del prefab de comida correcto.
-        /// Sin AccessTools, sin Traverse, sin intentar registrar en región.
-        /// El prefab de comida real ya trae el IdentifiableType correcto y es
-        /// directamente aspirable por la vacaspiradora.</summary>
-        private static void SpawnFood(Il2CppLandPlot lp, Il2Cpp.IdentifiableType foodType)
-        {
-            try
+            // 2) Intentar campo directo en SpawnResource
+            foreach (var n in new[] { "nextSpawnTime", "_nextSpawnTime", "m_nextSpawnTime", "_nextResourceTime" })
             {
-                GameObject prefab = foodType.prefab;
-                if (prefab == null) return;
-
-                Vector3 basePos = lp.transform.position;
-                Vector3 pos = basePos + new Vector3(UnityEngine.Random.Range(-1.5f, 1.5f), 1.6f, UnityEngine.Random.Range(-1.5f, 1.5f));
-                var go = UnityEngine.Object.Instantiate(prefab, pos, Quaternion.identity);
-                if (go == null) return;
-                go.transform.localScale = Vector3.one;
-                if (!go.activeSelf) go.SetActive(true);
+                try { Traverse.Create(sr).Field(n).SetValue(now); return true; } catch { }
             }
-            catch (Exception ex) { ModEntry.LogErrorOnce("GardenDriver.SpawnFood", ex); }
+
+            return false;
         }
 
-        internal static void ResetTimer(string uniqueId, double now, double interval)
+        private static double GetWorldTime()
         {
-            _nextDrop[uniqueId] = now + interval;
-        }
-
-        internal static double GetCurrentInterval(Il2CppLandPlot lp)
-        {
-            double interval = DEFAULT_INTERVAL_H;
-            try
-            {
-                var sr = lp.GetComponentInChildren<Il2Cpp.SpawnResource>(true);
-                if (sr != null)
-                {
-                    var def = sr._resourceGrowerDefinition;
-                    if (def != null) interval = Math.Max((double)def.MinSpawnIntervalGameHours, MIN_INTERVAL_H);
-                }
-            }
+            try { var sc = Il2Cpp.SceneContext.Instance; if (sc != null && sc.TimeDirector != null) return sc.TimeDirector.WorldTime(); }
             catch { }
-            return Math.Max(interval, MIN_INTERVAL_H);
+            return -1;
         }
 
-        internal static void Reset() { _nextDrop.Clear(); _lastRealSpawn.Clear(); _typeCache = null; }
+        internal static void Reset()
+        {
+            _gardens.Clear();
+            _kicked.Clear();
+            _lastReanchor.Clear();
+            _nextScan = 0f;
+        }
     }
 }

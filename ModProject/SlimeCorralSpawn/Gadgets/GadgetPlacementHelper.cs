@@ -127,10 +127,13 @@ namespace SlimeCorralSpawn.Gadgets
         {
             if (!IsPlacingGadget()) return;
             float cx = Screen.width / 2f;
-            GUI.color = Color.white;
-            GUI.Label(new Rect(cx - 200f, Screen.height - 72f, 400f, 22f),
-                string.Format(Loc.T("gadget_height_hud"), ManualHeightOffset.ToString("+0.0;-0.0;0.0")),
-                GUI.skin.label);
+            float y = Screen.height - 72f;
+            var box = new Rect(cx - 210f, y - 4f, 420f, 30f);
+            GUI.color = new Color(0f, 0f, 0f, 0.65f);
+            GUI.Box(box, "");
+            GUI.color = new Color(1f, 1f, 0.8f, 1f);
+            GUI.Label(new Rect(cx - 200f, y, 400f, 22f),
+                string.Format(Loc.T("gadget_height_hud"), ManualHeightOffset.ToString("+0.0;-0.0;0.0")));
         }
     }
 }
