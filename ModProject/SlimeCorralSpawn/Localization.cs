@@ -341,6 +341,162 @@ namespace SlimeCorralSpawn
                 "瞄准结构/地板/地块并单击以打碎。Esc/右键 = 退出。",
                 "Наведите на строение/пол/участок и нажмите, чтобы сломать. Esc/ПКМ = выход.",
                 "Visez une structure/sol/parcelle et cliquez pour la casser. Esc/Clic D = quitter." } },
+
+            // ---- GADGET EDITOR HUD ----
+            { "gadget_air",     new[]{ "AIRE", "AIR", "空中", "ВОЗДУХ", "AIR" } },
+            { "gadget_ground",  new[]{ "SUELO", "GROUND", "地面", "ЗЕМЛЯ", "SOL" } },
+            { "gadget_freecam_on", new[]{ " [F] FreeCam activa", " [F] FreeCam on", " [F] 自由视角开", " [F] FreeCam вкл", " [F] FreeCam on" } },
+            { "gadget_edit_hud", new[]{
+                "Editando gadget — [1] Mover [2] Rotar [+/-] Tamaño [F] FreeCam [H] {0}{1} [Enter] OK [Esc] Salir",
+                "Editing gadget — [1] Move [2] Rotate [+/-] Scale [F] FreeCam [H] {0}{1} [Enter] OK [Esc] Exit",
+                "编辑小工具 — [1] 移动 [2] 旋转 [+/-] 缩放 [F] 自由视角 [H] {0}{1} [Enter] 确定 [Esc] 退出",
+                "Редактирование — [1] Двигать [2] Вращать [+/-] Размер [F] FreeCam [H] {0}{1} [Enter] OK [Esc] Выход",
+                "Édition gadget — [1] Déplacer [2] Pivoter [+/-] Taille [F] FreeCam [H] {0}{1} [Enter] OK [Esc] Quitter" } },
+            { "gadget_move_hint", new[]{
+                "MOVER: mirá hacia dónde poner — ↑/↓ altura",
+                "MOVE: aim where to place — ↑/↓ height",
+                "移动：瞄准放置位置 — ↑/↓ 高度",
+                "ДВИЖЕНИЕ: наведите, куда поставить — ↑/↓ высота",
+                "DÉPLACER : visez où placer — ↑/↓ hauteur" } },
+            { "gadget_rotate_hint", new[]{
+                "ROTAR: apuntá a un círculo + mantené click · Q/E · Z/C · V/B",
+                "ROTATE: aim at a circle + hold click · Q/E · Z/C · V/B",
+                "旋转：瞄准圆圈 + 按住点击 · Q/E · Z/C · V/B",
+                "ВРАЩЕНИЕ: наведите на круг + зажмите · Q/E · Z/C · V/B",
+                "PIVOTER : visez un cercle + maintien clic · Q/E · Z/C · V/B" } },
+            { "gadget_freecam_hud", new[]{
+                "FREE CAM — WASD volar · Mouse mirar · Space/Ctrl subir-bajar · Shift turbo · [F] / [Esc] salir",
+                "FREE CAM — WASD fly · Mouse look · Space/Ctrl up-down · Shift boost · [F] / [Esc] exit",
+                "自由视角 — WASD 飞行 · 鼠标观察 · Space/Ctrl 上升下降 · Shift 加速 · [F] / [Esc] 退出",
+                "FREE CAM — WASD полёт · Мышь осмотр · Space/Ctrl вверх-вниз · Shift ускорение · [F] / [Esc] выход",
+                "FREE CAM — WASD voler · Souris regarder · Space/Ctrl monter-descendre · Shift turbo · [F] / [Esc] quitter" } },
+
+            // ---- PLACEMENT HUD ----
+            { "pos_valid",    new[]{ "VÁLIDA", "VALID", "有效", "ДОПУСТИМО", "VALIDE" } },
+            { "pos_invalid",  new[]{ "INVÁLIDA (obstruida)", "INVALID (blocked)", "无效（被阻挡）", "НЕДОПУСТИМО (заблок.)", "INVALIDE (obstruée)" } },
+            { "placing_hud", new[]{
+                "Colocando: {0} — Posición {1}",
+                "Placing: {0} — Position {1}",
+                "放置：{0} — 位置 {1}",
+                "Размещение: {0} — Позиция {1}",
+                "Placement : {0} — Position {1}" } },
+            { "height_hud", new[]{
+                "↑/↓ = Subir/Bajar altura ({0}m) · Inicio = Reset",
+                "↑/↓ = Raise/Lower height ({0}m) · Home = Reset",
+                "↑/↓ = 升高/降低 ({0}m) · Home = 重置",
+                "↑/↓ = Выше/Ниже ({0}m) · Home = Сброс",
+                "↑/↓ = Monter/Descendre ({0}m) · Début = Réinit" } },
+            { "scale_hud", new[]{
+                "[ / ] = Escala (x{0:0.00}) · G = Grilla ({1}) · T = Pegar ({2})",
+                "[ / ] = Scale (x{0:0.00}) · G = Grid ({1}) · T = Snap ({2})",
+                "[ / ] = 缩放 (x{0:0.00}) · G = 网格 ({1}) · T = 吸附 ({2})",
+                "[ / ] = Масштаб (x{0:0.00}) · G = Сетка ({1}) · T = Прилип. ({2})",
+                "[ / ] = Échelle (x{0:0.00}) · G = Grille ({1}) · T = Coller ({2})" } },
+            { "on_label",     new[]{ "ON", "ON", "开", "ВКЛ", "ON" } },
+            { "off_label",    new[]{ "OFF", "OFF", "关", "ВЫКЛ", "OFF" } },
+
+            // ---- FLOOR BUILDER ----
+            { "floor_title",  new[]{ "DIBUJAR SUELO", "DRAW FLOOR", "绘制地板", "НАРИСОВАТЬ ПОЛ", "DESSINER SOL" } },
+            { "floor_pick_a", new[]{ "Elegí la 1ª esquina (click IZQ)", "Choose 1st corner (L-CLICK)", "选择第一个角（左键）", "Выберите 1-й угол (ЛКМ)", "Choisissez 1er coin (Clic G)" } },
+            { "floor_pick_b", new[]{ "Elegí la 2ª esquina — {0}x{1} = {2} NB", "Choose 2nd corner — {0}x{1} = {2} NB", "选择第二个角 — {0}x{1} = {2} NB", "Выберите 2-й угол — {0}x{1} = {2} NB", "Choisissez 2e coin — {0}x{1} = {2} NB" } },
+            { "floor_hint",   new[]{ "Click IZQ = fijar esquina · Click DER / Esc = cancelar", "L-CLICK = set corner · R-Click / Esc = cancel", "左键 = 设置角 · 右键 / Esc = 取消", "ЛКМ = угол · ПКМ / Esc = отмена", "Clic G = coin · Clic D / Esc = annuler" } },
+
+            // ---- FREE DRAW ----
+            { "freedraw_erase", new[]{
+                "FREE DRAW — BORRAR (E) — Mantené click para borrar parte de una línea (aire también)",
+                "FREE DRAW — ERASE (E) — Hold click to erase part of a line (works in air too)",
+                "自由绘制 — 擦除 (E) — 按住以擦除线条部分（空中也可）",
+                "FREE DRAW — СТИРАНИЕ (E) — Зажмите чтобы стереть часть линии",
+                "FREE DRAW — EFFACER (E) — Maintenez pour effacer une partie du trait" } },
+            { "freedraw_hud", new[]{
+                "{0} · ancho {1}/{2} · Q pincel · C color · [ ] ancho · E borrar",
+                "{0} · width {1}/{2} · Q brush · C color · [ ] width · E erase",
+                "{0} · 宽度 {1}/{2} · Q 画笔 · C 颜色 · [ ] 宽度 · E 擦除",
+                "{0} · ширина {1}/{2} · Q кисть · C цвет · [ ] ширина · E стереть",
+                "{0} · largeur {1}/{2} · Q pinceau · C couleur · [ ] largeur · E effacer" } },
+            { "freedraw_exit", new[]{
+                "Click IZQ dibujar · Click DER / Esc salir",
+                "L-Click draw · R-Click / Esc exit",
+                "左键绘制 · 右键 / Esc 退出",
+                "ЛКМ рисовать · ПКМ / Esc выход",
+                "Clic G dessiner · Clic D / Esc quitter" } },
+            { "brush_ink",    new[]{ "Tinta (3 líneas)", "Ink (3 lines)", "墨水（3 行）", "Чернила (3 линии)", "Encre (3 lignes)" } },
+            { "brush_spray",  new[]{ "Spray (suave)", "Spray (soft)", "喷雾（柔和）", "Спрей (мягкий)", "Spray (doux)" } },
+            { "brush_marker", new[]{ "Marcador (grueso)", "Marker (thick)", "记号笔（粗）", "Маркер (толстый)", "Marqueur (épais)" } },
+            { "brush_chisel", new[]{ "Cincel (fino)", "Chisel (fine)", "凿子（细）", "Стамеска (тонкая)", "Ciseau (fin)" } },
+
+            // ---- POLYGON TOOL ----
+            { "poly_title", new[]{ "FORMA IRREGULAR — puntos: {0} ({1} NB)", "IRREGULAR SHAPE — points: {0} ({1} NB)", "不规则形状 — 点：{0}（{1} NB）", "НЕПРАВИЛЬНАЯ ФОРМА — точки: {0} ({1} NB)", "FORME IRRÉGULIÈRE — points : {0} ({1} NB)" } },
+            { "poly_hint", new[]{
+                "Click IZQ añadir punto · ENTER rellenar · RETROCEDER deshacer · Click DER / Esc cancelar",
+                "L-Click add point · ENTER fill · BACKSPACE undo · R-Click / Esc cancel",
+                "左键添加点 · ENTER 填充 · BACKSPACE 撤销 · 右键 / Esc 取消",
+                "ЛКМ добавить точку · ENTER залить · BACKSPACE отменить · ПКМ / Esc отмена",
+                "Clic G ajouter point · ENTER remplir · BACKSPACE annuler · Clic D / Esc annuler" } },
+
+            // ---- PURCHASE / EDIT PANELS ----
+            { "buy_prefix",   new[]{ "Comprar: {0}", "Buy: {0}", "购买：{0}", "Купить: {0}", "Acheter : {0}" } },
+            { "size_prefix",  new[]{ "Tamaño: {0}", "Size: {0}", "尺寸：{0}", "Размер: {0}", "Taille : {0}" } },
+            { "cost_prefix",  new[]{ "Costo: {0} Newbucks", "Cost: {0} Newbucks", "费用：{0} NB", "Цена: {0} NB", "Coût : {0} NB" } },
+            { "choose_size",  new[]{ "Elegí Tamaño:", "Choose Size:", "选择尺寸：", "Выберите размер:", "Choisissez taille :" } },
+            { "purchase_btn", new[]{ "COMPRAR — {0} Newbucks", "PURCHASE — {0} Newbucks", "购买 — {0} NB", "КУПИТЬ — {0} NB", "ACHETER — {0} NB" } },
+            { "back_btn",     new[]{ "◄ Volver", "◄ Back", "◄ 返回", "◄ Назад", "◄ Retour" } },
+            { "edit_panel_title", new[]{ "Editar: {0}", "Edit: {0}", "编辑：{0}", "Редактировать: {0}", "Modifier : {0}" } },
+            { "level_label",  new[]{ "Nivel: {0}/{1}", "Level: {0}/{1}", "等级：{0}/{1}", "Уровень: {0}/{1}", "Niveau : {0}/{1}" } },
+            { "upgrade_btn",  new[]{ "Mejorar ({0} Newbucks)", "Upgrade ({0} Newbucks)", "升级（{0} NB）", "Улучшить ({0} NB)", "Améliorer ({0} NB)" } },
+            { "max_level",    new[]{ "¡Nivel Máximo!", "Max Level!", "已满级！", "Макс. уровень!", "Niveau Max !" } },
+            { "move_plot_btn", new[]{ "Mover Parcela", "Move Plot", "移动地块", "Переместить", "Déplacer" } },
+            { "delete_plot_btn", new[]{ "Eliminar Parcela", "Delete Plot", "删除地块", "Удалить", "Supprimer" } },
+
+            // ---- MENU TITLE ----
+            { "menu_title",   new[]{ "Construcción de Rancho", "Ranch Builder", "牧场建造", "Стройка ранчо", "Constructeur de Ranch" } },
+            { "menu_subtitle", new[]{ "Parcelas · Casas · Estructuras", "Plots · Houses · Structures", "地块 · 房屋 · 结构", "Участки · Дома · Строения", "Parcelles · Maisons · Structures" } },
+
+            // ---- FREE BUILD TAB ----
+            { "free_grid_scale", new[]{
+                "G = grilla · [ / ] = escala · ↑/↓ = altura · Rueda/R = rotar",
+                "G = grid · [ / ] = scale · ↑/↓ = height · Wheel/R = rotate",
+                "G = 网格 · [ / ] = 缩放 · ↑/↓ = 高度 · 滚轮/R = 旋转",
+                "G = сетка · [ / ] = масштаб · ↑/↓ = высота · Колёсико/R = поворот",
+                "G = grille · [ / ] = échelle · ↑/↓ = hauteur · Molette/R = pivoter" } },
+            { "delete_build_btn", new[]{ "Borrar", "Delete", "删除", "Удалить", "Supprimer" } },
+            { "material_on",  new[]{ "Material: ON (Q · E · click)", "Material: ON (Q · E · click)", "材质：开 (Q · E · 点击)", "Материал: ВКЛ (Q · E · клик)", "Matériau : ON (Q · E · clic)" } },
+            { "nb_abbrev",    new[]{ " NB", " NB", " NB", " NB", " NB" } },
+
+            // ---- BALANCE / NEWBUCKS ----
+            { "newbucks_nogame", new[]{ "Newbucks: (sin partida)", "Newbucks: (no save)", "Newbucks：（无存档）", "Newbucks: (нет игры)", "Newbucks: (aucune partie)" } },
+            { "newbucks_balance", new[]{ "Newbucks: {0}", "Newbucks: {0}", "NB：{0}", "NB: {0}", "NB : {0}" } },
+
+            // ---- TENT HOUSE ----
+            { "tent_title",   new[]{ "CARPA", "TENT", "帐篷", "ПАЛАТКА", "TENTE" } },
+            { "tent_hint",    new[]{ "[E] Salir  |  [F] Dormir", "[E] Exit  |  [F] Sleep", "[E] 退出  |  [F] 睡觉", "[E] Выход  |  [F] Спать", "[E] Quitter  |  [F] Dormir" } },
+
+            // ---- COLOR PICKER ----
+            { "color_title",  new[]{ "COLOR (rueda RGB)", "COLOR (RGB wheel)", "颜色（RGB 色轮）", "ЦВЕТ (RGB колесо)", "COULEUR (roue RGB)" } },
+            { "color_brightness", new[]{ "Brillo", "Brightness", "亮度", "Яркость", "Luminosité" } },
+            { "color_rgb",    new[]{ "R {0}  G {1}  B {2}", "R {0}  G {1}  B {2}", "R {0}  G {1}  B {2}", "R {0}  G {1}  B {2}", "R {0}  V {1}  B {2}" } },
+            { "color_use",    new[]{ "Usar color", "Use color", "使用颜色", "Использовать", "Utiliser couleur" } },
+            { "color_recent", new[]{ "Recientes", "Recent", "最近使用", "Недавние", "Récents" } },
+
+            // ---- MATERIAL PICKER ----
+            { "mat_title",    new[]{ "MATERIAL — escribí para buscar", "MATERIAL — type to search", "材质 — 输入搜索", "МАТЕРИАЛ — введите для поиска", "MATÉRIAU — tapez pour chercher" } },
+            { "mat_search_ph", new[]{ "buscar… (Retroceso = borrar)", "search… (Backspace = clear)", "搜索…（退格 = 清除）", "поиск… (Backspace = очистить)", "chercher… (Retro = effacer)" } },
+            { "mat_wood",     new[]{ "Madera", "Wood", "木头", "Дерево", "Bois" } },
+            { "mat_dark_wood", new[]{ "Madera Osc.", "Dark Wood", "深色木头", "Тёмное дерево", "Bois foncé" } },
+            { "mat_planks",   new[]{ "Tablones", "Planks", "木板", "Доски", "Planches" } },
+            { "mat_stone",    new[]{ "Piedra", "Stone", "石头", "Камень", "Pierre" } },
+            { "mat_cobble",   new[]{ "Adoquín", "Cobblestone", "鹅卵石", "Булыжник", "Pavés" } },
+            { "mat_brick",    new[]{ "Ladrillo", "Brick", "砖", "Кирпич", "Brique" } },
+            { "mat_marble",   new[]{ "Mármol", "Marble", "大理石", "Мрамор", "Marbre" } },
+            { "mat_concrete", new[]{ "Hormigón", "Concrete", "混凝土", "Бетон", "Béton" } },
+            { "mat_sandstone",new[]{ "Arenisca", "Sandstone", "砂岩", "Песчаник", "Grès" } },
+            { "mat_slate",    new[]{ "Pizarra", "Slate", "板岩", "Сланец", "Ardoise" } },
+            { "mat_grass",    new[]{ "Césped", "Grass", "草地", "Трава", "Herbe" } },
+            { "mat_dirt",     new[]{ "Tierra", "Dirt", "泥土", "Земля", "Terre" } },
+            { "mat_metal",    new[]{ "Metal", "Metal", "金属", "Металл", "Métal" } },
+            { "mat_gold",     new[]{ "Dorado", "Gold", "金色", "Золото", "Or" } },
+            { "mat_rust",     new[]{ "Óxido", "Rust", "锈色", "Ржавчина", "Rouille" } },
+            { "mat_lava",     new[]{ "Lava", "Lava", "熔岩", "Лава", "Lave" } },
         };
     }
 }

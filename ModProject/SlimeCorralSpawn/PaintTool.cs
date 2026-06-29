@@ -288,7 +288,7 @@ namespace SlimeCorralSpawn
             Rect panel = new Rect(Screen.width / 2f - pw / 2f, Screen.height / 2f - ph / 2f, pw, ph);
             Fill(panel, new Color(0.13f, 0.11f, 0.17f, 0.97f));
             Fill(new Rect(panel.x, panel.y, pw, 34), new Color(0.20f, 0.16f, 0.28f, 1f));
-            GUI.Label(new Rect(panel.x + 14, panel.y + 7, pw - 20, 22), new GUIContent("COLOR (rueda RGB)"), _title);
+            GUI.Label(new Rect(panel.x + 14, panel.y + 7, pw - 20, 22), new GUIContent(Loc.T("color_title")), _title);
 
             // Rueda.
             float wsz = 220;
@@ -320,7 +320,7 @@ namespace SlimeCorralSpawn
 
             // Slider de brillo.
             float sy = wheelRect.yMax + 16;
-            GUI.Label(new Rect(panel.x + 16, sy - 2, 80, 20), new GUIContent("Brillo"), _small);
+            GUI.Label(new Rect(panel.x + 16, sy - 2, 80, 20), new GUIContent(Loc.T("color_brightness")), _small);
             Rect slid = new Rect(panel.x + 80, sy, pw - 100, 18);
             Fill(slid, new Color(0.25f, 0.25f, 0.3f, 1f));
             float nv = HandleSlider(slid, _value);
@@ -331,14 +331,14 @@ namespace SlimeCorralSpawn
             sy += 30;
             Fill(new Rect(panel.x + 16, sy, 40, 40), _color);
             GUI.Label(new Rect(panel.x + 66, sy + 2, pw - 70, 20),
-                new GUIContent($"R {(int)(_color.r * 255)}  G {(int)(_color.g * 255)}  B {(int)(_color.b * 255)}"), _label);
+                new GUIContent(string.Format(Loc.T("color_rgb"), (int)(_color.r * 255), (int)(_color.g * 255), (int)(_color.b * 255))), _label);
             // Confirmar = lo agrega a recientes y cierra.
             Rect ok = new Rect(panel.x + 66, sy + 22, 120, 26);
-            if (Button(ok, "Usar color", new Color(0.3f, 0.7f, 0.4f))) { PushRecent(_color); _mode = Mode.Color; _picker = Picker.None; _suppressClickUntil = Time.time + 0.3f; }
+            if (Button(ok, Loc.T("color_use"), new Color(0.3f, 0.7f, 0.4f))) { PushRecent(_color); _mode = Mode.Color; _picker = Picker.None; _suppressClickUntil = Time.time + 0.3f; }
 
             // Recientes.
             sy += 56;
-            GUI.Label(new Rect(panel.x + 16, sy, pw, 20), new GUIContent("Recientes"), _small);
+            GUI.Label(new Rect(panel.x + 16, sy, pw, 20), new GUIContent(Loc.T("color_recent")), _small);
             sy += 22;
             float swx = panel.x + 16;
             for (int i = 0; i < _recents.Count && i < 10; i++)
@@ -380,13 +380,13 @@ namespace SlimeCorralSpawn
             Rect panel = new Rect(Screen.width / 2f - pw / 2f, Screen.height / 2f - ph / 2f, pw, ph);
             Fill(panel, new Color(0.13f, 0.11f, 0.17f, 0.97f));
             Fill(new Rect(panel.x, panel.y, pw, 34), new Color(0.20f, 0.16f, 0.28f, 1f));
-            GUI.Label(new Rect(panel.x + 14, panel.y + 7, pw - 20, 22), new GUIContent("MATERIAL — escribí para buscar"), _title);
+            GUI.Label(new Rect(panel.x + 14, panel.y + 7, pw - 20, 22), new GUIContent(Loc.T("mat_title")), _title);
 
             // Caja de búsqueda.
             Rect sb = new Rect(panel.x + 14, panel.y + 40, pw - 28, 24);
             Fill(new Rect(sb.x - 2, sb.y - 2, sb.width + 4, sb.height + 4), new Color(0.28f, 0.24f, 0.34f));
             Fill(sb, new Color(0.10f, 0.09f, 0.13f));
-            string shown = string.IsNullOrEmpty(_matSearch) ? "buscar… (escribí; Retroceso = borrar)" : _matSearch + "_";
+            string shown = string.IsNullOrEmpty(_matSearch) ? Loc.T("mat_search_ph") : _matSearch + "_";
             GUI.Label(new Rect(sb.x + 6, sb.y + 1, sb.width - 10, 22), new GUIContent(shown), _small);
 
             Event e = Event.current;

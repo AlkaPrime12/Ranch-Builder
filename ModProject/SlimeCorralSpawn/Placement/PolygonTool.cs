@@ -169,8 +169,8 @@ namespace SlimeCorralSpawn.Placement
             GUI.color = new Color(0.08f, 0.05f, 0.11f, 0.86f); GUI.DrawTexture(panel, Texture2D.whiteTexture);
             GUI.color = new Color(0.4f, 0.9f, 1f, 0.95f); GUI.DrawTexture(new Rect(panel.x, panel.y, panel.width, 3), Texture2D.whiteTexture);
             GUI.color = prev;
-            GUI.Label(new Rect(panel.x, panel.y + 8, panel.width, 22), new GUIContent($"IRREGULAR SHAPE — points: {_pts.Count}  ({CostPerShape} NB)"), _style);
-            GUI.Label(new Rect(panel.x, panel.y + 34, panel.width, 22), new GUIContent("L-Click add point · ENTER fill · BACKSPACE undo · R-Click/Esc cancel"), _style);
+            GUI.Label(new Rect(panel.x, panel.y + 8, panel.width, 22), new GUIContent(string.Format(Loc.T("poly_title"), _pts.Count, CostPerShape)), _style);
+            GUI.Label(new Rect(panel.x, panel.y + 34, panel.width, 22), new GUIContent(Loc.T("poly_hint")), _style);
         }
     }
 }

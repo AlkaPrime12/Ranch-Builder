@@ -181,11 +181,11 @@ namespace SlimeCorralSpawn.Placement
             GUI.DrawTexture(new Rect(panel.x, panel.y, panel.width, 3), Texture2D.whiteTexture);
             GUI.color = prev;
 
-            string step = _state == St.PickA ? "Elegí la 1ª esquina (click IZQ)" : $"Elegí la 2ª esquina — {tilesX}x{tilesZ} = {cost} NB";
-            GUI.Label(new Rect(panel.x, panel.y + 8, panel.width, 22), new GUIContent("DIBUJAR SUELO"), _style);
+            string step = _state == St.PickA ? Loc.T("floor_pick_a") : string.Format(Loc.T("floor_pick_b"), tilesX, tilesZ, cost);
+            GUI.Label(new Rect(panel.x, panel.y + 8, panel.width, 22), new GUIContent(Loc.T("floor_title")), _style);
             GUI.Label(new Rect(panel.x, panel.y + 32, panel.width, 22), new GUIContent(step), _style);
             GUI.Label(new Rect(panel.x, panel.y + 56, panel.width, 22),
-                new GUIContent("Click IZQ = fijar esquina   ·   Click DER / Esc = cancelar"), _style);
+                new GUIContent(Loc.T("floor_hint")), _style);
         }
     }
 }

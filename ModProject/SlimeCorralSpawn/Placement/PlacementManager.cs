@@ -211,16 +211,20 @@ namespace SlimeCorralSpawn.Placement
             string placing = UI.StructureManager.IsPlacing
                 ? UI.StructureManager.CurrentStructureName
                 : $"{CurrentPlotType} ({CurrentSize})";
-            string status = isValidPosition ? "VÁLIDA" : "INVÁLIDA (obstruida)";
+            string status = isValidPosition ? Loc.T("pos_valid") : Loc.T("pos_invalid");
             GUI.Label(new Rect(panel.x, panel.y + 8, panel.width, 22),
-                new GUIContent($"Colocando: {placing}   —   Posición {status}"), hudStyle);
+                new GUIContent(string.Format(Loc.T("placing_hud"), placing, status)), hudStyle);
             GUI.Label(new Rect(panel.x, panel.y + 34, panel.width, 22),
                 new GUIContent(Loc.T("place_keys")), hudStyle);
             GUI.Label(new Rect(panel.x, panel.y + 60, panel.width, 22),
-                new GUIContent($"↑/↓ = Subir/Bajar altura ({PlacementHeightInput.Offset:+0.0;-0.0;0.0}m)   ·   Inicio = Reset"), hudStyle);
+                new GUIContent(string.Format(Loc.T("height_hud"), PlacementHeightInput.Offset.ToString("+0.0;-0.0;0.0"))), hudStyle);
             if (UI.StructureManager.IsPlacing)
+            {
+                string gridLabel = gridSnapEnabled ? Loc.T("on_label") : Loc.T("off_label");
+                string snapLabel = alignToSurface ? Loc.T("on_label") : Loc.T("off_label");
                 GUI.Label(new Rect(panel.x, panel.y + 86, panel.width, 22),
-                    new GUIContent($"[ / ] = Escala (x{placementScale:0.00})   ·   G = Grilla ({(gridSnapEnabled ? "ON" : "OFF")})   ·   T = Pegar a superficie ({(alignToSurface ? "ON" : "OFF")})"), hudStyle);
+                    new GUIContent(string.Format(Loc.T("scale_hud"), placementScale, gridLabel, snapLabel)), hudStyle);
+            }
         }
 
         private static bool usingRealGhost;

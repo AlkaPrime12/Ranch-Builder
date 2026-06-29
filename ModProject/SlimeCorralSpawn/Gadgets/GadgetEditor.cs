@@ -467,7 +467,7 @@ namespace SlimeCorralSpawn.Gadgets
             _hintStyle = new GUIStyle { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
             _hintStyle.normal.textColor = Beige;
 
-            _labelStyle = new GUIStyle { fontSize = 12, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            _labelStyle = new GUIStyle { fontSize = 16, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             _labelStyle.normal.textColor = new Color(0.85f, 0.80f, 0.70f);
         }
 
@@ -487,14 +487,12 @@ namespace SlimeCorralSpawn.Gadgets
                     Fill(panel, DarkBg);
                     DrawBorder(panel, Pink, 2f);
 
-                    string modeLabel = _airMode ? "AIRE" : "SUELO";
-                    string freeCamLabel = _freeCam ? "  [F] FreeCam activa" : "";
+                    string modeLabel = Loc.T(_airMode ? "gadget_air" : "gadget_ground");
+                    string freeCamLabel = _freeCam ? Loc.T("gadget_freecam_on") : "";
                     GUI.Label(new Rect(cx - 320f, py + 6f, 640f, 22f),
-                        $"Editando gadget —  [1] Mover  [2] Rotar  [+/-] Tamaño  [F] FreeCam  [H] {modeLabel}{freeCamLabel}  [Enter] OK  [Esc] Salir", _labelStyle);
+                        string.Format(Loc.T("gadget_edit_hud"), modeLabel, freeCamLabel), _labelStyle);
                     GUI.Label(new Rect(cx - 320f, py + 28f, 640f, 20f),
-                        _mode == 0
-                            ? "MOVER: mirá dónde poner (suelo o aire) · ↑/↓ altura"
-                            : "ROTAR: apuntá la mira a un círculo + mantené click · o Q/E · Z/C · V/B", _labelStyle);
+                        _mode == 0 ? Loc.T("gadget_move_hint") : Loc.T("gadget_rotate_hint"), _labelStyle);
 
                     Transform t = null; try { t = _editing.transform; } catch { }
                     if (_mode == 1 && t != null) DrawGizmo(t);
@@ -509,8 +507,7 @@ namespace SlimeCorralSpawn.Gadgets
                     float fy = Screen.height - 56f;
                     Rect fp = new Rect(cx - 330f, fy, 660f, 40f);
                     Fill(fp, DarkBg); DrawBorder(fp, Pink, 2f);
-                    GUI.Label(new Rect(cx - 314f, fy + 9f, 628f, 22f),
-                        "FREE CAM —  WASD volar · Mouse mirar · Space/Ctrl subir-bajar · Shift turbo · [F] / [Esc] salir", _labelStyle);
+                    GUI.Label(new Rect(cx - 314f, fy + 9f, 628f, 22f), Loc.T("gadget_freecam_hud"), _labelStyle);
                     GUI.color = Color.white;
                     return;
                 }
