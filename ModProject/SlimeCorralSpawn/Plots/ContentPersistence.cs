@@ -185,6 +185,9 @@ namespace SlimeCorralSpawn.Plots
                             var crop = Lookup(pd.GardenCropId);
                             if (garden != null && crop != null)
                             {
+                                // Asegurar que el SpawnResource vanilla esté inicializado ANTES de plantar,
+                                // si no PlantCrops() no tiene modelo y el jardín no crece.
+                                Placement.CorralRegistrationHelper.EnsureGardenWired(lp);
                                 garden.Plant(crop, false);
                             }
                         }

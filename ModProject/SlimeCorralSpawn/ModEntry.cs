@@ -24,7 +24,9 @@ namespace SlimeCorralSpawn
         // Transición pausa→no pausa: SÓLO el primer frame tras reanudar se salta COMPLETO
         // (OnUpdate + OnLateUpdate + OnGUI) para que el juego se estabilice sin interferencia del mod.
         private static bool _prevPaused;
-        private static bool _justUnpaused;
+        // Tras reanudar (despausar), saltamos VARIOS frames de trabajo del mod para que el juego termine su
+        // propia reanudación sin interferencia (resume más fluido). Lo decrementa OnLateUpdate.
+        private static int _resumeSkip;
 
         public override void OnInitializeMelon()
         {
@@ -50,10 +52,24 @@ namespace SlimeCorralSpawn
             try
             {
                 bool paused = UnityEngine.Time.timeScale == 0f;
-                if (_prevPaused && !paused) { _justUnpaused = true; }
+
+                // Click derecho universal: sale de freecam Y cierra el menú de pausa (funciona incluso
+                // cuando timeScale = 0 cortó la Update normal del GadgetEditor).
+                if (InputHelper.GetMouseButtonDown(1))
+                {
+                    if (Gadgets.GadgetEditor.IsFreeCamActive())
+                        Gadgets.GadgetEditor.OnGamePaused();
+                    if (paused) Gadgets.GadgetEditor.TryClosePauseMenu();
+                }
+
+                // Procesar escape de freecam ANTES de que el pause bloquee — así salimos de freecam
+                // aunque el juego ya haya seteado timeScale = 0.
+                if (paused) try { Gadgets.GadgetEditor.OnGamePaused(); } catch { }
+                if (!_prevPaused && paused) { }                     // transición pausa → no hacer nada extra
+                if (_prevPaused && !paused) { _resumeSkip = 3; }   // transición reanudar → saltar frames
                 _prevPaused = paused;
                 if (paused) return;
-                if (_justUnpaused) return;   // NO limpiar flag aquí — OnLateUpdate la limpia al final del frame
+                if (_resumeSkip > 0) return;   // OnLateUpdate lo decrementa al final del frame
             }
             catch { }
 
@@ -75,6 +91,10 @@ namespace SlimeCorralSpawn
                 try { Placement.StructureLightHelper.Update(); }
                 catch (Exception ex) { LogErrorOnce("StructureLightHelper.Update", ex); }
 
+                // Auto-reparación de materiales violeta (re-asigna shader válido a estructuras rotas).
+                try { Placement.MaterialRepair.Update(); }
+                catch (Exception ex) { LogErrorOnce("MaterialRepair.Update", ex); }
+
                 try { Gadgets.GadgetPlacementHelper.Tick(); }
                 catch (Exception ex) { LogErrorOnce("GadgetPlacementHelper.Tick", ex); }
 
@@ -93,7 +113,6 @@ namespace SlimeCorralSpawn
 
             try { Placement.GardenDriver.Update(); }
             catch (Exception ex) { LogErrorOnce("GardenDriver.Update", ex); }
-
 
             try { Placement.PlacementManager.UpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("PlacementManager.UpdateStatic", ex); }
@@ -160,6 +179,8 @@ namespace SlimeCorralSpawn
                     Plots.PlotData.ResetLinksForSceneChange();
                     UI.StructureManager.ResetLinksForSceneChange();
                     Placement.StructureLightHelper.Reset();
+                    Placement.MaterialRepair.Reset();
+                    Placement.GardenDriver.Reset();
                     SaveData.ModDataManager.ClearSlot();
                     Plots.PlotData.ResetLoadState();
                 }
@@ -181,8 +202,8 @@ namespace SlimeCorralSpawn
 
         public override void OnLateUpdate()
         {
-            // Mismo skip que OnUpdate: el primer frame tras reanudar no toca nada del mod.
-            if (_justUnpaused) { _justUnpaused = false; return; }
+            // Mismo skip que OnUpdate: unos frames tras reanudar no tocamos nada del mod (resume fluido).
+            if (_resumeSkip > 0) { _resumeSkip--; return; }
 
             try { UI.PlotsMenuUI.OnLateUpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("PlotsMenuUI.OnLateUpdateStatic", ex); }
@@ -195,7 +216,7 @@ namespace SlimeCorralSpawn
         {
             // Saltar toda la UI del mod mientras el juego está en pausa (escape abierto)
             // o en el primer frame tras reanudar (cursor/input del juego vulnerable).
-            try { if (UnityEngine.Time.timeScale == 0f || _justUnpaused) return; } catch { }
+            try { if (UnityEngine.Time.timeScale == 0f || _resumeSkip > 0) return; } catch { }
 
             try { Placement.PlacementManager.OnGUIStatic(); }
             catch (Exception ex) { LogErrorOnce("PlacementManager.OnGUIStatic", ex); }

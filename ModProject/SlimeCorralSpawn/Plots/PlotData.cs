@@ -51,14 +51,23 @@ namespace SlimeCorralSpawn.Plots
         private static Dictionary<string, PlotData> allPlots = new Dictionary<string, PlotData>();
         private static bool _dataLoaded;
 
+        // ANTI-LAG: GetAll() lo llaman varios drivers VARIAS veces por segundo. Antes alocaba una List nueva
+        // cada vez (GC que escala con la cantidad de plots → stutter con muchos plots). Ahora devuelve un
+        // snapshot CACHEADO que sólo se reconstruye cuando cambia el conjunto de plots. El rebuild crea una
+        // List NUEVA (no muta la vieja) → seguro ante re-entrancia (un foreach en curso conserva su lista).
+        private static List<PlotData> _snapshot = new List<PlotData>();
+        private static bool _snapshotDirty = true;
+
         public static void Register(PlotData data)
         {
             allPlots[data.UniqueId] = data;
+            _snapshotDirty = true;
         }
 
         public static void Unregister(string uniqueId)
         {
             allPlots.Remove(uniqueId);
+            _snapshotDirty = true;
         }
 
         public static PlotData Find(string uniqueId)
@@ -79,7 +88,12 @@ namespace SlimeCorralSpawn.Plots
 
         public static List<PlotData> GetAll()
         {
-            return new List<PlotData>(allPlots.Values);
+            if (_snapshotDirty)
+            {
+                _snapshot = new List<PlotData>(allPlots.Values);   // lista NUEVA (re-entrancia segura); solo al cambiar
+                _snapshotDirty = false;
+            }
+            return _snapshot;   // NO mutar la lista devuelta (los callers solo iteran)
         }
 
         public static int Count => allPlots.Count;
@@ -123,6 +137,7 @@ namespace SlimeCorralSpawn.Plots
             pd.ContentReady = false; // se restaura al re-construir el plot
             pd.LinkedObject = null;
             allPlots[uid] = pd;
+            _snapshotDirty = true;
         }
 
         public static void RestoreLinkedObjects()
@@ -144,6 +159,7 @@ namespace SlimeCorralSpawn.Plots
         {
             _dataLoaded = false;
             allPlots.Clear();
+            _snapshotDirty = true;
         }
 
         /// <summary>Captura inmediata de todo el contenido vivo y guarda moddata.</summary>

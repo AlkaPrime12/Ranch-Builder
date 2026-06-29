@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using HarmonyLib;
 using Il2CppGadget = Il2CppMonomiPark.SlimeRancher.World.Gadget;
 using Il2CppSRChar = Il2CppMonomiPark.SlimeRancher.Player.CharacterController.SRCharacterController;
 
@@ -14,6 +15,9 @@ namespace SlimeCorralSpawn.Gadgets
 
         private static int _dragAxis = -1;
         private static bool _inputFrozen;
+        private static Vector3 _savedPos;
+        private static Quaternion _savedRot;
+        private static Vector3 _savedScale;
 
         // Free cam = NOCLIP del jugador: muevo al JUGADOR (freeze del KCC + transform), la cámara del juego
         // lo sigue sola (no peleamos con Cinemachine). Al salir, teleport a la posición inicial.
@@ -107,6 +111,9 @@ namespace SlimeCorralSpawn.Gadgets
                 if (blocked)
                 {
                     if (_freeCam) ExitFreeCam();
+                    // Si IsPlacingGadget se queda trabado (menú F5 ya cerrado), limpiar
+                    if (!UI.PlotsMenuUI.IsVisible && GadgetPlacementHelper.IsPlacingGadget())
+                        GadgetPlacementHelper.OnPlacementEnded();
                     return;
                 }
 
@@ -114,7 +121,7 @@ namespace SlimeCorralSpawn.Gadgets
                 if (_editing != null && InputHelper.GetKeyDown(KeyCode.F)) ToggleFreeCam();
                 if (_freeCam)
                 {
-                    if (InputHelper.GetKeyDown(KeyCode.Escape)) { ExitFreeCam(); }
+                    if (InputHelper.GetMouseButtonDown(1)) { ExitFreeCam(); }
                     else FreeCamUpdate();
                 }
 
@@ -135,6 +142,7 @@ namespace SlimeCorralSpawn.Gadgets
                 if (t == null) { StopEdit(); return; }
 
                 if (InputHelper.GetKeyDown(KeyCode.Escape) || InputHelper.GetKeyDown(KeyCode.Return)) { StopEdit(); return; }
+                if (InputHelper.GetMouseButtonDown(1)) { CancelEdit(); return; }
                 if (InputHelper.GetKeyDown(KeyCode.Alpha1)) { _mode = 0; SetDragAxis(-1); }
                 if (InputHelper.GetKeyDown(KeyCode.Alpha2)) { _mode = 1; SetDragAxis(-1); }
 
@@ -152,6 +160,8 @@ namespace SlimeCorralSpawn.Gadgets
                     t.localScale *= (1f + ScaleSpeed * dt);
                 if (InputHelper.GetKey(KeyCode.KeypadMinus) || InputHelper.GetKey(KeyCode.Minus))
                     t.localScale *= Mathf.Max(0.05f, 1f - ScaleSpeed * dt);
+                if (InputHelper.GetKeyDown(KeyCode.Home))
+                    t.localScale = _savedScale;
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("GadgetEditor.Update", ex); }
         }
@@ -166,6 +176,10 @@ namespace SlimeCorralSpawn.Gadgets
             if (go == null) { StopEdit(); return; }
             var tr = go.transform;
             if (tr == null) { StopEdit(); return; }
+            // Guardar posición original para cancelar con click derecho
+            _savedPos = tr.position;
+            _savedRot = tr.rotation;
+            _savedScale = tr.localScale;
             _editing = go;
             _mode = 0;
             _height = 0f;
@@ -181,7 +195,25 @@ namespace SlimeCorralSpawn.Gadgets
             _mode = 0;
             _height = 0f;
             if (_freeCam) ExitFreeCam();
-            FreeCursor(false);   // cursor bloqueado para gameplay al salir de edición
+            FreeCursor(false);
+        }
+
+        /// <summary>Sale de edición restaurando el gadget a su posición original (cancelar).</summary>
+        private static void CancelEdit()
+        {
+            if (_editing == null) return;
+            try
+            {
+                var tr = _editing.transform;
+                if (tr != null)
+                {
+                    tr.position = _savedPos;
+                    tr.rotation = _savedRot;
+                    tr.localScale = _savedScale;
+                }
+            }
+            catch { }
+            StopEdit();
         }
 
         /// <summary>Selecciona el eje del gizmo. Mientras hay eje agarrado, congelo el input del juego para que
@@ -240,6 +272,37 @@ namespace SlimeCorralSpawn.Gadgets
             _flyPos = _savedPlayerPos;
             FreeCursor(false);   // cursor bloqueado para mouse look infinito en FreeCam
             _freeCam = true;
+        }
+
+        /// <summary>Llamado cuando el juego se pausa (menú Escape). Sale de freecam si está activa.</summary>
+        internal static void OnGamePaused()
+        {
+            if (_freeCam)
+                ExitFreeCam();
+        }
+
+        internal static bool IsFreeCamActive() => _freeCam;
+
+        /// <summary>Intenta cerrar el menú de pausa. Llámese desde ModEntry para que funcione aunque
+        /// timeScale = 0 haya cortado la Update normal.</summary>
+        internal static void TryClosePauseMenu()
+        {
+            try { UnityEngine.Time.timeScale = 1f; } catch { }
+            try
+            {
+                var canvs = UnityEngine.Object.FindObjectsOfType<UnityEngine.Canvas>(true);
+                foreach (var c in canvs)
+                {
+                    if (c == null || !c.gameObject.activeInHierarchy) continue;
+                    var n = c.gameObject.name;
+                    if (n.IndexOf("Pause", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        c.gameObject.SetActive(false);
+                        break;
+                    }
+                }
+            }
+            catch { }
         }
 
         private static void ExitFreeCam()

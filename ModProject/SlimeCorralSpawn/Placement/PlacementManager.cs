@@ -775,6 +775,8 @@ namespace SlimeCorralSpawn.Placement
         {
             foreach (var kv in _sharedMat) { if (kv.Value != null) UnityEngine.Object.Destroy(kv.Value); }
             _sharedMat.Clear();
+            foreach (var kv in _coloredCache) { if (kv.Value != null) UnityEngine.Object.Destroy(kv.Value); }
+            _coloredCache.Clear();
         }
         internal static Material GetSharedMaterial(Themes.MatKind kind)
         {
@@ -792,8 +794,79 @@ namespace SlimeCorralSpawn.Placement
             => k == Themes.MatKind.Metal || k == Themes.MatKind.Iron || k == Themes.MatKind.Gold
             || k == Themes.MatKind.Copper || k == Themes.MatKind.Glass;
 
+        /// <summary>Asigna a un renderer de estructura el material correcto (MISMA lógica que al construir, en
+        /// CreateBox). La reusa el auto-reparador de materiales. Si el material nuevo sale null (p. ej. el
+        /// template Lit del juego todavía no está listo → no hay shader válido = violeta), NO pisa el actual.</summary>
+        internal static bool ApplyStructureMaterial(MeshRenderer mr, Themes.MatKind kind, Color color, bool emissive, float emissiveIntensity)
+        {
+            if (mr == null) return false;
+            Material mat = null;
+            try
+            {
+                if (emissive) mat = CreateGlowMaterial(color, emissiveIntensity);
+                else if (color.a < 0.99f && kind != Themes.MatKind.Glass) mat = CreateTexturedMaterial(color, Themes.MatKind.Glass);
+                else
+                {
+                    bool whiteish = color.r > 0.92f && color.g > 0.92f && color.b > 0.92f && color.a > 0.99f;
+                    mat = whiteish ? GetSharedMaterial(kind) : CreateTexturedMaterial(color, kind);
+                }
+            }
+            catch { mat = null; }
+
+            if (mat == null || !MaterialIsValid(mat)) return false;   // no romper lo que haya: que el reparador reintente
+            try { mr.sharedMaterial = mat; } catch { return false; }
+            return true;
+        }
+
+        /// <summary>True si el material tiene un shader VÁLIDO (no null ni el shader de error = violeta).</summary>
+        internal static bool MaterialIsValid(Material m)
+        {
+            if (m == null) return false;
+            Shader s = null;
+            try { s = m.shader; } catch { return false; }
+            if (s == null) return false;
+            string n = null;
+            try { n = s.name; } catch { return false; }
+            if (string.IsNullOrEmpty(n)) return false;
+            if (n.IndexOf("InternalError", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+            if (n.IndexOf("Hidden/InternalErrorShader", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+            return true;
+        }
+
         /// <summary>Material con TEXTURA procedural (madera/piedra/granito/…) + tinte. Para estructuras.</summary>
+        // CACHE de materiales coloreados por (kind,color): estructuras idénticas COMPARTEN un solo material →
+        // menos materiales (RAM) y batching/instancing (menos draw calls con cientos de estructuras).
+        private static readonly Dictionary<long, Material> _coloredCache = new Dictionary<long, Material>();
+
+        private static long ColorKey(Themes.MatKind kind, Color c)
+        {
+            long r = (long)(Mathf.Clamp01(c.r) * 255f);
+            long g = (long)(Mathf.Clamp01(c.g) * 255f);
+            long b = (long)(Mathf.Clamp01(c.b) * 255f);
+            long a = (long)(Mathf.Clamp01(c.a) * 255f);
+            return ((long)kind << 33) | (r << 24) | (g << 16) | (b << 8) | a;
+        }
+
         internal static Material CreateTexturedMaterial(Color tint, Themes.MatKind kind)
+        {
+            long key = ColorKey(kind, tint);
+            if (_coloredCache.TryGetValue(key, out var cached) && MaterialIsValid(cached)) return cached;
+
+            Material result = CreateTexturedMaterialUncached(tint, kind);
+            if (result != null)
+            {
+                try { result.enableInstancing = true; } catch { }   // batching: menos draw calls
+                // Solo cachear materiales VÁLIDOS y cuando el template Lit ya está (no fijar el Unlit temporal).
+                if (LitTemplateReady && MaterialIsValid(result))
+                {
+                    try { result.hideFlags = HideFlags.HideAndDontSave; } catch { }
+                    _coloredCache[key] = result;
+                }
+            }
+            return result;
+        }
+
+        private static Material CreateTexturedMaterialUncached(Color tint, Themes.MatKind kind)
         {
             try
             {
