@@ -19,18 +19,18 @@ namespace SlimeCorralSpawn.Placement
         private const float LodDist = 45f;
         private const float EraseRadius = 0.4f;
 
-        private struct Brush { public Themes.MatKind Mat; public int Style; public string Name; }
+        private struct Brush { public Themes.MatKind Mat; public int Style; public string LocKey; }
         private static readonly Brush[] Brushes = {
-            new Brush { Mat = Themes.MatKind.Ink,   Style = 1, Name = "Ink (3 lines)" },
-            new Brush { Mat = Themes.MatKind.Spray, Style = 2, Name = "Spray (soft)" },
-            new Brush { Mat = Themes.MatKind.Ink,   Style = 3, Name = "Soft (blur)" },
-            new Brush { Mat = Themes.MatKind.Chalk, Style = 4, Name = "Chalk (rough)" },
-            new Brush { Mat = Themes.MatKind.Wood,  Style = 0, Name = "Wood" },
-            new Brush { Mat = Themes.MatKind.Stone, Style = 0, Name = "Stone" },
-            new Brush { Mat = Themes.MatKind.Metal, Style = 0, Name = "Metal" },
-            new Brush { Mat = Themes.MatKind.Gold,  Style = 0, Name = "Gold" },
-            new Brush { Mat = Themes.MatKind.Lava,  Style = 0, Name = "Lava" },
-            new Brush { Mat = Themes.MatKind.Grass, Style = 0, Name = "Grass" },
+            new Brush { Mat = Themes.MatKind.Ink,   Style = 1, LocKey = "brush_ink" },
+            new Brush { Mat = Themes.MatKind.Spray, Style = 2, LocKey = "brush_spray" },
+            new Brush { Mat = Themes.MatKind.Ink,   Style = 3, LocKey = "brush_marker" },
+            new Brush { Mat = Themes.MatKind.Chalk, Style = 4, LocKey = "brush_chisel" },
+            new Brush { Mat = Themes.MatKind.Wood,  Style = 0, LocKey = "mat_wood" },
+            new Brush { Mat = Themes.MatKind.Stone, Style = 0, LocKey = "mat_stone" },
+            new Brush { Mat = Themes.MatKind.Metal, Style = 0, LocKey = "mat_metal" },
+            new Brush { Mat = Themes.MatKind.Gold,  Style = 0, LocKey = "mat_gold" },
+            new Brush { Mat = Themes.MatKind.Lava,  Style = 0, LocKey = "mat_lava" },
+            new Brush { Mat = Themes.MatKind.Grass, Style = 0, LocKey = "mat_grass" },
         };
         private static readonly float[] Widths = { 0.08f, 0.16f, 0.28f, 0.45f };
         private static readonly Color[] Palette = {
@@ -317,10 +317,10 @@ namespace SlimeCorralSpawn.Placement
             GUI.color = Palette[_colorIdx]; GUI.DrawTexture(new Rect(panel.x + 10, panel.y + 10, 24, 24), Texture2D.whiteTexture); GUI.color = prev;
 
             string head = _erase
-                ? "FREE DRAW — ERASE (E) — HOLD L-CLICK and sweep to erase part of a line (works in air too)"
-                : $"Brush: {Brushes[_brushIdx].Name}  ·  width {_widthIdx + 1}/{Widths.Length}  ·  Q brush · C color · [ ] width · E erase";
+                ? Loc.T("freedraw_erase")
+                : string.Format(Loc.T("freedraw_hud"), Loc.T(Brushes[_brushIdx].LocKey), _widthIdx + 1, Widths.Length);
             GUI.Label(new Rect(panel.x + 40, panel.y + 8, panel.width - 50, 22), new GUIContent(head), _style);
-            GUI.Label(new Rect(panel.x, panel.y + 36, panel.width, 22), new GUIContent("L-Click draw · R-Click/Esc exit"), _style);
+            GUI.Label(new Rect(panel.x, panel.y + 36, panel.width, 22), new GUIContent(Loc.T("freedraw_exit")), _style);
         }
     }
 }

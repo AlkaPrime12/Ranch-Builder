@@ -603,7 +603,7 @@ namespace SlimeCorralSpawn.UI
 
         private static void DrawPlotsTab(float x, ref float y, float w)
         {
-            string balanceTxt = cachedBalance < 0 ? "Newbucks: (sin partida)" : $"Newbucks: {cachedBalance}";
+            string balanceTxt = cachedBalance < 0 ? Loc.T("newbucks_nogame") : string.Format(Loc.T("newbucks_balance"), cachedBalance);
             GUI.Label(new Rect(x, y, w, 20), new GUIContent(balanceTxt), priceStyle);
             y += 26f;
 
@@ -693,7 +693,7 @@ namespace SlimeCorralSpawn.UI
 
             // CAMBIAR MATERIAL: activa el pincel (apuntás a una estructura y click izq aplica; Q = material, E = color).
             Rect matRect = new Rect(x, y, w, 42);
-            if (ClickableBox(matRect, PaintTool.Active ? "Material: ON (Q · E · click)" : Loc.T("btn_changemat"), SlimeTheme.BackgroundButtonActive, labelStyle))
+            if (ClickableBox(matRect, PaintTool.Active ? Loc.T("material_on") : Loc.T("btn_changemat"), SlimeTheme.BackgroundButtonActive, labelStyle))
             { if (!PaintTool.Active) PaintTool.Toggle(); CloseMenu(); }
             if (matRect.Contains(Event.current.mousePosition))
                 tooltipText = Loc.T("tip_paint", "Aim at a structure and left-click. Q = material · E = color · R = Paint/Texture.");
@@ -732,8 +732,7 @@ namespace SlimeCorralSpawn.UI
         {
             GUI.Label(new Rect(x, y, w, 22), new GUIContent(Loc.T("hdr_freebuild")), headerStyle);
             y += 26f;
-            GUI.Label(new Rect(x + 4, y, w - 8, 36), new GUIContent(
-                "G = grid · [ / ] = scale · ↑/↓ = height · Wheel/R = rotate"), tooltipStyle);
+            GUI.Label(new Rect(x + 4, y, w - 8, 36), new GUIContent(Loc.T("free_grid_scale")), tooltipStyle);
             y += 40f;
 
             // Herramienta de dibujar suelo a mano (cobra por tamaño, ~25 NB la baldosa 1x1).
@@ -830,7 +829,7 @@ namespace SlimeCorralSpawn.UI
                     Fill(row, SlimeTheme.BackgroundButton);
                     GUI.Label(new Rect(row.x + 8, row.y + 6, row.width - 8, 22), new GUIContent(kv.Value), labelStyle);
                     Rect del = new Rect(x + w - 64, y, 64, 34);
-                    if (ClickableBox(del, "Borrar", SlimeTheme.InvalidRed, smallLabelStyle))
+                    if (ClickableBox(del, Loc.T("delete_build_btn"), SlimeTheme.InvalidRed, smallLabelStyle))
                         StructureManager.DeleteStructure(kv.Key);
                     y += 38f;
                 }
@@ -905,15 +904,15 @@ namespace SlimeCorralSpawn.UI
             PlotDefinition plot = PlotDefinitions.AllPlots[selectedPlotIndex];
             int cost = PlotDefinitions.GetCost(plot.Type, selectedSize);
 
-            GUI.Label(new Rect(x, y, w, 30), new GUIContent($"Buy: {Loc.PlotName(plot.Type)}"), titleStyle);
+            GUI.Label(new Rect(x, y, w, 30), new GUIContent(string.Format(Loc.T("buy_prefix"), Loc.PlotName(plot.Type))), titleStyle);
             y += 35f;
             GUI.Label(new Rect(x + 10, y, w - 20, 40), new GUIContent(plot.Description), tooltipStyle);
             y += 45f;
-            GUI.Label(new Rect(x, y, w, 20), new GUIContent($"Size: {PlotDefinitions.GetSizeLabel(selectedSize)}"), subtitleStyle);
+            GUI.Label(new Rect(x, y, w, 20), new GUIContent(string.Format(Loc.T("size_prefix"), PlotDefinitions.GetSizeLabel(selectedSize))), subtitleStyle);
             y += 25f;
-            GUI.Label(new Rect(x, y, w, 20), new GUIContent($"Cost: {cost} Newbucks"), priceStyle);
+            GUI.Label(new Rect(x, y, w, 20), new GUIContent(string.Format(Loc.T("cost_prefix"), cost)), priceStyle);
             y += 35f;
-            GUI.Label(new Rect(x, y, w, 20), new GUIContent("Choose Size:"), headerStyle);
+            GUI.Label(new Rect(x, y, w, 20), new GUIContent(Loc.T("choose_size")), headerStyle);
             y += 25f;
 
             float sizeBtnW = 80f;
@@ -937,7 +936,7 @@ namespace SlimeCorralSpawn.UI
             y += 60f;
 
             Rect backRect = new Rect(x, y, w, 40);
-            if (ClickableBox(backRect, "Back", SlimeTheme.BackgroundButton, labelStyle))
+            if (ClickableBox(backRect, Loc.T("back_btn"), SlimeTheme.BackgroundButton, labelStyle))
                 showPurchasePanel = false;
         }
 
@@ -947,14 +946,14 @@ namespace SlimeCorralSpawn.UI
             if (houseIdx < 0 || houseIdx >= HouseManager.HouseDefinitions.Count) { showPurchasePanel = false; return; }
             var house = HouseManager.HouseDefinitions[houseIdx];
 
-            GUI.Label(new Rect(x, y, w, 30), new GUIContent($"Buy: {Loc.StructName(house.Id)}"), titleStyle);
+            GUI.Label(new Rect(x, y, w, 30), new GUIContent(string.Format(Loc.T("buy_prefix"), Loc.StructName(house.Id))), titleStyle);
             y += 35f;
             GUI.Label(new Rect(x + 10, y, w - 20, 40), new GUIContent(house.Description), tooltipStyle);
             y += 45f;
-            GUI.Label(new Rect(x, y, w, 20), new GUIContent($"Size: {PlotDefinitions.GetSizeLabel(house.Size)}"), subtitleStyle);
+            GUI.Label(new Rect(x, y, w, 20), new GUIContent(string.Format(Loc.T("size_prefix"), PlotDefinitions.GetSizeLabel(house.Size))), subtitleStyle);
             y += 25f;
             int houseCost = HouseManager.GetCost(house);
-            GUI.Label(new Rect(x, y, w, 20), new GUIContent($"Cost: {houseCost} Newbucks"), priceStyle);
+            GUI.Label(new Rect(x, y, w, 20), new GUIContent(string.Format(Loc.T("cost_prefix"), houseCost)), priceStyle);
             y += 35f;
 
             Fill(new Rect(x, y, w, 2), SlimeTheme.BorderSubtle);
@@ -968,7 +967,7 @@ namespace SlimeCorralSpawn.UI
             Event e = Event.current;
             if (e.type == EventType.MouseDown && e.button == 0 && buyHover) { buyClicked = true; e.Use(); }
 
-            GUI.Label(buyRect, new GUIContent($"PURCHASE - {houseCost} Newbucks"), buyStyle);
+            GUI.Label(buyRect, new GUIContent(string.Format(Loc.T("purchase_btn"), houseCost)), buyStyle);
             y += 60f;
 
             if (buyClicked)
@@ -978,7 +977,7 @@ namespace SlimeCorralSpawn.UI
             }
 
             Rect backRect = new Rect(x, y, w, 40);
-            if (ClickableBox(backRect, "Back", SlimeTheme.BackgroundButton, labelStyle))
+            if (ClickableBox(backRect, Loc.T("back_btn"), SlimeTheme.BackgroundButton, labelStyle))
                 showPurchasePanel = false;
         }
 
@@ -989,12 +988,12 @@ namespace SlimeCorralSpawn.UI
             if (structIdx < 0 || structIdx >= defs.Count) { showPurchasePanel = false; return; }
             var s = defs[structIdx];
 
-            GUI.Label(new Rect(x, y, w, 30), new GUIContent($"Buy: {Loc.StructName(s.Id)}"), titleStyle);
+            GUI.Label(new Rect(x, y, w, 30), new GUIContent(string.Format(Loc.T("buy_prefix"), Loc.StructName(s.Id))), titleStyle);
             y += 35f;
             GUI.Label(new Rect(x + 10, y, w - 20, 40), new GUIContent(s.Description), tooltipStyle);
             y += 45f;
             int structCost = StructureManager.GetCost(s);
-            GUI.Label(new Rect(x, y, w, 20), new GUIContent($"Cost: {structCost} Newbucks"), priceStyle);
+            GUI.Label(new Rect(x, y, w, 20), new GUIContent(string.Format(Loc.T("cost_prefix"), structCost)), priceStyle);
             y += 35f;
 
             Fill(new Rect(x, y, w, 2), SlimeTheme.BorderSubtle);
@@ -1008,7 +1007,7 @@ namespace SlimeCorralSpawn.UI
             Event e = Event.current;
             if (e.type == EventType.MouseDown && e.button == 0 && buyHover) { buyClicked = true; e.Use(); }
 
-            GUI.Label(buyRect, new GUIContent($"PURCHASE - {structCost} Newbucks"), buyStyle);
+            GUI.Label(buyRect, new GUIContent(string.Format(Loc.T("purchase_btn"), structCost)), buyStyle);
             y += 60f;
 
             if (buyClicked)
@@ -1018,7 +1017,7 @@ namespace SlimeCorralSpawn.UI
             }
 
             Rect backRect = new Rect(x, y, w, 40);
-            if (ClickableBox(backRect, "Back", SlimeTheme.BackgroundButton, labelStyle))
+            if (ClickableBox(backRect, Loc.T("back_btn"), SlimeTheme.BackgroundButton, labelStyle))
                 showPurchasePanel = false;
         }
 
@@ -1032,7 +1031,7 @@ namespace SlimeCorralSpawn.UI
             Event e = Event.current;
             if (e.type == EventType.MouseDown && e.button == 0 && buyHover) { buyClicked = true; e.Use(); }
 
-            GUI.Label(buyRect, new GUIContent($"PURCHASE - {cost} Newbucks"), buyStyle);
+            GUI.Label(buyRect, new GUIContent(string.Format(Loc.T("purchase_btn"), cost)), buyStyle);
 
             if (buyClicked)
             {
@@ -1053,37 +1052,37 @@ namespace SlimeCorralSpawn.UI
             var def = PlotDefinitions.GetByType(parsedType);
             string typeName = def != null ? Loc.PlotName(def.Type) : entry.PlotType;
 
-            GUI.Label(new Rect(x, y, w, 30), new GUIContent($"Edit: {typeName}"), titleStyle);
+            GUI.Label(new Rect(x, y, w, 30), new GUIContent(string.Format(Loc.T("edit_panel_title"), typeName)), titleStyle);
             y += 35f;
-            GUI.Label(new Rect(x, y, w, 20), new GUIContent($"Level: {entry.UpgradeLevel}/{def?.MaxUpgrades ?? 5}"), subtitleStyle);
+            GUI.Label(new Rect(x, y, w, 20), new GUIContent(string.Format(Loc.T("level_label"), entry.UpgradeLevel, def?.MaxUpgrades ?? 5)), subtitleStyle);
             y += 35f;
 
             if (def != null && entry.UpgradeLevel < def.MaxUpgrades)
             {
                 int upgradeCost = PlotDefinitions.GetUpgradeCost(def);
                 Rect upgradeRect = new Rect(x, y, w, 35);
-                if (ClickableBox(upgradeRect, $"Upgrade ({upgradeCost} Newbucks)", SlimeTheme.SlimeGreen, labelStyle))
+                if (ClickableBox(upgradeRect, string.Format(Loc.T("upgrade_btn"), upgradeCost), SlimeTheme.SlimeGreen, labelStyle))
                     UpgradePlot(editingPlotUniqueId);
                 y += 42f;
             }
             else
             {
-                GUI.Label(new Rect(x, y, w, 20), new GUIContent("Max Level Reached!"), subtitleStyle);
+                GUI.Label(new Rect(x, y, w, 20), new GUIContent(Loc.T("max_level")), subtitleStyle);
                 y += 25f;
             }
 
             Rect moveRect = new Rect(x, y, w, 35);
-            if (ClickableBox(moveRect, "Move Plot", SlimeTheme.AccentPurple, labelStyle))
+            if (ClickableBox(moveRect, Loc.T("move_plot_btn"), SlimeTheme.AccentPurple, labelStyle))
                 StartMovingPlot(editingPlotUniqueId);
             y += 42f;
 
             Rect deleteRect = new Rect(x, y, w, 35);
-            if (ClickableBox(deleteRect, "Delete Plot", SlimeTheme.InvalidRed, labelStyle))
+            if (ClickableBox(deleteRect, Loc.T("delete_plot_btn"), SlimeTheme.InvalidRed, labelStyle))
                 DeletePlot(editingPlotUniqueId);
             y += 50f;
 
             Rect backRect = new Rect(x, y, w, 40);
-            if (ClickableBox(backRect, "Back", SlimeTheme.BackgroundButton, labelStyle))
+            if (ClickableBox(backRect, Loc.T("back_btn"), SlimeTheme.BackgroundButton, labelStyle))
                 showEditPanel = false;
         }
 
@@ -1152,8 +1151,8 @@ namespace SlimeCorralSpawn.UI
             Rect titleRect = new Rect(menuRect.x, menuRect.y, menuRect.width, 60);
             Fill(titleRect, SlimeTheme.BackgroundPanel);                                  // crema
             Fill(new Rect(titleRect.x, titleRect.yMax - 4, titleRect.width, 4), SlimeTheme.BackgroundButtonActive); // strip teal
-            GUI.Label(new Rect(titleRect.x + 14, titleRect.y + 8, titleRect.width - 14, 30), new GUIContent("Custom Ranch Builder"), titleStyle);
-            GUI.Label(new Rect(titleRect.x + 14, titleRect.y + 35, titleRect.width - 14, 20), new GUIContent("Plots · Houses · Structures"), subtitleStyle);
+            GUI.Label(new Rect(titleRect.x + 14, titleRect.y + 8, titleRect.width - 14, 30), new GUIContent(Loc.T("menu_title")), titleStyle);
+            GUI.Label(new Rect(titleRect.x + 14, titleRect.y + 35, titleRect.width - 14, 20), new GUIContent(Loc.T("menu_subtitle")), subtitleStyle);
         }
 
         private static bool ClickableBox(Rect rect, string text, Color bgColor, GUIStyle textStyle)

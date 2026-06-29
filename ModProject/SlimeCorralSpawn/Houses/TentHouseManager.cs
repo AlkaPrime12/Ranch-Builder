@@ -190,8 +190,8 @@ namespace SlimeCorralSpawn.Houses
                 TentHouseManager.TentHintStyle.normal.textColor = Color.white;
             }
 
-            GUI.Label(new Rect(startX, baseY - 35, bw, 22), new GUIContent("TENT HOUSE"), TentHouseManager.TentHintStyle);
-            GUI.Label(new Rect(startX, baseY - 10, bw, 22), new GUIContent("[E] Exit  |  [F] Sleep"), TentHouseManager.TentHintStyle);
+            GUI.Label(new Rect(startX, baseY - 35, bw, 22), new GUIContent(Loc.T("tent_title")), TentHouseManager.TentHintStyle);
+            GUI.Label(new Rect(startX, baseY - 10, bw, 22), new GUIContent(Loc.T("tent_hint")), TentHouseManager.TentHintStyle);
         }
     }
 }

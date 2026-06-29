@@ -25,6 +25,7 @@ namespace SlimeCorralSpawn
         // para que los sistemas throttleados (drivers, luces) NO disparen TODOS a la vez.
         private static bool _prevPaused;
         private static int _unpauseSkip;
+        private static float _unpauseTime;
 
         public override void OnInitializeMelon()
         {
@@ -49,10 +50,10 @@ namespace SlimeCorralSpawn
             try
             {
                 bool paused = UnityEngine.Time.timeScale == 0f;
-                if (_prevPaused && !paused) { _unpauseSkip = 3; }
+                if (_prevPaused && !paused) { _unpauseSkip = 15; _unpauseTime = Time.realtimeSinceStartup; Plots.PlotData.ResetContentCaptureTimer(); }
                 _prevPaused = paused;
                 if (paused) return;
-                if (_unpauseSkip > 0) { _unpauseSkip--; return; }
+                if (_unpauseSkip > 0 || Time.realtimeSinceStartup - _unpauseTime < 0.5f) { if (_unpauseSkip > 0) _unpauseSkip--; return; }
             }
             catch { }
 
