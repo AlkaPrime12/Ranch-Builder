@@ -12,16 +12,15 @@ namespace SlimeCorralSpawn.Placement
     /// </summary>
     internal static class StructureLightHelper
     {
-        // Máximo de luces del mod ENCENDIDAS a la vez (HDRP cobra caro por cada luz en tiempo real).
-        private const int MAX_ACTIVE_LIGHTS = 24;    // más luces prendidas sin culling = sin stutter (sin bajar calidad)
-        private const int LIGHT_HYSTERESIS = 12;     // banda anti-parpadeo grande: casi nunca togglea en el borde
-        private const int MAX_TOTAL_LIGHTS = 64;     // tope DURO de luces registradas (anti-leak al morir varias veces)
-        private const float CULL_INTERVAL = 3f;
-        private static readonly List<Light> _sortBuffer = new List<Light>(80);   // reutilizado (sin GC por cull)
-        private const float DEDUP_DIST_SQR = 0.6f * 0.6f;   // dedup por posición mundial (sobrevive al re-spawn por muerte)
+        // Culling por distancia (sin sort, sin toggle masivo = sin stutter visual).
+        private const float CULL_DISTANCE = 28f;        // a esta distancia se apagan
+        private const float HYSTERESIS = 6f;            // banda: se encienden a CULL_DISTANCE, se apagan a +HYSTERESIS
+        private const int LIGHTS_PER_FRAME = 4;         // luces evaluadas por frame (el toggle se reparte)
+        private const int MAX_TOTAL_LIGHTS = 64;        // tope DURO de luces registradas (anti-leak al morir varias veces)
+        private static int _cullIndex;
+        private const float DEDUP_DIST_SQR = 0.6f * 0.6f;
 
         private static readonly List<Light> _lights = new List<Light>();
-        private static float _lastCull = -999f;
 
         /// <summary>Adjunta una luz puntual HDRP barata al objeto dado y la registra para culling.</summary>
         internal static void AttachPointLight(GameObject host, Color color, float range, float intensity)
@@ -68,51 +67,32 @@ namespace SlimeCorralSpawn.Placement
             catch (Exception ex) { ModEntry.LogErrorOnce("StructureLightHelper.AttachPointLight", ex); }
         }
 
-        /// <summary>Periódico: deja encendidas solo las MAX_ACTIVE_LIGHTS luces más cercanas a la cámara.</summary>
+        /// <summary>Evalúa LIGHTS_PER_FRAME luces cada frame por distancia a cámara. Sin sort, sin toggle
+        /// masivo — el cambio de enabled se reparte naturalmente entre frames = sin stutter visual.</summary>
         internal static void Update()
         {
             try
             {
-                // Al MINIMIZAR / perder foco: NO togglear luces (la cámara queda en estado raro y produce
-                // flickering "de la nada" al volver). Esperamos a estar enfocados de nuevo.
                 try { if (!Application.isFocused) return; } catch { }
-
-                if (Time.realtimeSinceStartup - _lastCull < CULL_INTERVAL) return;
-                _lastCull = Time.realtimeSinceStartup;
-                if (_lights.Count == 0) return;
-
-                // Limpiar luces destruidas (estructuras borradas).
-                for (int i = _lights.Count - 1; i >= 0; i--)
-                    if (_lights[i] == null) _lights.RemoveAt(i);
                 if (_lights.Count == 0) return;
 
                 Camera cam = ModEntry.GetMainCamera();
-                Vector3 camPos = cam != null ? cam.transform.position : Vector3.zero;
+                if (cam == null) return;
+                Vector3 camPos = cam.transform.position;
 
-                // Si hay pocas, encender todas; si hay muchas, solo las más cercanas.
-                if (_lights.Count <= MAX_ACTIVE_LIGHTS || cam == null)
+                // Evalúa un puñado de luces por frame (round‑robin).
+                for (int i = 0; i < LIGHTS_PER_FRAME && _lights.Count > 0; i++)
                 {
-                    foreach (var l in _lights) if (l != null && !l.enabled) l.enabled = true;
-                    return;
-                }
-
-                // Ordenar por distancia (cuadrada) a la cámara (lista REUTILIZADA, sin GC).
-                _sortBuffer.Clear();
-                foreach (var l in _lights) if (l != null) _sortBuffer.Add(l);
-                _sortBuffer.Sort((a, b) =>
-                {
-                    float da = (a.transform.position - camPos).sqrMagnitude;
-                    float db = (b.transform.position - camPos).sqrMagnitude;
-                    return da.CompareTo(db);
-                });
-                // Histéresis grande: una luz ENCENDIDA se mantiene hasta rank >= MAX+HYSTERESIS; una APAGADA
-                // sólo enciende si rank < MAX. Con banda grande casi nunca togglea al moverse → sin stutter.
-                for (int i = 0; i < _sortBuffer.Count; i++)
-                {
-                    var l = _sortBuffer[i];
+                    if (_cullIndex >= _lights.Count) _cullIndex = 0;
+                    var l = _lights[_cullIndex];
+                    _cullIndex++;
+                    if (l == null) { _lights.RemoveAt(_cullIndex - 1); _cullIndex--; continue; }
+                    float dist = (l.transform.position - camPos).magnitude;
                     bool on;
-                    if (l.enabled) on = i < MAX_ACTIVE_LIGHTS + LIGHT_HYSTERESIS;
-                    else on = i < MAX_ACTIVE_LIGHTS;
+                    if (l.enabled)
+                        on = dist < CULL_DISTANCE + HYSTERESIS;
+                    else
+                        on = dist < CULL_DISTANCE;
                     if (l.enabled != on) l.enabled = on;
                 }
             }
