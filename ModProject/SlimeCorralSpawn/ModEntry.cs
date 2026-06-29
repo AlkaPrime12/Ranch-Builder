@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Slime Corral Spawn", "1.7.33", "SlimeRancherModder")]
+[assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Slime Corral Spawn", "1.8.1", "SlimeRancherModder")]
 [assembly: MelonGame("MonomiPark", "SlimeRancher2")]
 
 namespace SlimeCorralSpawn
