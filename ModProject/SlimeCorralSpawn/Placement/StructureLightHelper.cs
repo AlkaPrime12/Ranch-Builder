@@ -86,7 +86,7 @@ namespace SlimeCorralSpawn.Placement
                     if (_lights[i] == null) _lights.RemoveAt(i);
                 if (_lights.Count == 0) return;
 
-                Camera cam = Camera.main;
+                Camera cam = ModEntry.GetMainCamera();
                 Vector3 camPos = cam != null ? cam.transform.position : Vector3.zero;
 
                 // Si hay pocas, encender todas; si hay muchas, solo las más cercanas.

@@ -37,8 +37,7 @@ namespace SlimeCorralSpawn.Placement
                 // NO gatear por ContentReady/registración: un collector lejos del rancho NO registra en
                 // RanchMetadata, pero IGUAL debe chupar (solo necesita pc + silo + región propia).
                 if (pd?.LinkedObject == null) continue;
-                Il2CppLandPlot lp = null;
-                try { lp = pd.LinkedObject.GetComponentInChildren<Il2CppLandPlot>(true); } catch { }
+                Il2CppLandPlot lp = pd.GetLandPlot();
                 if (lp == null || !Patches.GamePatches.IsOurLandPlot(lp)) continue;
                 if (!CorralRegistrationHelper.HasUpgradeForPlot(lp, Il2CppLandPlot.Upgrade.PLORT_COLLECTOR))
                     continue;

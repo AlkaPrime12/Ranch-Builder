@@ -37,8 +37,7 @@ namespace SlimeCorralSpawn.Placement
             foreach (var pd in Plots.PlotData.GetAll())
             {
                 if (pd?.LinkedObject == null) continue;
-                Il2CppLandPlot lp = null;
-                try { lp = pd.LinkedObject.GetComponentInChildren<Il2CppLandPlot>(true); } catch { }
+                Il2CppLandPlot lp = pd.GetLandPlot();
                 if (lp == null || !Patches.GamePatches.IsOurLandPlot(lp)) continue;
 
                 Il2Cpp.IdentifiableType crop = null;

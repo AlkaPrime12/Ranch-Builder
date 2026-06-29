@@ -61,7 +61,7 @@ namespace SlimeCorralSpawn.Houses
         {
             try
             {
-                var cam = Camera.main;
+                var cam = ModEntry.GetMainCamera();
                 if (cam == null) return null;
                 Vector3 p = cam.transform.position;
                 Transform best = null; float bd = DoorDist * DoorDist;
@@ -93,7 +93,7 @@ namespace SlimeCorralSpawn.Houses
         {
             try
             {
-                var cam = Camera.main;
+                var cam = ModEntry.GetMainCamera();
                 if (cam == null) return null;
                 Vector3 p = cam.transform.position;
                 GameObject best = null; float bd = NearDist * NearDist;

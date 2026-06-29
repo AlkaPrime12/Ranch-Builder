@@ -116,7 +116,7 @@ namespace SlimeCorralSpawn.Placement
             if (InputHelper.GetKeyDown(KeyCode.E)) _erase = !_erase;
             if (Time.time - _startTime < 0.3f) return;
 
-            Camera cam = Camera.main;
+            Camera cam = ModEntry.GetMainCamera();
             if (cam == null) return;
             Ray ray = cam.ScreenPointToRay(new Vector3(Screen.width / 2f, Screen.height / 2f, 0f));
 
@@ -281,7 +281,7 @@ namespace SlimeCorralSpawn.Placement
             if (_strokes.Count == 0) return;
             if (++_lodFrame < 20) return;
             _lodFrame = 0;
-            Camera cam = Camera.main; if (cam == null) return;
+            Camera cam = ModEntry.GetMainCamera(); if (cam == null) return;
             Vector3 camPos = cam.transform.position;
             foreach (var kv in _strokes)
             {
