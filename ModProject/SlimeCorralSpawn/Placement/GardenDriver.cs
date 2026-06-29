@@ -14,6 +14,8 @@ namespace SlimeCorralSpawn.Placement
     /// </summary>
     internal static class GardenDriver
     {
+        private const int MaxCrops = 50;
+        private static readonly Collider[] _cropBuffer = new Collider[MaxCrops];
         private static float _nextTick;
         private const float TickInterval = 2f;
         private const int MAX_CROPS = 24;          // máximo de comidas vivas en el jardín a la vez
@@ -89,11 +91,10 @@ namespace SlimeCorralSpawn.Placement
             int c = 0;
             try
             {
-                var hits = Physics.OverlapSphere(lp.transform.position, 6f);
-                int n = hits != null ? hits.Length : 0;
+                int n = Physics.OverlapSphereNonAlloc(lp.transform.position, 6f, _cropBuffer);
                 for (int i = 0; i < n; i++)
                 {
-                    var col = hits[i]; if (col == null) continue;
+                    var col = _cropBuffer[i]; if (col == null) continue;
                     Il2Cpp.Identifiable id = null;
                     try { id = col.GetComponentInParent<Il2Cpp.Identifiable>(); } catch { }
                     if (id == null) continue;
