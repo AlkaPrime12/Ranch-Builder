@@ -167,7 +167,6 @@ namespace SlimeCorralSpawn.Plots
         }
 
         private static float _lastContentCapture;
-        public static void ResetContentCaptureTimer() { _lastContentCapture = Time.time; }
         private static float _lastDiskSave;
 
         /// <summary>
