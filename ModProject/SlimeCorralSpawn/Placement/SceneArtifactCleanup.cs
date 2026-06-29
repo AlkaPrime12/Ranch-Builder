@@ -67,7 +67,7 @@ namespace SlimeCorralSpawn.Placement
                     if (lpl == null || !RealPlotFactory.IsOurLocation(lpl)) continue;
 
                     Il2CppLandPlot lp = null;
-                    try { lp = pd.LinkedObject.GetComponentInChildren<Il2CppLandPlot>(true); } catch { }
+                    lp = pd.GetLandPlot();
                     if (lp == null) continue;
 
                     Il2CppLandPlot.Id expected = RealPlotManager.ToRealId(pd.PlotType);

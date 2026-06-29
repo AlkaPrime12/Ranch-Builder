@@ -40,7 +40,7 @@ namespace SlimeCorralSpawn.Placement
 
             try { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; } catch { }
 
-            Camera cam = Camera.main;
+            Camera cam = ModEntry.GetMainCamera();
             if (cam == null) return;
             Ray ray = cam.ScreenPointToRay(new Vector3(Screen.width / 2f, Screen.height / 2f, 0f));
 

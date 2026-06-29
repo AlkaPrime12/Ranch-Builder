@@ -10,6 +10,7 @@ namespace SlimeCorralSpawn.Houses
     public static class TentHouseManager
     {
         private static Shader _cachedShader;
+        internal static GUIStyle TentHintStyle;
 
         private static Shader GetShader()
         {
@@ -181,13 +182,16 @@ namespace SlimeCorralSpawn.Houses
             GUI.color = new Color(0.1f, 0.08f, 0.15f, 0.85f);
             GUI.DrawTexture(new Rect(startX - 10, baseY - 40, bw + 20, 80), Texture2D.whiteTexture);
 
-            GUIStyle style = new GUIStyle();
-            style.fontSize = 14;
-            style.alignment = TextAnchor.MiddleCenter;
-            style.normal.textColor = Color.white;
+            if (TentHouseManager.TentHintStyle == null)
+            {
+                TentHouseManager.TentHintStyle = new GUIStyle();
+                TentHouseManager.TentHintStyle.fontSize = 14;
+                TentHouseManager.TentHintStyle.alignment = TextAnchor.MiddleCenter;
+                TentHouseManager.TentHintStyle.normal.textColor = Color.white;
+            }
 
-            GUI.Label(new Rect(startX, baseY - 35, bw, 22), new GUIContent("TENT HOUSE"), style);
-            GUI.Label(new Rect(startX, baseY - 10, bw, 22), new GUIContent("[E] Exit  |  [F] Sleep"), style);
+            GUI.Label(new Rect(startX, baseY - 35, bw, 22), new GUIContent("TENT HOUSE"), TentHouseManager.TentHintStyle);
+            GUI.Label(new Rect(startX, baseY - 10, bw, 22), new GUIContent("[E] Exit  |  [F] Sleep"), TentHouseManager.TentHintStyle);
         }
     }
 }

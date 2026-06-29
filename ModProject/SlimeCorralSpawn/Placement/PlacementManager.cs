@@ -268,7 +268,7 @@ namespace SlimeCorralSpawn.Placement
                 collider.isTrigger = true;
             }
 
-            Camera cam = Camera.main;
+            Camera cam = ModEntry.GetMainCamera();
             if (cam != null)
                 ghostObject.transform.position = cam.transform.position + cam.transform.forward * 5f;
         }
@@ -296,7 +296,7 @@ namespace SlimeCorralSpawn.Placement
         {
             if (ghostObject == null) return;
 
-            Camera cam = Camera.main;
+            Camera cam = ModEntry.GetMainCamera();
             if (cam == null) return;
 
             Ray ray = cam.ScreenPointToRay(new Vector3(Screen.width / 2f, Screen.height / 2f, 0));

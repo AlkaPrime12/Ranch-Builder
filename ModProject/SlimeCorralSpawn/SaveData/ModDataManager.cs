@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.Json;
 using MelonLogger = MelonLoader.MelonLogger;
 using SlimeCorralSpawn.Placement;
+using UnityEngine;
 
 namespace SlimeCorralSpawn.SaveData
 {
@@ -364,6 +365,7 @@ namespace SlimeCorralSpawn.SaveData
                     LoadForCurrentSlot();
                 if (currentData == null && !string.IsNullOrEmpty(_lastKnownSlotId))
                     currentData = new ModSaveData();
+                _lastSaveTime = -999;   // sin cooldown al cerrar
                 Save();
             }
             catch (Exception ex)
@@ -372,10 +374,17 @@ namespace SlimeCorralSpawn.SaveData
             }
         }
 
+        private static double _lastSaveTime;
+
         public static void Save()
         {
             try
             {
+                // Cooldown de 5s entre escrituras a disco para evitar hitcheos por cada mutación.
+                double now = Time.realtimeSinceStartupAsDouble;
+                if (now - _lastSaveTime < 5.0) return;
+                _lastSaveTime = now;
+
                 if (currentData == null)
                     currentData = new ModSaveData();
 

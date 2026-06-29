@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MelonLoader;
+using UnityEngine;
 
 [assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Slime Corral Spawn", "1.7.33", "SlimeRancherModder")]
 [assembly: MelonGame("MonomiPark", "SlimeRancher2")]
@@ -13,6 +14,14 @@ namespace SlimeCorralSpawn
 
         // Each unique error is logged only once so we don't spam the console every frame.
         private static readonly HashSet<string> _loggedErrors = new HashSet<string>();
+
+        private static Camera _mainCamera;
+        /// <summary>Cache de Camera.main (el menú artefacto del juego cambia el tag MainCamera).</summary>
+        internal static Camera GetMainCamera()
+        {
+            if (_mainCamera == null || !_mainCamera.enabled) _mainCamera = Camera.main;
+            return _mainCamera;
+        }
 
         public override void OnInitializeMelon()
         {
