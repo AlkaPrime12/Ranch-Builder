@@ -56,6 +56,7 @@ namespace SlimeCorralSpawn.Gadgets
             return _mainCam;
         }
         private static Camera _mainCam;
+        private static int _hoverFrame;
 
         internal static bool IsEditing => _editing != null;
         internal static bool FreeCamActive => _freeCam;
@@ -70,24 +71,28 @@ namespace SlimeCorralSpawn.Gadgets
                 // Shift+Escape: limpieza de emergencia.
                 if (InputHelper.GetKey(KeyCode.LeftShift) && InputHelper.GetKeyDown(KeyCode.Escape)) { ForceStopAll(); return; }
 
-                // RAYCAST SIEMPRE: el gadget bajo la mira se actualiza incluso en estado bloqueado
-                // (menú artefacto/F5 abierto), así DrawHud siempre puede mostrar el prompt [R].
-                _hoverAlways = null;
-                try
+                // RAYCAST cada 3 frames (no cada frame): el prompt [R] tarda ~1 frame en aparecer
+                // cuando mirás un gadget, imperceptible. Ahorra Physics.Raycast + GetComponentInParent cada frame.
+                if (++_hoverFrame >= 3)
                 {
-                    var cam = GetMainCam();
-                    if (cam != null && !_freeCam)
+                    _hoverFrame = 0;
+                    _hoverAlways = null;
+                    try
                     {
-                        var ray = cam.ScreenPointToRay(new Vector3(Screen.width / 2f, Screen.height / 2f, 0f));
-                        RaycastHit hit;
-                        if (Physics.Raycast(ray, out hit, 10f, ~0, QueryTriggerInteraction.Ignore) && hit.collider != null)
+                        var cam = GetMainCam();
+                        if (cam != null && !_freeCam)
                         {
-                            var g = hit.collider.GetComponentInParent<Il2CppGadget>();
-                            if (g != null && g.gameObject != null) _hoverAlways = g.gameObject;
+                            var ray = cam.ScreenPointToRay(new Vector3(Screen.width / 2f, Screen.height / 2f, 0f));
+                            RaycastHit hit;
+                            if (Physics.Raycast(ray, out hit, 10f, ~0, QueryTriggerInteraction.Ignore) && hit.collider != null)
+                            {
+                                var g = hit.collider.GetComponentInParent<Il2CppGadget>();
+                                if (g != null && g.gameObject != null) _hoverAlways = g.gameObject;
+                            }
                         }
                     }
+                    catch { }
                 }
-                catch { }
 
                 // Detectar [R] SIEMPRE — incluso durante el bloqueo — para que la entrada nunca se pierda.
                 if (_editing == null && _hoverAlways != null && InputHelper.GetKeyDown(KeyCode.R))
