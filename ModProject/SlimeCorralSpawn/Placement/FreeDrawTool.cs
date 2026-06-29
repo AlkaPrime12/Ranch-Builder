@@ -60,6 +60,7 @@ namespace SlimeCorralSpawn.Placement
         private static bool _drawing;
         private static float _startTime;
         private static int _lodFrame;
+        private static int _pendingCount;
 
         public static void Start()
         {
@@ -89,16 +90,18 @@ namespace SlimeCorralSpawn.Placement
             for (int i = 0; i < s.Points.Count; i++) s.Active.Add(e.Active == null || i >= e.Active.Length || e.Active[i] != 0);
             if (s.Lift + 0.0005f > _nextLift) _nextLift = s.Lift + 0.0005f;   // mantener monótono tras recargar
             _strokes[s.Uid] = s;
+            _pendingCount++;
         }
 
         public static void RestoreLinkedObjects() { foreach (var kv in _strokes) if (kv.Value.Go == null) BuildMesh(kv.Value); }
         private static void RetryPending()
         {
-            if (!Placement.PlacementManager.LitTemplateReady) return;
+            if (_pendingCount <= 0 || !Placement.PlacementManager.LitTemplateReady) return;
             foreach (var kv in _strokes)
             {
                 if (kv.Value.Go == null && kv.Value.Points.Count >= 2) { BuildMesh(kv.Value); return; }
             }
+            _pendingCount = 0;
         }
 
         public static void UpdateStatic()
@@ -239,6 +242,7 @@ namespace SlimeCorralSpawn.Placement
                 if (s.Go == null)
                 {
                     s.Go = new GameObject("SCS_Stroke_" + s.Uid);
+                    _pendingCount--;
                     s.Go.AddComponent<MeshFilter>();
                     var mr = s.Go.AddComponent<MeshRenderer>();
                     mr.material = PlacementManager.CreateTexturedMaterial(Color.white, (Themes.MatKind)s.Mat);
