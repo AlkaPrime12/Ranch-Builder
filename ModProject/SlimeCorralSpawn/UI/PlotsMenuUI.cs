@@ -57,6 +57,8 @@ namespace SlimeCorralSpawn.UI
         private static int _selectedPackIndex;
         private static List<ModPackManager.PackEntry> _packList = new List<ModPackManager.PackEntry>();
         private static float _packListRefresh;
+        private static bool _packRenameMode;
+        private static string _packRenameDraft = "";
         private enum ConfigView { Main, Keybinds }
         private static ConfigView _configView;
         private static ModAction? _rebindAction;
@@ -105,8 +107,8 @@ namespace SlimeCorralSpawn.UI
         // Cámara: se DESACTIVA el SRCameraController real (forzar la rotación no alcanzaba).
         // Cursor: libre con el menú abierto; al cerrar se restaura a BLOQUEADO (gameplay),
         // lo que arregla el bug de cursor que quedaba al cerrar.
-        private static Il2CppSRCameraController _camCtrl;
         private static bool _wasVisible;
+        private static Il2CppSRCameraController _camCtrl;
 
         private static void ApplyMenuInputState()
         {
@@ -142,10 +144,14 @@ namespace SlimeCorralSpawn.UI
                 }
                 catch (Exception e) { ModEntry.LogErrorOnce("PlotsMenuUI.InputDirectorFreeze", e); }
 
-                // Respaldo: también desactivar el SRCameraController.
-                if (_camCtrl == null)
-                    _camCtrl = UnityEngine.Object.FindObjectOfType<Il2CppSRCameraController>();
-                if (_camCtrl != null) _camCtrl.enabled = !frozen;
+                // Cacheamos SRCameraController; si es null (scene change), lo re-buscamos.
+                try
+                {
+                    if (_camCtrl == null)
+                        _camCtrl = UnityEngine.Object.FindObjectOfType<Il2CppSRCameraController>();
+                    if (_camCtrl != null) _camCtrl.enabled = !frozen;
+                }
+                catch { _camCtrl = null; }
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("PlotsMenuUI.SetCameraFrozen", ex); }
         }
@@ -342,7 +348,9 @@ namespace SlimeCorralSpawn.UI
                     selectedPlotIndex = -1;
                     showPurchasePanel = false;
                     showEditPanel = false;
-            scrollOffset = 0;
+                    scrollOffset = 0;
+                    if (tabs[i] == MenuTab.Config)
+                        RefreshPackList();
                 }
             }
         }
@@ -379,12 +387,7 @@ namespace SlimeCorralSpawn.UI
             }
             y += 56f;
 
-            Rect gadgetRect = new Rect(x, y, w, 40);
-            string gadgetLabel = ModSettings.CustomGadgetPlacement ? Loc.T("cfg_gadget_on") : Loc.T("cfg_gadget_off");
-            if (ClickableBox(gadgetRect, gadgetLabel, SlimeTheme.BackgroundButton, labelStyle))
-                ModSettings.CustomGadgetPlacement = !ModSettings.CustomGadgetPlacement;
-            if (gadgetRect.Contains(Event.current.mousePosition)) tooltipText = Loc.T("cfg_gadget_hint");
-            y += 48f;
+            // (Toggle de colocación de gadgets REMOVIDO: ahora es un menú siempre activo.)
 
             Rect keysBtn = new Rect(x, y, w, 40);
             if (ClickableBox(keysBtn, Loc.T("cfg_keybinds_btn"), SlimeTheme.BackgroundButtonActive, labelStyle))
@@ -397,55 +400,90 @@ namespace SlimeCorralSpawn.UI
             GUI.Label(new Rect(x, y, w, 22), new GUIContent(Loc.T("cfg_save_title")), headerStyle);
             y += 28f;
 
-            if (Time.realtimeSinceStartup - _packListRefresh > 2f)
-            {
-                _packListRefresh = Time.realtimeSinceStartup;
-                try { _packList = ModPackManager.ListPacks(); } catch { _packList = new List<ModPackManager.PackEntry>(); }
-                if (_selectedPackIndex >= _packList.Count) _selectedPackIndex = 0;
-            }
+            RefreshPackListIfStale();
 
-            Rect backupRect = new Rect(x, y, w, 36);
-            if (ClickableBox(backupRect, Loc.T("cfg_backup_now"), SlimeTheme.BackgroundButton, labelStyle))
-            {
-                string p = ModPackManager.CreateBackup("manual");
-                SetPackStatus(p != null ? Loc.T("cfg_pack_ok") + System.IO.Path.GetFileName(p) : Loc.T("cfg_pack_fail"));
-            }
+            Rect folderRect = new Rect(x, y, w, 36);
+            if (ClickableBox(folderRect, Loc.T("cfg_open_folder"), SlimeTheme.BackgroundButtonActive, labelStyle))
+                ModPackManager.OpenImportsFolder();
             y += 42f;
 
-            Rect exportRect = new Rect(x, y, w, 36);
-            if (ClickableBox(exportRect, Loc.T("cfg_export"), SlimeTheme.BackgroundButton, labelStyle))
+            Rect backupRect = new Rect(x, y, w * 0.48f, 36);
+            if (ClickableBox(backupRect, Loc.T("cfg_backup_now"), SlimeTheme.BackgroundButton, smallLabelStyle))
             {
-                string p = ModPackManager.ExportCurrent("menu");
-                SetPackStatus(p != null ? Loc.T("cfg_pack_ok") + System.IO.Path.GetFileName(p) : Loc.T("cfg_pack_fail"));
+                string p = ModPackManager.CreateBackup(null);
+                RefreshPackList();
+                SetPackStatus(p != null ? Loc.T("cfg_pack_ok") + ModPackManager.GetDisplayName(FindPackByPath(p)) : Loc.T("cfg_pack_fail"));
+            }
+            Rect exportRect = new Rect(x + w * 0.52f, y, w * 0.48f, 36);
+            if (ClickableBox(exportRect, Loc.T("cfg_export"), SlimeTheme.BackgroundButton, smallLabelStyle))
+            {
+                string p = ModPackManager.ExportCurrent(null);
+                RefreshPackList();
+                SetPackStatus(p != null ? Loc.T("cfg_pack_ok") + ModPackManager.GetDisplayName(FindPackByPath(p)) : Loc.T("cfg_pack_fail"));
             }
             y += 42f;
 
             if (_packList.Count > 0)
             {
                 var entry = _packList[Mathf.Clamp(_selectedPackIndex, 0, _packList.Count - 1)];
-                string packLabel = $"{entry.Kind} | {entry.FileName}";
-                Rect selRect = new Rect(x, y, w, 36);
-                if (ClickableBox(selRect, $"◄  {packLabel}  ►", SlimeTheme.BackgroundButtonActive, smallLabelStyle))
-                {
+                string display = ModPackManager.GetDisplayName(entry);
+                string kindHint = entry.Kind == "backup" ? Loc.T("cfg_kind_backup") : Loc.T("cfg_kind_import");
+
+                GUI.Label(new Rect(x, y, w, 18), new GUIContent(Loc.T("cfg_selected_save")), smallLabelStyle);
+                y += 22f;
+
+                Rect prevBtn = new Rect(x, y, w * 0.12f, 36);
+                Rect selRect = new Rect(x + w * 0.14f, y, w * 0.72f, 36);
+                Rect nextBtn = new Rect(x + w * 0.88f, y, w * 0.12f, 36);
+                if (ClickableBox(prevBtn, "◄", SlimeTheme.BackgroundButton, labelStyle))
+                    _selectedPackIndex = (_selectedPackIndex - 1 + _packList.Count) % _packList.Count;
+                Fill(selRect, SlimeTheme.BackgroundButtonActive);
+                GUI.Label(new Rect(selRect.x + 6, selRect.y + 4, selRect.width - 12, selRect.height - 8),
+                    new GUIContent(display + "\n" + kindHint), smallLabelStyle);
+                if (ClickableBox(nextBtn, "►", SlimeTheme.BackgroundButton, labelStyle))
                     _selectedPackIndex = (_selectedPackIndex + 1) % _packList.Count;
-                }
                 y += 42f;
 
-                Rect restoreRect = new Rect(x, y, w * 0.48f, 36);
-                if (ClickableBox(restoreRect, Loc.T("cfg_restore"), SlimeTheme.BackgroundButton, smallLabelStyle))
+                if (_packRenameMode)
+                {
+                    GUI.Label(new Rect(x, y, w, 18), new GUIContent(Loc.T("cfg_rename_hint")), smallLabelStyle);
+                    y += 22f;
+                    _packRenameDraft = GUI.TextField(new Rect(x, y, w * 0.62f, 32), _packRenameDraft ?? "");
+                    if (ClickableBox(new Rect(x + w * 0.64f, y, w * 0.34f, 32), Loc.T("cfg_rename_ok"), SlimeTheme.BackgroundButton, smallLabelStyle))
+                    {
+                        bool ok = ModPackManager.RenamePack(entry.Path, _packRenameDraft);
+                        RefreshPackList();
+                        _packRenameMode = false;
+                        SetPackStatus(ok ? Loc.T("cfg_rename_done") : Loc.T("cfg_pack_fail"));
+                    }
+                    y += 38f;
+                }
+                else
+                {
+                    Rect renameRect = new Rect(x, y, w, 32);
+                    if (ClickableBox(renameRect, Loc.T("cfg_rename"), SlimeTheme.BackgroundButton, smallLabelStyle))
+                    {
+                        _packRenameDraft = display;
+                        _packRenameMode = true;
+                    }
+                    y += 38f;
+                }
+
+                Rect restoreRect = new Rect(x, y, w, 36);
+                if (ClickableBox(restoreRect, Loc.T("cfg_restore"), SlimeTheme.BackgroundButtonActive, labelStyle))
                 {
                     bool ok = ModPackManager.RestoreBackup(entry.Path);
                     SetPackStatus(ok ? Loc.T("cfg_reload_hint") : Loc.T("cfg_pack_fail"));
                 }
-                Rect mergeRect = new Rect(x + w * 0.52f, y, w * 0.48f, 36);
+                y += 42f;
+
+                Rect mergeRect = new Rect(x, y, w * 0.48f, 36);
                 if (ClickableBox(mergeRect, Loc.T("cfg_import_merge"), SlimeTheme.BackgroundButton, smallLabelStyle))
                 {
                     bool ok = ModPackManager.ImportPack(entry.Path, replaceAll: false);
                     SetPackStatus(ok ? Loc.T("cfg_reload_hint") : Loc.T("cfg_pack_fail"));
                 }
-                y += 42f;
-
-                Rect replaceRect = new Rect(x, y, w, 36);
+                Rect replaceRect = new Rect(x + w * 0.52f, y, w * 0.48f, 36);
                 if (ClickableBox(replaceRect, Loc.T("cfg_import_replace"), SlimeTheme.BackgroundButton, smallLabelStyle))
                 {
                     bool ok = ModPackManager.ImportPack(entry.Path, replaceAll: true);
@@ -453,9 +491,14 @@ namespace SlimeCorralSpawn.UI
                 }
                 y += 42f;
             }
+            else
+            {
+                GUI.Label(new Rect(x, y, w, 36), new GUIContent(Loc.T("cfg_no_saves")), smallLabelStyle);
+                y += 42f;
+            }
 
-            GUI.Label(new Rect(x + 4, y, w - 8, 72), new GUIContent(Loc.T("cfg_pack_hint")), smallLabelStyle);
-            y += 76f;
+            GUI.Label(new Rect(x + 4, y, w - 8, 56), new GUIContent(Loc.T("cfg_pack_hint")), smallLabelStyle);
+            y += 60f;
 
             if (!string.IsNullOrEmpty(_packStatus) && Time.realtimeSinceStartup < _packStatusUntil)
                 GUI.Label(new Rect(x, y, w, 40), new GUIContent(_packStatus), smallLabelStyle);
@@ -531,6 +574,31 @@ namespace SlimeCorralSpawn.UI
         {
             _packStatus = msg;
             _packStatusUntil = Time.realtimeSinceStartup + 6f;
+        }
+
+        private static void RefreshPackList()
+        {
+            _packListRefresh = Time.realtimeSinceStartup;
+            try { _packList = ModPackManager.ListPacks(); }
+            catch { _packList = new List<ModPackManager.PackEntry>(); }
+            if (_packList.Count == 0)
+                _selectedPackIndex = 0;
+            else if (_selectedPackIndex >= _packList.Count)
+                _selectedPackIndex = 0;
+        }
+
+        private static void RefreshPackListIfStale()
+        {
+            if (Time.realtimeSinceStartup - _packListRefresh > 2f)
+                RefreshPackList();
+        }
+
+        private static ModPackManager.PackEntry FindPackByPath(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return null;
+            foreach (var p in _packList)
+                if (p != null && p.Path == path) return p;
+            return new ModPackManager.PackEntry { Path = path, FileName = System.IO.Path.GetFileName(path), Label = System.IO.Path.GetFileNameWithoutExtension(path) };
         }
 
         private static void DrawPlotsTab(float x, ref float y, float w)

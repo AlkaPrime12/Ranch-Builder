@@ -1,0 +1,1059 @@
+﻿=== Il2Cpp.TrackCollisions ===
+  field NativeFieldInfoPtr__currColliders : IntPtr
+  field NativeFieldInfoPtr__gameObjSet : IntPtr
+  field NativeFieldInfoPtr_DefaultLayers : IntPtr
+  field NativeFieldInfoPtr__layersToIgnore : IntPtr
+  field NativeFieldInfoPtr__localGameObjsToRemove : IntPtr
+  field NativeFieldInfoPtr__localCollidersToKeep : IntPtr
+  field NativeFieldInfoPtr__emptySet : IntPtr
+  field NativeMethodInfoPtr_Awake_Private_Void_0 : IntPtr
+  field NativeMethodInfoPtr_OnTriggerEnter_Protected_Virtual_New_Void_Collider_0 : IntPtr
+  field NativeMethodInfoPtr_OnTriggerExit_Protected_Virtual_New_Void_Collider_0 : IntPtr
+  field NativeMethodInfoPtr_CurrColliders_Public_HashSet_1_GameObject_0 : IntPtr
+  field NativeMethodInfoPtr_SetLayersToIgnore_Public_Void_IEnumerable_1_Int32_0 : IntPtr
+  field NativeMethodInfoPtr_RemovePredicate_Private_Static_Boolean_Collider_0 : IntPtr
+  field NativeMethodInfoPtr_RemovePredicate_Private_Static_Boolean_GameObject_0 : IntPtr
+  field NativeMethodInfoPtr__ctor_Public_Void_0 : IntPtr
+  field isWrapped : Boolean
+  field pooledPtr : IntPtr
+  prop _currColliders : Dictionary`2
+  prop _gameObjSet : HashSet`1
+  prop DefaultLayers : LayerMask
+  prop _layersToIgnore : List`1
+  prop _localGameObjsToRemove : List`1
+  prop _localCollidersToKeep : List`1
+  prop _emptySet : HashSet`1
+  prop _destroyRequestHandler : IDestroyRequestHandler
+  prop m_CancellationTokenSource : CancellationTokenSource
+  prop destroyCancellationToken : CancellationToken
+  prop useGUILayout : Boolean
+  prop didStart : Boolean
+  prop didAwake : Boolean
+  prop enabled : Boolean
+  prop isActiveAndEnabled : Boolean
+  prop transform : Transform
+  prop gameObject : GameObject
+  prop tag : String
+  prop m_CachedPtr : IntPtr
+  prop name : String
+  prop hideFlags : HideFlags
+  prop ObjectClass : IntPtr
+  prop Pointer : IntPtr
+  prop WasCollected : Boolean
+  get__currColliders()
+  set__currColliders(Dictionary`2)
+  get__gameObjSet()
+  set__gameObjSet(HashSet`1)
+  get_DefaultLayers()
+  set_DefaultLayers(LayerMask)
+  get__layersToIgnore()
+  set__layersToIgnore(List`1)
+  get__localGameObjsToRemove()
+  set__localGameObjsToRemove(List`1)
+  get__localCollidersToKeep()
+  set__localCollidersToKeep(List`1)
+  get__emptySet()
+  set__emptySet(HashSet`1)
+  Awake()
+  OnTriggerEnter(Collider)
+  OnTriggerExit(Collider)
+  CurrColliders()
+  SetLayersToIgnore(IEnumerable`1)
+  RemovePredicate(Collider)
+  RemovePredicate(GameObject)
+=== Il2Cpp.ResourceCollector ===
+  field NativeFieldInfoPtr_CollectionArea : IntPtr
+  field NativeFieldInfoPtr_CollectPeriod : IntPtr
+  field NativeFieldInfoPtr_CollectAnim : IntPtr
+  field NativeFieldInfoPtr_CollectFX : IntPtr
+  field NativeFieldInfoPtr_CollectPt : IntPtr
+  field NativeFieldInfoPtr_DropContentsOnDestroy : IntPtr
+  field NativeFieldInfoPtr_SiloActivator : IntPtr
+  field NativeFieldInfoPtr__storage : IntPtr
+  field NativeFieldInfoPtr__vacAudio : IntPtr
+  field NativeFieldInfoPtr__timeDir : IntPtr
+  field NativeFieldInfoPtr__region : IntPtr
+  field NativeFieldInfoPtr__joints : IntPtr
+  field NativeFieldInfoPtr__endCollectAt : IntPtr
+  field NativeFieldInfoPtr__forceCollectUntil : IntPtr
+  field NativeFieldInfoPtr_COLLECT_DIST : IntPtr
+  field NativeFieldInfoPtr_COLLECT_DIST_SQR : IntPtr
+  field NativeFieldInfoPtr_COLLECT_SPEED : IntPtr
+  field NativeFieldInfoPtr_MIN_COLLECT_TIME : IntPtr
+  field NativeFieldInfoPtr_MAX_COLLECT_TIME : IntPtr
+  field NativeFieldInfoPtr__animCycloneActiveId : IntPtr
+  field NativeFieldInfoPtr__model : IntPtr
+  field NativeFieldInfoPtr__isActive : IntPtr
+  field NativeMethodInfoPtr_OnUserDestroyed_Public_Virtual_Final_New_Void_0 : IntPtr
+  field NativeMethodInfoPtr_OnDestroy_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_DropContent_Private_Void_0 : IntPtr
+  field NativeMethodInfoPtr_Awake_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_InitModel_Public_Virtual_Final_New_Void_GadgetModel_0 : IntPtr
+  field NativeMethodInfoPtr_SetModel_Public_Virtual_Final_New_Void_GadgetModel_0 : IntPtr
+  field NativeMethodInfoPtr_FixedUpdate_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_StartCollection_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_DoCollection_Private_Void_0 : IntPtr
+  field NativeMethodInfoPtr__ctor_Public_Void_0 : IntPtr
+  field isWrapped : Boolean
+  field pooledPtr : IntPtr
+  prop CollectionArea : TrackCollisions
+  prop CollectPeriod : Single
+  prop CollectAnim : Animator
+  prop CollectFX : GameObject
+  prop CollectPt : Transform
+  prop DropContentsOnDestroy : Boolean
+  prop SiloActivator : SiloActivator
+  prop _storage : SiloStorage
+  prop _vacAudio : SECTR_AudioSource
+  prop _timeDir : TimeDirector
+  prop _region : RegionMember
+  prop _joints : List`1
+  prop _endCollectAt : Double
+  prop _forceCollectUntil : Double
+  prop COLLECT_DIST : Single
+  prop COLLECT_DIST_SQR : Single
+  prop COLLECT_SPEED : Single
+  prop MIN_COLLECT_TIME : Single
+  prop MAX_COLLECT_TIME : Single
+  prop _animCycloneActiveId : Int32
+  prop _model : GadgetModel
+  prop _isActive : Boolean
+  prop _destroyRequestHandler : IDestroyRequestHandler
+  prop m_CancellationTokenSource : CancellationTokenSource
+  prop destroyCancellationToken : CancellationToken
+  prop useGUILayout : Boolean
+  prop didStart : Boolean
+  prop didAwake : Boolean
+  prop enabled : Boolean
+  prop isActiveAndEnabled : Boolean
+  prop transform : Transform
+  prop gameObject : GameObject
+  prop tag : String
+  prop m_CachedPtr : IntPtr
+  prop name : String
+  prop hideFlags : HideFlags
+  prop ObjectClass : IntPtr
+  prop Pointer : IntPtr
+  prop WasCollected : Boolean
+  get_CollectionArea()
+  set_CollectionArea(TrackCollisions)
+  get_CollectPeriod()
+  set_CollectPeriod(Single)
+  get_CollectAnim()
+  set_CollectAnim(Animator)
+  get_CollectFX()
+  set_CollectFX(GameObject)
+  get_CollectPt()
+  set_CollectPt(Transform)
+  get_DropContentsOnDestroy()
+  set_DropContentsOnDestroy(Boolean)
+  get_SiloActivator()
+  set_SiloActivator(SiloActivator)
+  get__storage()
+  set__storage(SiloStorage)
+  get__vacAudio()
+  set__vacAudio(SECTR_AudioSource)
+  get__timeDir()
+  set__timeDir(TimeDirector)
+  get__region()
+  set__region(RegionMember)
+  get__joints()
+  set__joints(List`1)
+  get__endCollectAt()
+  set__endCollectAt(Double)
+  get__forceCollectUntil()
+  set__forceCollectUntil(Double)
+  get_COLLECT_DIST()
+  set_COLLECT_DIST(Single)
+  get_COLLECT_DIST_SQR()
+  set_COLLECT_DIST_SQR(Single)
+  get_COLLECT_SPEED()
+  set_COLLECT_SPEED(Single)
+  get_MIN_COLLECT_TIME()
+  set_MIN_COLLECT_TIME(Single)
+  get_MAX_COLLECT_TIME()
+  set_MAX_COLLECT_TIME(Single)
+  get__animCycloneActiveId()
+  set__animCycloneActiveId(Int32)
+  get__model()
+  set__model(GadgetModel)
+  get__isActive()
+  set__isActive(Boolean)
+  OnUserDestroyed()
+  OnDestroy()
+  DropContent()
+  Awake()
+  InitModel(GadgetModel)
+  SetModel(GadgetModel)
+  FixedUpdate()
+  StartCollection()
+  DoCollection()
+=== Il2Cpp.ResourceCollectorActivator ===
+  field NativeFieldInfoPtr_Collector : IntPtr
+  field NativeFieldInfoPtr_PressButtonCue : IntPtr
+  field NativeFieldInfoPtr__buttonAnimator : IntPtr
+  field NativeFieldInfoPtr__buttonPressedTriggerId : IntPtr
+  field NativeFieldInfoPtr_TIME_BETWEEN_ACTIVATIONS : IntPtr
+  field NativeFieldInfoPtr__nextAllowedActivationTime : IntPtr
+  field NativeMethodInfoPtr_Awake_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_Activate_Public_Virtual_Final_New_Void_0 : IntPtr
+  field NativeMethodInfoPtr_GetCustomGuiPrefab_Public_Virtual_Final_New_GameObject_0 : IntPtr
+  field NativeMethodInfoPtr__ctor_Public_Void_0 : IntPtr
+  field isWrapped : Boolean
+  field pooledPtr : IntPtr
+  prop Collector : ResourceCollector
+  prop PressButtonCue : SECTR_AudioCue
+  prop _buttonAnimator : Animator
+  prop _buttonPressedTriggerId : Int32
+  prop TIME_BETWEEN_ACTIVATIONS : Single
+  prop _nextAllowedActivationTime : Double
+  prop m_CancellationTokenSource : CancellationTokenSource
+  prop destroyCancellationToken : CancellationToken
+  prop useGUILayout : Boolean
+  prop didStart : Boolean
+  prop didAwake : Boolean
+  prop enabled : Boolean
+  prop isActiveAndEnabled : Boolean
+  prop transform : Transform
+  prop gameObject : GameObject
+  prop tag : String
+  prop m_CachedPtr : IntPtr
+  prop name : String
+  prop hideFlags : HideFlags
+  prop ObjectClass : IntPtr
+  prop Pointer : IntPtr
+  prop WasCollected : Boolean
+  get_Collector()
+  set_Collector(ResourceCollector)
+  get_PressButtonCue()
+  set_PressButtonCue(SECTR_AudioCue)
+  get__buttonAnimator()
+  set__buttonAnimator(Animator)
+  get__buttonPressedTriggerId()
+  set__buttonPressedTriggerId(Int32)
+  get_TIME_BETWEEN_ACTIVATIONS()
+  set_TIME_BETWEEN_ACTIVATIONS(Single)
+  get__nextAllowedActivationTime()
+  set__nextAllowedActivationTime(Double)
+  Awake()
+  Activate()
+  GetCustomGuiPrefab()
+=== Il2Cpp.TimeDirector ===
+  field NativeFieldInfoPtr_OnFastForwardChanged : IntPtr
+  field NativeFieldInfoPtr_OnPausedChanged : IntPtr
+  field NativeFieldInfoPtr_SecsPerGameDay : IntPtr
+  field NativeFieldInfoPtr_FfSecsPerGameDay : IntPtr
+  field NativeFieldInfoPtr_START_HOUR : IntPtr
+  field NativeFieldInfoPtr__daySprite : IntPtr
+  field NativeFieldInfoPtr__nightSprite : IntPtr
+  field NativeFieldInfoPtr__dawnSprite : IntPtr
+  field NativeFieldInfoPtr__duskSprite : IntPtr
+  field NativeFieldInfoPtr__timeOfDayValue : IntPtr
+  field NativeFieldInfoPtr__onDayPassed : IntPtr
+  field NativeFieldInfoPtr__onHourPassed : IntPtr
+  field NativeFieldInfoPtr__lastDay : IntPtr
+  field NativeFieldInfoPtr__lastHour : IntPtr
+  field NativeFieldInfoPtr__timeFactor : IntPtr
+  field NativeFieldInfoPtr__ffTimeFactor : IntPtr
+  field NativeFieldInfoPtr__savedTimeScale : IntPtr
+  field NativeFieldInfoPtr__pauserCount : IntPtr
+  field NativeFieldInfoPtr__wasUnpausedLastFrame : IntPtr
+  field NativeFieldInfoPtr_OnHourPassedEvent : IntPtr
+  field NativeFieldInfoPtr_SECS_PER_MIN : IntPtr
+  field NativeFieldInfoPtr_MINS_PER_HOUR : IntPtr
+  field NativeFieldInfoPtr_HOURS_PER_DAY : IntPtr
+  field NativeFieldInfoPtr_MINS_PER_DAY : IntPtr
+  field NativeFieldInfoPtr_SECS_PER_DAY : IntPtr
+  field NativeFieldInfoPtr_SECS_PER_HOUR : IntPtr
+  field NativeFieldInfoPtr_MINS_PER_SEC : IntPtr
+  field NativeFieldInfoPtr_HOURS_PER_SEC : IntPtr
+  field NativeFieldInfoPtr_HOURS_PER_MIN : IntPtr
+  field NativeFieldInfoPtr_DAYS_PER_SEC : IntPtr
+  field NativeFieldInfoPtr_HOUR_MORNING : IntPtr
+  field NativeFieldInfoPtr_HOUR_AFTERNOON : IntPtr
+  field NativeFieldInfoPtr_HOUR_NIGHT : IntPtr
+  field NativeFieldInfoPtr__worldModel : IntPtr
+  field NativeFieldInfoPtr__passedTimeDelegates : IntPtr
+  field NativeMethodInfoPtr_add_OnFastForwardChanged_Public_add_Void_OnFastForwardChangedDelegate_0 : IntPtr
+  field NativeMethodInfoPtr_remove_OnFastForwardChanged_Public_rem_Void_OnFastForwardChangedDelegate_0 : IntPtr
+  field NativeMethodInfoPtr_add_OnPausedChanged_Public_add_Void_OnPausedChangedDelegate_0 : IntPtr
+  field NativeMethodInfoPtr_remove_OnPausedChanged_Public_rem_Void_OnPausedChangedDelegate_0 : IntPtr
+  field NativeMethodInfoPtr_add_OnHourPassedEvent_Public_add_Void_OnHourPassedDelegate_0 : IntPtr
+  field NativeMethodInfoPtr_remove_OnHourPassedEvent_Public_rem_Void_OnHourPassedDelegate_0 : IntPtr
+  field NativeMethodInfoPtr_get_WasUnpausedLastFrame_Public_get_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_Awake_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_InitModel_Public_Virtual_Final_New_Void_WorldModel_0 : IntPtr
+  field NativeMethodInfoPtr_SetModel_Public_Virtual_Final_New_Void_WorldModel_0 : IntPtr
+  field NativeMethodInfoPtr_ResetToStartTime_Private_Void_WorldModel_0 : IntPtr
+  field NativeMethodInfoPtr_ExactlyOnePauser_Public_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_IsFastForwarding_Public_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_HasPauser_Public_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_Update_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_LateUpdate_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_ForceFastForwardEnd_Public_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_DeltaWorldTime_Public_Double_0 : IntPtr
+  field NativeMethodInfoPtr_Pause_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_Unpause_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_DelayedUnpause_Private_IEnumerator_0 : IntPtr
+  field NativeMethodInfoPtr_isPaused_Public_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_WorldTime_Public_Double_0 : IntPtr
+  field NativeMethodInfoPtr_WorldTimePlayed_Public_Double_0 : IntPtr
+  field NativeMethodInfoPtr_HoursFromNow_Public_Double_Single_0 : IntPtr
+  field NativeMethodInfoPtr_HoursFromTime_Public_Static_Double_Single_Double_0 : IntPtr
+  field NativeMethodInfoPtr_HoursFromNowOrStart_Public_Double_Single_0 : IntPtr
+  field NativeMethodInfoPtr_WorldTimeRealSecFromNowOrStart_Public_Double_Single_0 : IntPtr
+  field NativeMethodInfoPtr_HasReached_Public_Boolean_Double_0 : IntPtr
+  field NativeMethodInfoPtr_TimeSince_Public_Double_Double_0 : IntPtr
+  field NativeMethodInfoPtr_HoursUntil_Public_Double_Double_0 : IntPtr
+  field NativeMethodInfoPtr_RealSecondsUntil_Public_Double_Double_0 : IntPtr
+  field NativeMethodInfoPtr_RealSecondsSince_Public_Double_Double_0 : IntPtr
+  field NativeMethodInfoPtr_GameToRealSeconds_Public_Double_Double_0 : IntPtr
+  field NativeMethodInfoPtr_RealSecondsToGame_Public_Double_Double_0 : IntPtr
+  field NativeMethodInfoPtr_CurrDayFraction_Public_Single_0 : IntPtr
+  field NativeMethodInfoPtr_CurrDay_Public_Int32_0 : IntPtr
+  field NativeMethodInfoPtr_CurrDayAfterHour_Public_Int32_Single_0 : IntPtr
+  field NativeMethodInfoPtr_CurrHour_Public_Single_0 : IntPtr
+  field NativeMethodInfoPtr_HourAtTimeDelta_Public_Single_Single_Single_0 : IntPtr
+  field NativeMethodInfoPtr_CurrHourOrStart_Public_Single_0 : IntPtr
+  field NativeMethodInfoPtr_CurrTime_Public_Int32_0 : IntPtr
+  field NativeMethodInfoPtr_CurrTimeIcon_Public_Sprite_0 : IntPtr
+  field NativeMethodInfoPtr_GetNextHour_Public_Double_Single_0 : IntPtr
+  field NativeMethodInfoPtr_GetNextHourAtLeastHalfDay_Public_Double_Single_0 : IntPtr
+  field NativeMethodInfoPtr_GetNextDawn_Public_Double_0 : IntPtr
+  field NativeMethodInfoPtr_GetNextDusk_Public_Double_0 : IntPtr
+  field NativeMethodInfoPtr_GetNextDawnAfterNextDusk_Public_Double_0 : IntPtr
+  field NativeMethodInfoPtr_GetHourAfter_Public_Double_Int32_Single_0 : IntPtr
+  field NativeMethodInfoPtr_GetHourAfter_Public_Static_Double_Double_Int32_Single_0 : IntPtr
+  field NativeMethodInfoPtr_FastForwardTo_Public_Void_Double_0 : IntPtr
+  field NativeMethodInfoPtr_IsAtStart_Public_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_HoursFromStart_Public_Static_Double_Double_0 : IntPtr
+  field NativeMethodInfoPtr_OnPassedHour_Public_Boolean_Single_0 : IntPtr
+  field NativeMethodInfoPtr_OnPassedTime_Public_Boolean_Double_0 : IntPtr
+  field NativeMethodInfoPtr_OnPassedTime_Public_Void_Double_Action_0 : IntPtr
+  field NativeMethodInfoPtr_AddPassedTimeDelegate_Public_Void_Double_Action_0 : IntPtr
+  field NativeMethodInfoPtr_RemovePassedTimeDelegate_Public_Void_Action_0 : IntPtr
+  field NativeMethodInfoPtr_FormatTime_Public_LocalizedString_Int32_LocalizedString_0 : IntPtr
+  field NativeMethodInfoPtr_GetDayWindow_Public_DayWindow_0 : IntPtr
+  field NativeMethodInfoPtr__ctor_Public_Void_0 : IntPtr
+  field isWrapped : Boolean
+  field pooledPtr : IntPtr
+  prop OnFastForwardChanged : OnFastForwardChangedDelegate
+  prop OnPausedChanged : OnPausedChangedDelegate
+  prop SecsPerGameDay : Single
+  prop FfSecsPerGameDay : Single
+  prop START_HOUR : Single
+  prop _daySprite : Sprite
+  prop _nightSprite : Sprite
+  prop _dawnSprite : Sprite
+  prop _duskSprite : Sprite
+  prop _timeOfDayValue : ScriptedFloat
+  prop _onDayPassed : StaticGameEvent
+  prop _onHourPassed : StaticGameEvent
+  prop _lastDay : Int32
+  prop _lastHour : Int32
+  prop _timeFactor : Single
+  prop _ffTimeFactor : Single
+  prop _savedTimeScale : Single
+  prop _pauserCount : Int32
+  prop _wasUnpausedLastFrame : Boolean
+  prop OnHourPassedEvent : OnHourPassedDelegate
+  prop SECS_PER_MIN : Single
+  prop MINS_PER_HOUR : Single
+  prop HOURS_PER_DAY : Single
+  prop MINS_PER_DAY : Single
+  prop SECS_PER_DAY : Single
+  prop SECS_PER_HOUR : Single
+  prop MINS_PER_SEC : Single
+  prop HOURS_PER_SEC : Single
+  prop HOURS_PER_MIN : Single
+  prop DAYS_PER_SEC : Single
+  prop HOUR_MORNING : Int32
+  prop HOUR_AFTERNOON : Int32
+  prop HOUR_NIGHT : Int32
+  prop _worldModel : WorldModel
+  prop _passedTimeDelegates : List`1
+  prop WasUnpausedLastFrame : Boolean
+  prop _destroyRequestHandler : IDestroyRequestHandler
+  prop m_CancellationTokenSource : CancellationTokenSource
+  prop destroyCancellationToken : CancellationToken
+  prop useGUILayout : Boolean
+  prop didStart : Boolean
+  prop didAwake : Boolean
+  prop enabled : Boolean
+  prop isActiveAndEnabled : Boolean
+  prop transform : Transform
+  prop gameObject : GameObject
+  prop tag : String
+  prop m_CachedPtr : IntPtr
+  prop name : String
+  prop hideFlags : HideFlags
+  prop ObjectClass : IntPtr
+  prop Pointer : IntPtr
+  prop WasCollected : Boolean
+  get_OnFastForwardChanged()
+  set_OnFastForwardChanged(OnFastForwardChangedDelegate)
+  get_OnPausedChanged()
+  set_OnPausedChanged(OnPausedChangedDelegate)
+  get_SecsPerGameDay()
+  set_SecsPerGameDay(Single)
+  get_FfSecsPerGameDay()
+  set_FfSecsPerGameDay(Single)
+  get_START_HOUR()
+  set_START_HOUR(Single)
+  get__daySprite()
+  set__daySprite(Sprite)
+  get__nightSprite()
+  set__nightSprite(Sprite)
+  get__dawnSprite()
+  set__dawnSprite(Sprite)
+  get__duskSprite()
+  set__duskSprite(Sprite)
+  get__timeOfDayValue()
+  set__timeOfDayValue(ScriptedFloat)
+  get__onDayPassed()
+  set__onDayPassed(StaticGameEvent)
+  get__onHourPassed()
+  set__onHourPassed(StaticGameEvent)
+  get__lastDay()
+  set__lastDay(Int32)
+  get__lastHour()
+  set__lastHour(Int32)
+  get__timeFactor()
+  set__timeFactor(Single)
+  get__ffTimeFactor()
+  set__ffTimeFactor(Single)
+  get__savedTimeScale()
+  set__savedTimeScale(Single)
+  get__pauserCount()
+  set__pauserCount(Int32)
+  get__wasUnpausedLastFrame()
+  set__wasUnpausedLastFrame(Boolean)
+  get_OnHourPassedEvent()
+  set_OnHourPassedEvent(OnHourPassedDelegate)
+  get_SECS_PER_MIN()
+  set_SECS_PER_MIN(Single)
+  get_MINS_PER_HOUR()
+  set_MINS_PER_HOUR(Single)
+  get_HOURS_PER_DAY()
+  set_HOURS_PER_DAY(Single)
+  get_MINS_PER_DAY()
+  set_MINS_PER_DAY(Single)
+  get_SECS_PER_DAY()
+  set_SECS_PER_DAY(Single)
+  get_SECS_PER_HOUR()
+  set_SECS_PER_HOUR(Single)
+  get_MINS_PER_SEC()
+  set_MINS_PER_SEC(Single)
+  get_HOURS_PER_SEC()
+  set_HOURS_PER_SEC(Single)
+  get_HOURS_PER_MIN()
+  set_HOURS_PER_MIN(Single)
+  get_DAYS_PER_SEC()
+  set_DAYS_PER_SEC(Single)
+  get_HOUR_MORNING()
+  set_HOUR_MORNING(Int32)
+  get_HOUR_AFTERNOON()
+  set_HOUR_AFTERNOON(Int32)
+  get_HOUR_NIGHT()
+  set_HOUR_NIGHT(Int32)
+  get__worldModel()
+  set__worldModel(WorldModel)
+  get__passedTimeDelegates()
+  set__passedTimeDelegates(List`1)
+  get_WasUnpausedLastFrame()
+  add_OnFastForwardChanged(OnFastForwardChangedDelegate)
+  remove_OnFastForwardChanged(OnFastForwardChangedDelegate)
+  add_OnPausedChanged(OnPausedChangedDelegate)
+  remove_OnPausedChanged(OnPausedChangedDelegate)
+  add_OnHourPassedEvent(OnHourPassedDelegate)
+  remove_OnHourPassedEvent(OnHourPassedDelegate)
+  Awake()
+  InitModel(WorldModel)
+  SetModel(WorldModel)
+  ResetToStartTime(WorldModel)
+  ExactlyOnePauser()
+  IsFastForwarding()
+  HasPauser()
+  Update()
+  LateUpdate()
+  ForceFastForwardEnd()
+  DeltaWorldTime()
+  Pause()
+  Unpause()
+  DelayedUnpause()
+  isPaused()
+  WorldTime()
+  WorldTimePlayed()
+  HoursFromNow(Single)
+  HoursFromTime(Single, Double)
+  HoursFromNowOrStart(Single)
+  WorldTimeRealSecFromNowOrStart(Single)
+  HasReached(Double)
+  TimeSince(Double)
+  HoursUntil(Double)
+  RealSecondsUntil(Double)
+  RealSecondsSince(Double)
+  GameToRealSeconds(Double)
+  RealSecondsToGame(Double)
+  CurrDayFraction()
+  CurrDay()
+  CurrDayAfterHour(Single)
+  CurrHour()
+  HourAtTimeDelta(Single, Single)
+  CurrHourOrStart()
+  CurrTime()
+  CurrTimeIcon()
+  GetNextHour(Single)
+  GetNextHourAtLeastHalfDay(Single)
+  GetNextDawn()
+  GetNextDusk()
+  GetNextDawnAfterNextDusk()
+  GetHourAfter(Int32, Single)
+  GetHourAfter(Double, Int32, Single)
+  FastForwardTo(Double)
+  IsAtStart()
+  HoursFromStart(Double)
+  OnPassedHour(Single)
+  OnPassedTime(Double)
+  OnPassedTime(Double, Action)
+  AddPassedTimeDelegate(Double, Action)
+  RemovePassedTimeDelegate(Action)
+  FormatTime(Int32, LocalizedString)
+  GetDayWindow()
+=== Il2Cpp.IdentifiableActor ===
+  field NativeFieldInfoPtr__model : IntPtr
+  field NativeFieldInfoPtr__member : IntPtr
+  field NativeFieldInfoPtr__timeDir : IntPtr
+  field NativeMethodInfoPtr_get_RegionMember_Public_get_RegionMember_0 : IntPtr
+  field NativeMethodInfoPtr_get_StatusEffectConsumer_Public_get_IStatusEffectConsumer_0 : IntPtr
+  field NativeMethodInfoPtr_get_UnitPropertyTracker_Public_get_UnitPropertyTracker_0 : IntPtr
+  field NativeMethodInfoPtr_Awake_Public_Virtual_Void_0 : IntPtr
+  field NativeMethodInfoPtr_OnEnable_Public_Virtual_Void_0 : IntPtr
+  field NativeMethodInfoPtr_OnDisable_Public_Virtual_Void_0 : IntPtr
+  field NativeMethodInfoPtr_OnDestroy_Public_Virtual_Void_0 : IntPtr
+  field NativeMethodInfoPtr_GetActorId_Public_Virtual_ActorId_0 : IntPtr
+  field NativeMethodInfoPtr_get_AmmoMetadata_Public_Virtual_get_AmmoMetadata_0 : IntPtr
+  field NativeMethodInfoPtr_SetModel_Public_Virtual_Final_New_Void_ActorModel_0 : IntPtr
+  field NativeMethodInfoPtr_IsEdibleChanged_Private_Void_IEdibleModel_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_InitModel_Public_Virtual_Final_New_Void_ActorModel_0 : IntPtr
+  field NativeMethodInfoPtr_OnMemberChanged_UpdateRegistration_Private_Void_List_1_Region_List_1_Region_0 : IntPtr
+  field NativeMethodInfoPtr_RegistryUpdate_Public_Virtual_Final_New_Void_0 : IntPtr
+  field NativeMethodInfoPtr_UpdateToTime_Public_Void_Double_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_GetDebugColor_Public_Virtual_Final_New_Color_0 : IntPtr
+  field NativeMethodInfoPtr__ctor_Public_Void_0 : IntPtr
+  field isWrapped : Boolean
+  field pooledPtr : IntPtr
+  prop _model : ActorModel
+  prop _member : RegionMember
+  prop _timeDir : TimeDirector
+  prop RegionMember : RegionMember
+  prop StatusEffectConsumer : IStatusEffectConsumer
+  prop UnitPropertyTracker : UnitPropertyTracker
+  prop AmmoMetadata : AmmoMetadata
+  prop identType : IdentifiableType
+  prop _isPhysicsInitialized_k__BackingField : Boolean
+  prop Edible : Boolean
+  prop NotifyOnDestroy : OnDestroyListener
+  prop isPhysicsInitialized : Boolean
+  prop hasStarted : Boolean
+  prop _updateFunctions : RegisteredUpdateFunctions
+  prop _updateFunctionsSet : Boolean
+  prop UpdateFunctions : RegisteredUpdateFunctions
+  prop _destroyRequestHandler : IDestroyRequestHandler
+  prop m_CancellationTokenSource : CancellationTokenSource
+  prop destroyCancellationToken : CancellationToken
+  prop useGUILayout : Boolean
+  prop didStart : Boolean
+  prop didAwake : Boolean
+  prop enabled : Boolean
+  prop isActiveAndEnabled : Boolean
+  prop transform : Transform
+  prop gameObject : GameObject
+  prop tag : String
+  prop m_CachedPtr : IntPtr
+  prop name : String
+  prop hideFlags : HideFlags
+  prop ObjectClass : IntPtr
+  prop Pointer : IntPtr
+  prop WasCollected : Boolean
+  get__model()
+  set__model(ActorModel)
+  get__member()
+  set__member(RegionMember)
+  get__timeDir()
+  set__timeDir(TimeDirector)
+  get_RegionMember()
+  get_StatusEffectConsumer()
+  get_UnitPropertyTracker()
+  get_AmmoMetadata()
+  Awake()
+  OnEnable()
+  OnDisable()
+  OnDestroy()
+  GetActorId()
+  SetModel(ActorModel)
+  IsEdibleChanged(IEdibleModel, Boolean)
+  InitModel(ActorModel)
+  OnMemberChanged_UpdateRegistration(List`1, List`1)
+  RegistryUpdate()
+  UpdateToTime(Double, Boolean)
+  GetDebugColor()
+
+--- find Region ---
+=== Il2CppMonomiPark.SlimeRancher.Regions.Region ===
+  field NativeFieldInfoPtr_OverrideBounds : IntPtr
+  field NativeFieldInfoPtr_HeadroomForAutoBounds : IntPtr
+  field NativeFieldInfoPtr_Bounds : IntPtr
+  field NativeFieldInfoPtr_Root : IntPtr
+  field NativeFieldInfoPtr_ProxyMesh : IntPtr
+  field NativeFieldInfoPtr_ProxyRoot : IntPtr
+  field NativeFieldInfoPtr_ProxyPrefab : IntPtr
+  field NativeFieldInfoPtr_proxyCastsShadow : IntPtr
+  field NativeFieldInfoPtr_ProxyMaterials : IntPtr
+  field NativeFieldInfoPtr__proxyObj : IntPtr
+  field NativeFieldInfoPtr__nonProxyRefCount : IntPtr
+  field NativeFieldInfoPtr__nonHibernateRefCount : IntPtr
+  field NativeFieldInfoPtr__regionReg : IntPtr
+  field NativeFieldInfoPtr__members : IntPtr
+  field NativeFieldInfoPtr__adjuncts : IntPtr
+  field NativeFieldInfoPtr_CellDir : IntPtr
+  field NativeFieldInfoPtr_HEADROOM : IntPtr
+  field NativeFieldInfoPtr__SceneGroup_k__BackingField : IntPtr
+  field NativeFieldInfoPtr_neighborRegions : IntPtr
+  field NativeFieldInfoPtr__neighborActiveCount : IntPtr
+  field NativeFieldInfoPtr_MIN_LOCAL_ARRAY_RESIZE_AMOUNT : IntPtr
+  field NativeFieldInfoPtr__updateLocalMembers : IntPtr
+  field NativeFieldInfoPtr_OnHibernationStateChanged : IntPtr
+  field NativeFieldInfoPtr_OnBeforeHibernationStateChanged : IntPtr
+  field NativeMethodInfoPtr_get_SceneGroup_Public_get_SceneGroup_0 : IntPtr
+  field NativeMethodInfoPtr_set_SceneGroup_Private_set_Void_SceneGroup_0 : IntPtr
+  field NativeMethodInfoPtr_GetProxyObj_Public_GameObject_0 : IntPtr
+  field NativeMethodInfoPtr_CreateProxyHelper_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_get_Proxied_Public_get_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_get_Hibernated_Public_get_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_AddNonProxiedReference_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_RemoveNonProxiedReference_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_AddNonHibernateReference_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_RemoveNonHibernateReference_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_add_OnHibernationStateChanged_Public_add_Void_OnHibernationStateChangedDelegate_0 : IntPtr
+  field NativeMethodInfoPtr_remove_OnHibernationStateChanged_Public_rem_Void_OnHibernationStateChangedDelegate_0 : IntPtr
+  field NativeMethodInfoPtr_add_OnBeforeHibernationStateChanged_Public_add_Void_OnHibernationStateChangedDelegate_0 : IntPtr
+  field NativeMethodInfoPtr_remove_OnBeforeHibernationStateChanged_Public_rem_Void_OnHibernationStateChangedDelegate_0 : IntPtr
+  field NativeMethodInfoPtr_UpdateMembersHibernationStates_Private_Void_0 : IntPtr
+  field NativeMethodInfoPtr_AddMember_Public_Void_RegionMember_0 : IntPtr
+  field NativeMethodInfoPtr_RemoveMember_Public_Void_RegionMember_0 : IntPtr
+  field NativeMethodInfoPtr_GetMembers_Public_IEnumerable_1_RegionMember_0 : IntPtr
+  field NativeMethodInfoPtr_CheckReferences_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_GetZoneId_Public_ZoneDefinition_0 : IntPtr
+  field NativeMethodInfoPtr_OnRegionSetDeactivated_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_Proxy_Private_Void_0 : IntPtr
+  field NativeMethodInfoPtr_CreateProxy_Private_Void_0 : IntPtr
+  field NativeMethodInfoPtr_Unproxy_Private_Void_0 : IntPtr
+  field NativeMethodInfoPtr_Awake_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_Start_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_OnNeighborHibernationStateChanged_Private_Void_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_OnEnable_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_OnDisable_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_RegisterAdjunct_Public_Void_RegionAdjunct_0 : IntPtr
+  field NativeMethodInfoPtr_DeregisterAdjunct_Public_Void_RegionAdjunct_0 : IntPtr
+  field NativeMethodInfoPtr_GetDebugHUDText_Public_Virtual_Final_New_String_0 : IntPtr
+  field NativeMethodInfoPtr__ctor_Public_Void_0 : IntPtr
+  field isWrapped : Boolean
+  field pooledPtr : IntPtr
+  prop OverrideBounds : Boolean
+  prop HeadroomForAutoBounds : Boolean
+  prop Bounds : Bounds
+  prop Root : GameObject
+  prop ProxyMesh : Mesh
+  prop ProxyRoot : GameObject
+  prop ProxyPrefab : GameObject
+  prop proxyCastsShadow : Boolean
+  prop ProxyMaterials : Il2CppReferenceArray`1
+  prop _proxyObj : GameObject
+  prop _nonProxyRefCount : Int32
+  prop _nonHibernateRefCount : Int32
+  prop _regionReg : RegionRegistry
+  prop _members : ExposedArrayList`1
+  prop _adjuncts : List`1
+  prop CellDir : CellDirector
+  prop HEADROOM : Single
+  prop _SceneGroup_k__BackingField : SceneGroup
+  prop neighborRegions : List`1
+  prop _neighborActiveCount : Int32
+  prop MIN_LOCAL_ARRAY_RESIZE_AMOUNT : Int32
+  prop _updateLocalMembers : Il2CppReferenceArray`1
+  prop OnHibernationStateChanged : OnHibernationStateChangedDelegate
+  prop OnBeforeHibernationStateChanged : OnHibernationStateChangedDelegate
+  prop SceneGroup : SceneGroup
+  prop Proxied : Boolean
+  prop Hibernated : Boolean
+  prop m_CancellationTokenSource : CancellationTokenSource
+  prop destroyCancellationToken : CancellationToken
+  prop useGUILayout : Boolean
+  prop didStart : Boolean
+  prop didAwake : Boolean
+  prop enabled : Boolean
+  prop isActiveAndEnabled : Boolean
+  prop transform : Transform
+  prop gameObject : GameObject
+  prop tag : String
+  prop m_CachedPtr : IntPtr
+  prop name : String
+  prop hideFlags : HideFlags
+  prop ObjectClass : IntPtr
+  prop Pointer : IntPtr
+  prop WasCollected : Boolean
+  get_OverrideBounds()
+  set_OverrideBounds(Boolean)
+  get_HeadroomForAutoBounds()
+  set_HeadroomForAutoBounds(Boolean)
+  get_Bounds()
+  set_Bounds(Bounds)
+  get_Root()
+  set_Root(GameObject)
+  get_ProxyMesh()
+  set_ProxyMesh(Mesh)
+  get_ProxyRoot()
+  set_ProxyRoot(GameObject)
+  get_ProxyPrefab()
+  set_ProxyPrefab(GameObject)
+  get_proxyCastsShadow()
+  set_proxyCastsShadow(Boolean)
+  get_ProxyMaterials()
+  set_ProxyMaterials(Il2CppReferenceArray`1)
+  get__proxyObj()
+  set__proxyObj(GameObject)
+  get__nonProxyRefCount()
+  set__nonProxyRefCount(Int32)
+  get__nonHibernateRefCount()
+  set__nonHibernateRefCount(Int32)
+  get__regionReg()
+  set__regionReg(RegionRegistry)
+  get__members()
+  set__members(ExposedArrayList`1)
+  get__adjuncts()
+  set__adjuncts(List`1)
+  get_CellDir()
+  set_CellDir(CellDirector)
+  get_HEADROOM()
+  set_HEADROOM(Single)
+  get__SceneGroup_k__BackingField()
+  set__SceneGroup_k__BackingField(SceneGroup)
+  get_neighborRegions()
+  set_neighborRegions(List`1)
+  get__neighborActiveCount()
+  set__neighborActiveCount(Int32)
+  get_MIN_LOCAL_ARRAY_RESIZE_AMOUNT()
+  set_MIN_LOCAL_ARRAY_RESIZE_AMOUNT(Int32)
+  get__updateLocalMembers()
+  set__updateLocalMembers(Il2CppReferenceArray`1)
+  get_OnHibernationStateChanged()
+  set_OnHibernationStateChanged(OnHibernationStateChangedDelegate)
+  get_OnBeforeHibernationStateChanged()
+  set_OnBeforeHibernationStateChanged(OnHibernationStateChangedDelegate)
+  get_SceneGroup()
+  set_SceneGroup(SceneGroup)
+  get_Proxied()
+  get_Hibernated()
+  GetProxyObj()
+  CreateProxyHelper()
+  AddNonProxiedReference()
+  RemoveNonProxiedReference()
+  AddNonHibernateReference()
+  RemoveNonHibernateReference()
+  add_OnHibernationStateChanged(OnHibernationStateChangedDelegate)
+  remove_OnHibernationStateChanged(OnHibernationStateChangedDelegate)
+  add_OnBeforeHibernationStateChanged(OnHibernationStateChangedDelegate)
+  remove_OnBeforeHibernationStateChanged(OnHibernationStateChangedDelegate)
+  UpdateMembersHibernationStates()
+  AddMember(RegionMember)
+  RemoveMember(RegionMember)
+  GetMembers()
+  CheckReferences()
+  GetZoneId()
+  OnRegionSetDeactivated()
+  Proxy()
+  CreateProxy()
+  Unproxy()
+  Awake()
+  Start()
+  OnNeighborHibernationStateChanged(Boolean)
+  OnEnable()
+  OnDisable()
+  RegisterAdjunct(RegionAdjunct)
+  DeregisterAdjunct(RegionAdjunct)
+  GetDebugHUDText()
+
+--- find Vacuumable ---
+=== Il2CppMonomiPark.SlimeRancher.Vacuumable ===
+  field NativeFieldInfoPtr_VACUUMABLE_REGISTRY : IntPtr
+  field NativeFieldInfoPtr_OnSetHeld : IntPtr
+  field NativeFieldInfoPtr_OnSetLaunched : IntPtr
+  field NativeFieldInfoPtr__LastLaunchSource_k__BackingField : IntPtr
+  field NativeFieldInfoPtr_Size : IntPtr
+  field NativeFieldInfoPtr_OnLaunchCue : IntPtr
+  field NativeFieldInfoPtr__preventForcesFromWeaponVacuum : IntPtr
+  field NativeFieldInfoPtr__colliderObjectsThatUpdateLayers : IntPtr
+  field NativeFieldInfoPtr__currentColliderLayer : IntPtr
+  field NativeFieldInfoPtr__ignoresGravity : IntPtr
+  field NativeFieldInfoPtr__captiveToJoint : IntPtr
+  field NativeFieldInfoPtr__held : IntPtr
+  field NativeFieldInfoPtr__launched : IntPtr
+  field NativeFieldInfoPtr__nextVacTime : IntPtr
+  field NativeFieldInfoPtr__launchEndedTime : IntPtr
+  field NativeFieldInfoPtr__destroyOnVac : IntPtr
+  field NativeFieldInfoPtr_VAC_RELEASE_DELAY : IntPtr
+  field NativeFieldInfoPtr_LAUNCHED_LAYER : IntPtr
+  field NativeFieldInfoPtr_CAPTIVE_LAYER : IntPtr
+  field NativeFieldInfoPtr_TORNADOED_LAYER : IntPtr
+  field NativeFieldInfoPtr_HELD_LAYER : IntPtr
+  field NativeFieldInfoPtr_LAYERS_TO_IGNORE_MASK : IntPtr
+  field NativeFieldInfoPtr__defaultLayer : IntPtr
+  field NativeFieldInfoPtr__sfAnimator : IntPtr
+  field NativeFieldInfoPtr__body : IntPtr
+  field NativeFieldInfoPtr__delaunchTrigger : IntPtr
+  field NativeFieldInfoPtr__identifiable : IntPtr
+  field NativeFieldInfoPtr__slimeAppearanceApplicator : IntPtr
+  field NativeFieldInfoPtr__isTornadoed : IntPtr
+  field NativeFieldInfoPtr__lastPending : IntPtr
+  field NativeFieldInfoPtr__heldShaderPropertyId : IntPtr
+  field NativeFieldInfoPtr__shadowCastingModeCache : IntPtr
+  field NativeFieldInfoPtr__collisionAggregator : IntPtr
+  field NativeMethodInfoPtr_add_OnSetHeld_Public_add_Void_OnSetHeldDelegate_0 : IntPtr
+  field NativeMethodInfoPtr_remove_OnSetHeld_Public_rem_Void_OnSetHeldDelegate_0 : IntPtr
+  field NativeMethodInfoPtr_add_OnSetLaunched_Public_add_Void_OnSetLaunchedDelegate_0 : IntPtr
+  field NativeMethodInfoPtr_remove_OnSetLaunched_Public_rem_Void_OnSetLaunchedDelegate_0 : IntPtr
+  field NativeMethodInfoPtr_set_LastLaunchSource_Private_set_Void_Nullable_1_LaunchSource_0 : IntPtr
+  field NativeMethodInfoPtr_get_LastLaunchSource_Public_get_Nullable_1_LaunchSource_0 : IntPtr
+  field NativeMethodInfoPtr_get_collisionBehaviour_Public_Virtual_Final_New_get_CollisionAggregator_0 : IntPtr
+  field NativeMethodInfoPtr_set_collisionBehaviour_Protected_set_Void_CollisionAggregator_0 : IntPtr
+  field NativeMethodInfoPtr_get_PreventForcesFromWeaponVacuum_Public_get_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_set_PreventForcesFromWeaponVacuum_Public_set_Void_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_Awake_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_OnEnable_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_OnDisable_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_LocateAndCacheCollisionAggregator_Public_Virtual_Final_New_CollisionAggregator_0 : IntPtr
+  field NativeMethodInfoPtr_RegisterWithAggregator_Public_Virtual_Final_New_Void_0 : IntPtr
+  field NativeMethodInfoPtr_DeregisterWithAggregator_Public_Virtual_Final_New_Void_0 : IntPtr
+  field NativeMethodInfoPtr_TryConsume_Public_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_GetSlimeAppearance_Public_SlimeAppearance_0 : IntPtr
+  field NativeMethodInfoPtr_PreventCaptureFor_Public_Void_Single_0 : IntPtr
+  field NativeMethodInfoPtr_CanCapture_Public_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_Capture_Public_Void_Joint_0 : IntPtr
+  field NativeMethodInfoPtr_get_Pending_Public_get_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_set_Pending_Public_set_Void_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_Release_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_Hold_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_IsCaptive_Public_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_SetTornadoed_Public_Void_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_IsTornadoed_Public_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_IsHeld_Public_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_IsLaunched_Public_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_WasLaunched_Public_Boolean_Double_0 : IntPtr
+  field NativeMethodInfoPtr_Launch_Public_Void_LaunchSource_0 : IntPtr
+  field NativeMethodInfoPtr_SetDontPushPlayer_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_Delaunch_Public_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_SetDestroyOnVac_Public_Void_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_GetDestroyOnVac_Public_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_ClearVelocity_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_SetCaptive_Private_Void_Joint_0 : IntPtr
+  field NativeMethodInfoPtr_SetHeld_Private_Void_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_ProcessCollisionEnter_Public_Virtual_Final_New_Void_Collision_0 : IntPtr
+  field NativeMethodInfoPtr_UpdateMaterialsHeldState_Private_Void_0 : IntPtr
+  field NativeMethodInfoPtr_UpdateColliderLayer_Private_Void_0 : IntPtr
+  field NativeMethodInfoPtr_SetLaunched_Private_Void_Boolean_0 : IntPtr
+  field NativeMethodInfoPtr_OnDestroy_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr_TryGetVacuumable_Public_Static_Boolean_GameObject_byref_Vacuumable_0 : IntPtr
+  field NativeMethodInfoPtr__ctor_Public_Void_0 : IntPtr
+  field isWrapped : Boolean
+  field pooledPtr : IntPtr
+  prop VACUUMABLE_REGISTRY : Dictionary`2
+  prop OnSetHeld : OnSetHeldDelegate
+  prop OnSetLaunched : OnSetLaunchedDelegate
+  prop _LastLaunchSource_k__BackingField : Nullable`1
+  prop Size : VacuumableSize
+  prop OnLaunchCue : SECTR_AudioCue
+  prop _preventForcesFromWeaponVacuum : Boolean
+  prop _colliderObjectsThatUpdateLayers : List`1
+  prop _currentColliderLayer : Int32
+  prop _ignoresGravity : Boolean
+  prop _captiveToJoint : Joint
+  prop _held : Boolean
+  prop _launched : Boolean
+  prop _nextVacTime : Double
+  prop _launchEndedTime : Double
+  prop _destroyOnVac : Boolean
+  prop VAC_RELEASE_DELAY : Single
+  prop LAUNCHED_LAYER : Int32
+  prop CAPTIVE_LAYER : Int32
+  prop TORNADOED_LAYER : Int32
+  prop HELD_LAYER : Int32
+  prop LAYERS_TO_IGNORE_MASK : Int32
+  prop _defaultLayer : Int32
+  prop _sfAnimator : SlimeFaceAnimator
+  prop _body : Rigidbody
+  prop _delaunchTrigger : VacDelaunchTrigger
+  prop _identifiable : Identifiable
+  prop _slimeAppearanceApplicator : SlimeAppearanceApplicator
+  prop _isTornadoed : Boolean
+  prop _lastPending : Double
+  prop _heldShaderPropertyId : Int32
+  prop _shadowCastingModeCache : Dictionary`2
+  prop _collisionAggregator : CollisionAggregator
+  prop LastLaunchSource : Nullable`1
+  prop collisionBehaviour : CollisionAggregator
+  prop PreventForcesFromWeaponVacuum : Boolean
+  prop Pending : Boolean
+  prop _destroyRequestHandler : IDestroyRequestHandler
+  prop m_CancellationTokenSource : CancellationTokenSource
+  prop destroyCancellationToken : CancellationToken
+  prop useGUILayout : Boolean
+  prop didStart : Boolean
+  prop didAwake : Boolean
+  prop enabled : Boolean
+  prop isActiveAndEnabled : Boolean
+  prop transform : Transform
+  prop gameObject : GameObject
+  prop tag : String
+  prop m_CachedPtr : IntPtr
+  prop name : String
+  prop hideFlags : HideFlags
+  prop ObjectClass : IntPtr
+  prop Pointer : IntPtr
+  prop WasCollected : Boolean
+  get_VACUUMABLE_REGISTRY()
+  set_VACUUMABLE_REGISTRY(Dictionary`2)
+  get_OnSetHeld()
+  set_OnSetHeld(OnSetHeldDelegate)
+  get_OnSetLaunched()
+  set_OnSetLaunched(OnSetLaunchedDelegate)
+  get__LastLaunchSource_k__BackingField()
+  set__LastLaunchSource_k__BackingField(Nullable`1)
+  get_Size()
+  set_Size(VacuumableSize)
+  get_OnLaunchCue()
+  set_OnLaunchCue(SECTR_AudioCue)
+  get__preventForcesFromWeaponVacuum()
+  set__preventForcesFromWeaponVacuum(Boolean)
+  get__colliderObjectsThatUpdateLayers()
+  set__colliderObjectsThatUpdateLayers(List`1)
+  get__currentColliderLayer()
+  set__currentColliderLayer(Int32)
+  get__ignoresGravity()
+  set__ignoresGravity(Boolean)
+  get__captiveToJoint()
+  set__captiveToJoint(Joint)
+  get__held()
+  set__held(Boolean)
+  get__launched()
+  set__launched(Boolean)
+  get__nextVacTime()
+  set__nextVacTime(Double)
+  get__launchEndedTime()
+  set__launchEndedTime(Double)
+  get__destroyOnVac()
+  set__destroyOnVac(Boolean)
+  get_VAC_RELEASE_DELAY()
+  set_VAC_RELEASE_DELAY(Single)
+  get_LAUNCHED_LAYER()
+  set_LAUNCHED_LAYER(Int32)
+  get_CAPTIVE_LAYER()
+  set_CAPTIVE_LAYER(Int32)
+  get_TORNADOED_LAYER()
+  set_TORNADOED_LAYER(Int32)
+  get_HELD_LAYER()
+  set_HELD_LAYER(Int32)
+  get_LAYERS_TO_IGNORE_MASK()
+  set_LAYERS_TO_IGNORE_MASK(Int32)
+  get__defaultLayer()
+  set__defaultLayer(Int32)
+  get__sfAnimator()
+  set__sfAnimator(SlimeFaceAnimator)
+  get__body()
+  set__body(Rigidbody)
+  get__delaunchTrigger()
+  set__delaunchTrigger(VacDelaunchTrigger)
+  get__identifiable()
+  set__identifiable(Identifiable)
+  get__slimeAppearanceApplicator()
+  set__slimeAppearanceApplicator(SlimeAppearanceApplicator)
+  get__isTornadoed()
+  set__isTornadoed(Boolean)
+  get__lastPending()
+  set__lastPending(Double)
+  get__heldShaderPropertyId()
+  set__heldShaderPropertyId(Int32)
+  get__shadowCastingModeCache()
+  set__shadowCastingModeCache(Dictionary`2)
+  get__collisionAggregator()
+  set__collisionAggregator(CollisionAggregator)
+  get_LastLaunchSource()
+  set_LastLaunchSource(Nullable`1)
+  get_collisionBehaviour()
+  set_collisionBehaviour(CollisionAggregator)
+  get_PreventForcesFromWeaponVacuum()
+  set_PreventForcesFromWeaponVacuum(Boolean)
+  get_Pending()
+  set_Pending(Boolean)
+  add_OnSetHeld(OnSetHeldDelegate)
+  remove_OnSetHeld(OnSetHeldDelegate)
+  add_OnSetLaunched(OnSetLaunchedDelegate)
+  remove_OnSetLaunched(OnSetLaunchedDelegate)
+  Awake()
+  OnEnable()
+  OnDisable()
+  LocateAndCacheCollisionAggregator()
+  RegisterWithAggregator()
+  DeregisterWithAggregator()
+  TryConsume()
+  GetSlimeAppearance()
+  PreventCaptureFor(Single)
+  CanCapture()
+  Capture(Joint)
+  Release()
+  Hold()
+  IsCaptive()
+  SetTornadoed(Boolean)
+  IsTornadoed()
+  IsHeld()
+  IsLaunched()
+  WasLaunched(Double)
+  Launch(LaunchSource)
+  SetDontPushPlayer()
+  Delaunch()
+  SetDestroyOnVac(Boolean)
+  GetDestroyOnVac()
+  ClearVelocity()
+  SetCaptive(Joint)
+  SetHeld(Boolean)
+  ProcessCollisionEnter(Collision)
+  UpdateMaterialsHeldState()
+  UpdateColliderLayer()
+  SetLaunched(Boolean)
+  OnDestroy()
+  TryGetVacuumable(GameObject, Vacuumable&)
+
+--- find Vacuum ---
+
+--- PlortCollector nested ---
+=== Il2Cpp.PlortCollector+JointReference ===
+  field NativeFieldInfoPtr_AmmoMetadata : IntPtr
+  field NativeFieldInfoPtr_Vacuumable : IntPtr
+  field NativeFieldInfoPtr_Joint : IntPtr
+  field NativeMethodInfoPtr_Destroy_Public_Void_0 : IntPtr
+  field NativeMethodInfoPtr__ctor_Public_Void_0 : IntPtr
+  field isWrapped : Boolean
+  field pooledPtr : IntPtr
+  prop AmmoMetadata : AmmoMetadata
+  prop Vacuumable : Vacuumable
+  prop Joint : SpringJoint
+  prop ObjectClass : IntPtr
+  prop Pointer : IntPtr
+  prop WasCollected : Boolean
+  get_AmmoMetadata()
+  set_AmmoMetadata(AmmoMetadata)
+  get_Vacuumable()
+  set_Vacuumable(Vacuumable)
+  get_Joint()
+  set_Joint(SpringJoint)
+  Destroy()

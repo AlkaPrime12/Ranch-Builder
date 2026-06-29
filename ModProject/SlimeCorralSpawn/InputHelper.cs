@@ -101,6 +101,14 @@ namespace SlimeCorralSpawn
             return mouse.position.ReadValue();
         }
 
+        /// <summary>Delta del mouse este frame (funciona con el cursor bloqueado — para free-look).</summary>
+        public static Vector2 GetMouseDelta()
+        {
+            Mouse mouse = Mouse.current;
+            if (mouse == null) return Vector2.zero;
+            try { return mouse.delta.ReadValue(); } catch { return Vector2.zero; }
+        }
+
         public static float GetAxis(string axisName)
         {
             Mouse mouse = Mouse.current;

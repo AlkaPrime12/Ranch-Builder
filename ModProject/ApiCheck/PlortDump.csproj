@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <GameDir>C:\Games\Slime Rancher 2</GameDir>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="PlortDump3.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="$(GameDir)\MelonLoader\net6\Il2CppInterop.Runtime.dll">
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="$(GameDir)\MelonLoader\Il2CppAssemblies\Assembly-CSharp.dll">
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="$(GameDir)\MelonLoader\Il2CppAssemblies\Il2Cppmscorlib.dll">
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="$(GameDir)\MelonLoader\Il2CppAssemblies\UnityEngine.CoreModule.dll">
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="$(GameDir)\MelonLoader\Il2CppAssemblies\UnityEngine.PhysicsModule.dll">
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="$(GameDir)\MelonLoader\Il2CppAssemblies\Il2Cpp__Generated.dll">
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

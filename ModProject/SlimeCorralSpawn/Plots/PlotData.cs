@@ -29,6 +29,16 @@ namespace SlimeCorralSpawn.Plots
         // (evita pisar lo guardado con un plot recién spawneado y vacío).
         [System.NonSerialized] public bool ContentReady;
 
+        // OPTIMIZACIÓN anti-lag: cachear el LandPlot para no hacer GetComponentInChildren en CADA tick
+        // de CADA driver (collector/feeder/garden/content). Con muchos corrales eso era lag mid-game.
+        [System.NonSerialized] private Il2Cpp.LandPlot _cachedLp;
+        public Il2Cpp.LandPlot GetLandPlot()
+        {
+            try { if (_cachedLp != null) return _cachedLp; } catch { _cachedLp = null; }   // null de Unity = destruido
+            try { if (LinkedObject != null) _cachedLp = LinkedObject.GetComponentInChildren<Il2Cpp.LandPlot>(true); } catch { }
+            return _cachedLp;
+        }
+
         public class SiloSlotData
         {
             public string Role;       // "Feeder" | "Collector" | null (legacy)
@@ -129,6 +139,13 @@ namespace SlimeCorralSpawn.Plots
             Placement.UpgradeActivationHelper.ClearState();
         }
 
+        /// <summary>Al cambiar de save: forzar re-carga de datos desde el slot correcto.</summary>
+        public static void ResetLoadState()
+        {
+            _dataLoaded = false;
+            allPlots.Clear();
+        }
+
         /// <summary>Captura inmediata de todo el contenido vivo y guarda moddata.</summary>
         public static void FlushAllContentToModData()
         {
@@ -139,8 +156,7 @@ namespace SlimeCorralSpawn.Plots
             {
                 var pd = kv.Value;
                 if (pd == null || !pd.ContentReady || pd.LinkedObject == null) continue;
-                Il2Cpp.LandPlot lp = null;
-                try { lp = pd.LinkedObject.GetComponentInChildren<Il2Cpp.LandPlot>(true); } catch { }
+                Il2Cpp.LandPlot lp = pd.GetLandPlot();   // cacheado (anti-lag)
                 if (lp == null) continue;
                 if (!Placement.CorralRegistrationHelper.ContentCaptureReady(lp)) continue;
                 ContentPersistence.CaptureContent(lp, pd);
@@ -151,14 +167,17 @@ namespace SlimeCorralSpawn.Plots
         }
 
         private static float _lastContentCapture;
+        private static float _lastDiskSave;
 
         /// <summary>
-        /// Cada ~3s captura el CONTENIDO vivo de plots restaurados.
+        /// Captura el CONTENIDO vivo en MEMORIA cada ~5s, pero escribe a DISCO solo cada ~30s.
+        /// Antes escribía el JSON a disco cada 3s = "tirón cada tanto" (I/O en el hilo principal).
+        /// Las transiciones de escena (OnSceneWasUnloaded/Loaded) hacen flush a disco igual.
         /// </summary>
         public static void UpdateContentCapture()
         {
             if (allPlots.Count == 0) return;
-            if (Time.time - _lastContentCapture < 3f) return;
+            if (Time.time - _lastContentCapture < 5f) return;
             _lastContentCapture = Time.time;
 
             bool any = false;
@@ -166,15 +185,19 @@ namespace SlimeCorralSpawn.Plots
             {
                 var pd = kv.Value;
                 if (!pd.ContentReady || pd.LinkedObject == null) continue;
-                Il2Cpp.LandPlot lp = null;
-                try { lp = pd.LinkedObject.GetComponentInChildren<Il2Cpp.LandPlot>(true); } catch { }
+                Il2Cpp.LandPlot lp = pd.GetLandPlot();   // cacheado (anti-lag)
                 if (lp == null) continue;
                 if (!Placement.CorralRegistrationHelper.ContentCaptureReady(lp)) continue;
                 ContentPersistence.CaptureContent(lp, pd);
-                SlimeCorralSpawn.SaveData.ModDataManager.SyncPlot(pd);
+                SlimeCorralSpawn.SaveData.ModDataManager.SyncPlot(pd);   // en memoria (barato)
                 any = true;
             }
-            if (any) SlimeCorralSpawn.SaveData.ModDataManager.Save();
+            // Escritura a disco throttleada (la parte cara): cada 30s, no cada ciclo.
+            if (any && Time.time - _lastDiskSave > 30f)
+            {
+                _lastDiskSave = Time.time;
+                SlimeCorralSpawn.SaveData.ModDataManager.Save();
+            }
         }
 
         public static void UpdateRetry()
@@ -204,12 +227,13 @@ namespace SlimeCorralSpawn.Plots
             foreach (var kv in allPlots) if (kv.Value.LinkedObject == null) { anyUnlinked = true; break; }
             if (!anyUnlinked) return;
 
-            // 1 plot por frame (sin intervalo de 2s): aparece rápido pero sin congelón.
+            // Varios plots por frame al cargar (sin bajar calidad).
+            int budget = RestoreBudget.PlotsPerFrame;
             foreach (var kv in allPlots)
             {
                 if (kv.Value.LinkedObject != null) continue;
                 kv.Value.LinkedObject = SlimeCorralSpawn.Placement.RealPlotManager.RespawnFromSave(kv.Value);
-                if (kv.Value.LinkedObject != null) return;
+                if (kv.Value.LinkedObject != null && --budget <= 0) return;
             }
         }
 

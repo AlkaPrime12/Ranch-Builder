@@ -3,18 +3,14 @@ using UnityEngine;
 using Il2CppGadgetDirector = Il2Cpp.GadgetDirector;
 using Il2CppGadget = Il2CppMonomiPark.SlimeRancher.World.Gadget;
 using Il2CppGadgetItem = Il2CppMonomiPark.SlimeRancher.Player.PlayerItems.GadgetItem;
-using Il2CppGadgetOverlapHelpers = Il2CppMonomiPark.SlimeRancher.World.GadgetOverlapHelpers;
 using SlimeCorralSpawn.Gadgets;
 
 namespace SlimeCorralSpawn.Patches
 {
-    [HarmonyPatch]
     public static class GadgetPlacementPatches
     {
-        private static bool Active => ModSettings.CustomGadgetPlacement;
+        internal static bool Active => ModSettings.CustomGadgetPlacement;
 
-        [HarmonyPatch(typeof(Il2CppGadgetDirector), nameof(Il2CppGadgetDirector.CanPlaceGadget))]
-        [HarmonyPrefix]
         public static bool CanPlaceGadget_Prefix(ref bool __result)
         {
             if (!Active) return true;
@@ -22,8 +18,6 @@ namespace SlimeCorralSpawn.Patches
             return false;
         }
 
-        [HarmonyPatch(typeof(Il2CppGadgetDirector), "GetPlacementError")]
-        [HarmonyPrefix]
         public static bool GetPlacementError_Prefix(ref Il2CppGadgetDirector.PlacementError __result)
         {
             if (!Active) return true;
@@ -31,39 +25,28 @@ namespace SlimeCorralSpawn.Patches
             return false;
         }
 
-        [HarmonyPatch(typeof(Il2CppGadget), nameof(Il2CppGadget.IsOverlapping), typeof(float), typeof(LayerMask), typeof(bool))]
-        [HarmonyPrefix]
-        public static bool Gadget_IsOverlapping_Prefix(ref bool __result)
+        public static bool OverlapFalse_Prefix(ref bool __result)
         {
             if (!Active) return true;
             __result = false;
             return false;
         }
 
-        [HarmonyPatch(typeof(Il2CppGadgetOverlapHelpers), "IsGadgetOverlapping",
-            new[] { typeof(Transform), typeof(Collider), typeof(Il2Cpp.IdentifiableType), typeof(float), typeof(LayerMask), typeof(bool) })]
-        [HarmonyPrefix]
-        public static bool OverlapHelpers_Prefix1(ref bool __result)
-        {
-            if (!Active) return true;
-            __result = false;
-            return false;
-        }
-
-        [HarmonyPatch(typeof(Il2CppGadgetItem), "IsPlacementValid")]
-        [HarmonyPrefix]
-        public static bool IsPlacementValid_Prefix(ref bool __result)
+        public static bool IsPlacementValidRay_Prefix(ref bool __result)
         {
             if (!Active) return true;
             __result = true;
             return false;
         }
 
-        [HarmonyPatch(typeof(Il2CppGadgetItem), nameof(Il2CppGadgetItem.Update))]
-        [HarmonyPostfix]
-        public static void GadgetItem_Update_Postfix(Il2CppGadgetItem __instance)
+        public static void ForceValidity_Prefix(ref bool isValid)
         {
-            if (!Active) return;
+            if (Active) isValid = true;
+        }
+
+        public static void GadgetItem_AfterPlacementUpdate(Il2CppGadgetItem __instance)
+        {
+            if (!Active || __instance == null) return;
             try
             {
                 if (!__instance.IsPlaceholderVisible)
@@ -71,23 +54,24 @@ namespace SlimeCorralSpawn.Patches
                     GadgetPlacementHelper.OnPlacementEnded();
                     return;
                 }
-                GadgetPlacementHelper.HandleHeightInput();
-                GadgetPlacementHelper.ApplyHeightToPlaceholder(__instance);
+                GadgetPlacementHelper.SetActiveItem(__instance);
+                GadgetPlacementHelper.ForcePlacementValid(__instance);
             }
             catch { }
         }
 
-        [HarmonyPatch(typeof(Il2CppGadgetItem), "PlaceGadgetEvent")]
-        [HarmonyPostfix]
-        public static void PlaceGadgetEvent_Postfix(Il2CppGadgetItem __instance)
+        public static void Gadget_LateUpdate_Postfix(Il2CppGadget __instance)
         {
-            if (!Active) return;
+            if (!Active || __instance == null) return;
             try
             {
-                GadgetPlacementHelper.ApplyHeightToPlaceholder(__instance);
+                var item = GadgetPlacementHelper.GetActiveGadgetItem();
+                if (item == null) return;
+                var ph = item.GetPlaceholderGadget();
+                if (ph == null || ph != __instance) return;
+                GadgetPlacementHelper.ApplyHeightEndOfFrame(item);
             }
             catch { }
-            finally { GadgetPlacementHelper.OnPlacementEnded(); }
         }
     }
 }

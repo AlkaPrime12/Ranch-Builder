@@ -132,8 +132,8 @@ namespace SlimeCorralSpawn.Placement
         {
             try
             {
-                GameObject src = FindSourceGO(Il2CppLandPlot.Id.EMPTY);
-                if (src == null) src = FindSourceGO(ToRealId(type));
+                GameObject src = FindSourceGO(ToRealId(type));
+                if (src == null) src = FindSourceGO(Il2CppLandPlot.Id.EMPTY);
                 if (src == null) return null;
 
                 GameObject ghost = UnityEngine.Object.Instantiate(src);

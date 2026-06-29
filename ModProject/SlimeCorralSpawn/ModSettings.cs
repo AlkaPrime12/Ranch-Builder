@@ -5,22 +5,11 @@ namespace SlimeCorralSpawn
     {
         private const string CustomGadgetKey = "scs_custom_gadget_placement";
 
+        // La colocación/manipulación custom de gadgets ahora es SIEMPRE activa (se volvió un menú, sin toggle).
         public static bool CustomGadgetPlacement
         {
-            get
-            {
-                try { return UnityEngine.PlayerPrefs.GetInt(CustomGadgetKey, 0) == 1; }
-                catch { return false; }
-            }
-            set
-            {
-                try
-                {
-                    UnityEngine.PlayerPrefs.SetInt(CustomGadgetKey, value ? 1 : 0);
-                    UnityEngine.PlayerPrefs.Save();
-                }
-                catch { }
-            }
+            get { return true; }
+            set { }
         }
     }
 }

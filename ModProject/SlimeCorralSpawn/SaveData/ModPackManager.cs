@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -9,14 +10,14 @@ namespace SlimeCorralSpawn.SaveData
 {
     /// <summary>
     /// Copias de seguridad, exportación e importación de builds completos (plots + estructuras + trazos + polígonos).
-    /// Todo vive bajo Documents/SlimeRancher2/SlimeCorralSpawn/ (sin carpetas temp).
+    /// Los archivos compartibles viven en Documents/SlimeRancher2/SlimeCorralSpawn/imports/
     /// </summary>
     public static class ModPackManager
     {
         public const string PackExtension = ".scs-pack.json";
-        public const string ModVersion = "1.6.0";
+        public const string ModVersion = "1.8.0";
         private const string VersionPrefKey = "scs_mod_version";
-        private const int MaxBackupsPerSlot = 12;
+        private const int MaxBackupsPerSlot = 24;
 
         public static string ModRoot => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
@@ -24,6 +25,7 @@ namespace SlimeCorralSpawn.SaveData
 
         public static string BackupsDir => Path.Combine(ModRoot, "backups");
         public static string ExportsDir => Path.Combine(ModRoot, "exports");
+        /// <summary>Carpeta principal para exportar, importar y compartir saves del mod.</summary>
         public static string ImportsDir => Path.Combine(ModRoot, "imports");
 
         public static void EnsureDirectories()
@@ -32,6 +34,42 @@ namespace SlimeCorralSpawn.SaveData
             {
                 if (!Directory.Exists(d))
                     Directory.CreateDirectory(d);
+            }
+        }
+
+        /// <summary>Nombre legible por defecto: Save 26/06/2026 13:19</summary>
+        public static string DefaultSaveLabel()
+            => "Save " + DateTime.Now.ToString("dd/MM/yyyy HH:mm");
+
+        public static string GetDisplayName(PackEntry entry)
+        {
+            if (entry == null) return "";
+            string name;
+            if (!string.IsNullOrWhiteSpace(entry.Label) && !entry.Label.StartsWith("backup_") && !entry.Label.StartsWith("export_"))
+                name = entry.Label.Trim();
+            else if (entry.WriteTimeUtc != default)
+                name = "Save " + entry.WriteTimeUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
+            else
+                name = Path.GetFileNameWithoutExtension(entry.FileName ?? "Save");
+            if (!string.IsNullOrEmpty(entry.SlotId))
+                name += " [" + entry.SlotId + "]";
+            return name;
+        }
+
+        public static void OpenImportsFolder()
+        {
+            EnsureDirectories();
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = ImportsDir,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MelonLogger.Warning($"[SCS] Open folder failed: {ex.Message}");
             }
         }
 
@@ -44,7 +82,7 @@ namespace SlimeCorralSpawn.SaveData
             if (prev == ModVersion) return;
 
             if (ModDataManager.LoadForCurrentSlot())
-                CreateBackup("pre_update_" + (string.IsNullOrEmpty(prev) ? "first_run" : prev));
+                CreateBackup("Antes de actualizar");
 
             try
             {
@@ -54,21 +92,20 @@ namespace SlimeCorralSpawn.SaveData
             catch { }
         }
 
-        public static string CreateBackup(string tag = null)
+        public static string CreateBackup(string label = null)
         {
             EnsureDirectories();
+            Plots.PlotData.FlushAllContentToModData();
             if (!ModDataManager.LoadForCurrentSlot()) return null;
 
-            string slot = ModDataManager.CurrentSlotId;
-            string stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            string safeTag = string.IsNullOrEmpty(tag) ? "manual" : Sanitize(tag);
-            string fileName = $"backup_{slot}_{stamp}_{safeTag}.scs-pack.json";
+            string display = string.IsNullOrWhiteSpace(label) ? DefaultSaveLabel() : label.Trim();
+            string fileName = BuildFileName(display);
             string path = Path.Combine(BackupsDir, fileName);
 
             try
             {
-                WritePack(path, slot, tag ?? "backup");
-                PruneOldBackups(slot);
+                WritePack(path, ModDataManager.CurrentSlotId, display);
+                PruneOldBackups(ModDataManager.CurrentSlotId);
                 return path;
             }
             catch (Exception ex)
@@ -81,23 +118,51 @@ namespace SlimeCorralSpawn.SaveData
         public static string ExportCurrent(string label = null)
         {
             EnsureDirectories();
+            Plots.PlotData.FlushAllContentToModData();
             if (!ModDataManager.LoadForCurrentSlot()) return null;
 
-            string slot = ModDataManager.CurrentSlotId;
-            string stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            string safeLabel = string.IsNullOrEmpty(label) ? "export" : Sanitize(label);
-            string fileName = $"export_{slot}_{stamp}_{safeLabel}{PackExtension}";
-            string path = Path.Combine(ExportsDir, fileName);
+            string display = string.IsNullOrWhiteSpace(label) ? DefaultSaveLabel() : label.Trim();
+            string fileName = BuildFileName(display);
+            string path = Path.Combine(ImportsDir, fileName);
 
             try
             {
-                WritePack(path, slot, label ?? "export");
+                WritePack(path, ModDataManager.CurrentSlotId, display);
                 return path;
             }
             catch (Exception ex)
             {
                 MelonLogger.Warning($"[SCS] Export failed: {ex.Message}");
                 return null;
+            }
+        }
+
+        public static bool RenamePack(string path, string newLabel)
+        {
+            if (string.IsNullOrEmpty(path) || !File.Exists(path)) return false;
+            newLabel = string.IsNullOrWhiteSpace(newLabel) ? DefaultSaveLabel() : newLabel.Trim();
+            try
+            {
+                var pack = JsonSerializer.Deserialize<ModPackFile>(File.ReadAllText(path));
+                if (pack == null) return false;
+                pack.Label = newLabel;
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                File.WriteAllText(path, JsonSerializer.Serialize(pack, options));
+
+                string dir = Path.GetDirectoryName(path);
+                string newFile = BuildFileName(newLabel);
+                string newPath = Path.Combine(dir ?? ImportsDir, newFile);
+                if (!string.Equals(path, newPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (File.Exists(newPath)) File.Delete(newPath);
+                    File.Move(path, newPath);
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                MelonLogger.Warning($"[SCS] Rename failed: {ex.Message}");
+                return false;
             }
         }
 
@@ -108,7 +173,7 @@ namespace SlimeCorralSpawn.SaveData
 
             try
             {
-                CreateBackup("pre_import");
+                CreateBackup("Antes de importar");
                 var pack = JsonSerializer.Deserialize<ModPackFile>(File.ReadAllText(path));
                 if (pack?.Data == null) return false;
 
@@ -116,13 +181,9 @@ namespace SlimeCorralSpawn.SaveData
                 if (!ModDataManager.LoadForCurrentSlot()) return false;
 
                 if (replaceAll)
-                {
                     ModDataManager.ReplaceCurrentData(pack.Data);
-                }
                 else
-                {
                     ModDataManager.MergeData(pack.Data);
-                }
 
                 ModDataManager.Save();
                 return true;
@@ -144,8 +205,8 @@ namespace SlimeCorralSpawn.SaveData
             EnsureDirectories();
             var list = new List<PackEntry>();
             CollectPacks(BackupsDir, "backup", list);
-            CollectPacks(ExportsDir, "export", list);
             CollectPacks(ImportsDir, "import", list);
+            CollectPacks(ExportsDir, "export", list);
             return list.OrderByDescending(p => p.WriteTimeUtc).ToList();
         }
 
@@ -181,6 +242,13 @@ namespace SlimeCorralSpawn.SaveData
             }
         }
 
+        private static string BuildFileName(string label)
+        {
+            string safe = Sanitize(label);
+            if (string.IsNullOrEmpty(safe)) safe = "Save";
+            return safe + PackExtension;
+        }
+
         private static void WritePack(string path, string slotId, string label)
         {
             var data = ModDataManager.GetCurrentData();
@@ -213,7 +281,7 @@ namespace SlimeCorralSpawn.SaveData
         private static void PruneOldBackups(string slot)
         {
             if (!Directory.Exists(BackupsDir)) return;
-            var files = Directory.GetFiles(BackupsDir, $"backup_{slot}_*{PackExtension}")
+            var files = Directory.GetFiles(BackupsDir, "*" + PackExtension)
                 .Select(f => new FileInfo(f))
                 .OrderByDescending(f => f.LastWriteTimeUtc)
                 .ToList();
@@ -225,10 +293,11 @@ namespace SlimeCorralSpawn.SaveData
 
         private static string Sanitize(string raw)
         {
-            if (string.IsNullOrEmpty(raw)) return "pack";
+            if (string.IsNullOrEmpty(raw)) return "Save";
             foreach (char c in Path.GetInvalidFileNameChars())
                 raw = raw.Replace(c.ToString(), "_");
-            return raw.Length > 32 ? raw.Substring(0, 32) : raw;
+            raw = raw.Replace(":", "-");
+            return raw.Length > 64 ? raw.Substring(0, 64) : raw;
         }
 
         public class PackEntry

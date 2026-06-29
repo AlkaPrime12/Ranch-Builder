@@ -1,10 +1,54 @@
+# Custom Ranch Builder v1.8.0 - Changelog
+
+---
+
+<ul>
+<li>✅ <strong>Plort Collector working.</strong></li>
+<li>✅ <strong>Auto Feeder working.</strong></li>
+<li>✅ <strong>Gardens now work.</strong></li>
+<li>✅ <strong>You can now enter Edit Mode with gadgets.</strong></li>
+<li>✅ <strong>Edit the X, Y and Z position of every gadget.</strong></li>
+<li>✅ <strong>Place gadgets in the air, inside plots, or basically anywhere.</strong></li>
+<li>✅ <strong>Backup system added to the config.</strong></li>
+<li>✅ <strong>Multiple save slots now fully work.</strong></li>
+<li>✅ <strong>Fixed Normal Maps on custom builds.</strong></li>
+<li>✅ <strong>Reduced lag.</strong></li>
+<li>🚧 <strong>Drone support for custom plots is currently being worked on.</strong></li>
+</ul>
+
+---
+
+**Custom Ranch Builder - v1.8.0**
+
+Big release with a ton of fixes.
+
+Plort Collectors work, Feeders work, Gardens now work, and the most important thing: you can now enter Edit Mode with gadgets. You can edit the X, Y and Z position of every gadget, and also place them in the air, inside plots, or basically anywhere.
+
+There are also plenty of bug fixes. I added a Backup system to the config where you can save your world and use different save files than the one you're currently playing. You can now play on multiple save slots without breaking your custom world.
+
+I'm also working on Drone support for custom plots. I don't really know if everything works yet, but it's still a work in progress.
+
+Finally, I fixed the Normal Maps on custom builds, reduced the lag, and improved loading. You'll still get a small freeze (around 5–8 seconds) when joining a world because all custom objects need to load. That's currently unavoidable.
+
+**The mod is now basically 100% working.** I'd honestly call this Version 1.0, but I've already added so many features that I decided to keep going with the current versioning.
+
+I hope you all make some crazy builds and create a fully customized world where you can build whatever you want. :3
+
+Thanks for all the support.
+
+**- alka**
+
+---
+
+<br>
+
 <div align="center">
 
 # 🏗️ Ranch Builder
 
 **A MelonLoader mod that turns Slime Rancher 2 into a full sandbox builder**
 
-[![Version](https://img.shields.io/badge/version-1.6.0-blue?style=flat-square)](https://github.com/AlkaPrime12/Ranch-Builder/releases)
+[![Version](https://img.shields.io/badge/version-1.8.0-blue?style=flat-square)](https://github.com/AlkaPrime12/Ranch-Builder/releases)
 [![Game](https://img.shields.io/badge/game-Slime%20Rancher%202-ff69b4?style=flat-square)](https://www.slimerancher.com/)
 [![Loader](https://img.shields.io/badge/loader-MelonLoader_0.7+-orange?style=flat-square)](https://melonloader.net/)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
@@ -56,15 +100,20 @@
 | Key | Action |
 |---|---|
 | **F5** | Open build menu |
+| **R** | Edit gadget (hover) |
+| **F** | Toggle FreeCam |
+| **H** | Toggle air/ground placement |
+| **1** | Move mode |
+| **2** | Rotate mode |
+| **+ / -** | Scale gadget |
+| **↑ / ↓** | Height offset |
 | **Mouse wheel** | Rotate structure |
-| **R** | Continuous rotation |
-| **↑ / ↓** | Raise / lower height |
 | **Page Up / Page Down** | Fine height adjustment |
 | **Home** | Reset height |
 | **[ / ]** | Scale up / down |
 | **G** | Toggle grid snap |
 | **T** | Align to surface |
-| **Esc / Right click** | Cancel placement |
+| **Esc / Enter** | Stop editing |
 
 ---
 

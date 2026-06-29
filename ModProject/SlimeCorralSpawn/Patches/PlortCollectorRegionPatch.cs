@@ -26,6 +26,7 @@ namespace SlimeCorralSpawn.Patches
                 return;
             }
 
+            Placement.PlortCollectorHelper.WireForPlot(lp);
             Placement.CorralRegistrationHelper.WirePlotComponents(lp);
             Placement.CorralRegistrationHelper.EnsureCollectorRunning(lp, force: true);
         }
