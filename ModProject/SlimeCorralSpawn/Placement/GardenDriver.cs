@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using HarmonyLib;
 using Il2CppLandPlot = Il2Cpp.LandPlot;
 
 namespace SlimeCorralSpawn.Placement
@@ -105,15 +106,52 @@ namespace SlimeCorralSpawn.Placement
         {
             try
             {
-                GameObject prefab = crop.prefab;
+                // 1) Intentar SpawnResource del juego (tamaño real, aspirable, registrado en región).
+                var sr = lp.GetComponentInChildren<Il2Cpp.SpawnResource>(true);
+                if (sr != null)
+                {
+                    foreach (var name in new[] { "TrySpawnResource", "Spawn", "ForceSpawn" })
+                    {
+                        try
+                        {
+                            var m = AccessTools.Method(typeof(Il2Cpp.SpawnResource), name);
+                            if (m != null) { m.Invoke(sr, null); return; }
+                        }
+                        catch { }
+                    }
+                }
+
+                // 2) Fallback manual: Instantiate + registro en región.
+                UnityEngine.GameObject prefab = crop.prefab;
                 if (prefab == null) return;
 
                 Vector3 basePos = lp.transform.position;
                 Vector3 pos = basePos + new Vector3(UnityEngine.Random.Range(-1.5f, 1.5f), 1.6f, UnityEngine.Random.Range(-1.5f, 1.5f));
                 var go = UnityEngine.Object.Instantiate(prefab, pos, Quaternion.identity);
-                if (go != null && !go.activeSelf) go.SetActive(true);
+                if (go == null) return;
+                if (!go.activeSelf) go.SetActive(true);
+
+                // Forzar registro en la región para que la vacaspiradora lo reconozca.
+                RegisterInRegion(go, lp);
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("GardenDriver.SpawnFood", ex); }
+        }
+
+        private static void RegisterInRegion(GameObject go, Il2CppLandPlot lp)
+        {
+            Il2Cpp.Identifiable ident = null;
+            try { ident = go.GetComponent<Il2Cpp.Identifiable>(); } catch { }
+            if (ident == null) try { ident = go.GetComponentInChildren<Il2Cpp.Identifiable>(true); } catch { }
+            if (ident == null) return;
+
+            // Asignar la región del garden al Identifiable para que la vacaspiradora lo reconozca.
+            try
+            {
+                var regionField = AccessTools.Field(typeof(Il2Cpp.Identifiable), "_region");
+                if (regionField != null && lp._region != null)
+                    regionField.SetValue(ident, lp._region);
+            }
+            catch { }
         }
 
         internal static void ResetTimer(string uniqueId, double now, double interval)
