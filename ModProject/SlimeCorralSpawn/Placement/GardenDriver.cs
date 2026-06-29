@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using HarmonyLib;
 using Il2CppLandPlot = Il2Cpp.LandPlot;
 
 namespace SlimeCorralSpawn.Placement
@@ -21,7 +20,8 @@ namespace SlimeCorralSpawn.Placement
         private static readonly Dictionary<string, double> _nextDrop = new Dictionary<string, double>();
         private static readonly Dictionary<string, float> _lastRealSpawn = new Dictionary<string, float>();
 
-        // Cache nombre → IdentifiableType (construido en el primer lookup que falle)
+        // Cache nombre → IdentifiableType: se llena en la primera llamada a Update()
+        // cuando el juego ya ha cargado todos los tipos de recursos.
         private static Dictionary<string, Il2Cpp.IdentifiableType> _typeCache = null;
 
         internal static void Update()
@@ -29,6 +29,9 @@ namespace SlimeCorralSpawn.Placement
             if (Time.time < _nextTick) return;
             _nextTick = Time.time + TickInterval;
             if (!RealPlotFactory.ContextReady()) return;
+
+            // Llenar cache de tipos si aún no existe
+            if (_typeCache == null) BuildTypeCache();
 
             Il2Cpp.TimeDirector timeDir = null;
             try { var sc = Il2Cpp.SceneContext.Instance; if (sc != null) timeDir = sc.TimeDirector; } catch { }
@@ -43,12 +46,11 @@ namespace SlimeCorralSpawn.Placement
 
                 double interval = Math.Max(GetIntervalHours(lp), MIN_INTERVAL_H);
 
-                // Obtener el tipo de cultivo plantado
                 Il2Cpp.IdentifiableType crop = lp.GetAttachedCropId();
                 if (crop == null) continue;
 
-                // Obtener el tipo de COMIDA real (recolectable) para spawn y conteo
-                Il2Cpp.IdentifiableType foodType = ResolveFoodType(lp, crop);
+                // Obtener el tipo de COMIDA real (recolectable), no el crop plantado.
+                Il2Cpp.IdentifiableType foodType = ResolveFoodType(crop);
 
                 if (!_nextDrop.TryGetValue(pd.UniqueId, out var nextDrop))
                 {
@@ -75,7 +77,22 @@ namespace SlimeCorralSpawn.Placement
             }
         }
 
-        /// <summary>Obtiene el intervalo de spawn desde el SpawnResource del juego.</summary>
+        /// <summary>Escanea todos los IdentifiableType del juego y los guarda por nombre.
+        /// Se llama una sola vez en la primera Update() en el ranch.</summary>
+        private static void BuildTypeCache()
+        {
+            _typeCache = new Dictionary<string, Il2Cpp.IdentifiableType>();
+            try
+            {
+                var all = UnityEngine.Resources.FindObjectsOfTypeAll<Il2Cpp.IdentifiableType>();
+                if (all != null)
+                    foreach (var t in all)
+                        if (t != null && t.name != null && !_typeCache.ContainsKey(t.name))
+                            _typeCache[t.name] = t;
+            }
+            catch (Exception ex) { ModEntry.LogErrorOnce("GardenDriver.BuildTypeCache", ex); }
+        }
+
         private static double GetIntervalHours(Il2CppLandPlot lp)
         {
             try
@@ -91,66 +108,21 @@ namespace SlimeCorralSpawn.Placement
             return DEFAULT_INTERVAL_H;
         }
 
-        /// <summary>Resuelve el IdentifiableType de la COMIDA (recolectable), no el del cultivo plantado.
-        /// Busca en: 1) definición → field por Traverse, 2) lookup por nombre (quitando sufijo "Plant").</summary>
-        private static Il2Cpp.IdentifiableType ResolveFoodType(Il2CppLandPlot lp, Il2Cpp.IdentifiableType crop)
+        /// <summary>Dado el crop plantado (ej: "PogofruitPlant"), devuelve el
+        /// IdentifiableType de la COMIDA real (ej: "Pogofruit"). Usa el cache.</summary>
+        private static Il2Cpp.IdentifiableType ResolveFoodType(Il2Cpp.IdentifiableType crop)
         {
-            // 1) Buscar campo con el IdentifiableType de la comida en la definición del SpawnResource
-            var sr = lp.GetComponentInChildren<Il2Cpp.SpawnResource>(true);
-            if (sr != null)
-            {
-                var def = sr._resourceGrowerDefinition;
-                if (def != null)
-                {
-                    string[] fieldNames = { "_resourceItemId", "resourceItemId", "_resourceItem",
-                                            "_producedResource", "_producedItemId", "_spawnItem" };
-                    foreach (var fn in fieldNames)
-                    {
-                        try
-                        {
-                            var ft = Traverse.Create(def).Field(fn).GetValue<Il2Cpp.IdentifiableType>();
-                            if (ft != null) return ft;
-                        }
-                        catch { }
-                    }
-                }
-            }
-
-            // 2) Fallback por nombre: si el crop se llama "XxxPlant", buscar "Xxx"
             string name = crop.name;
             if (name != null && name.EndsWith("Plant"))
             {
                 string foodName = name.Substring(0, name.Length - 5);
-                var ft = FindIdentifiableTypeByName(foodName);
-                if (ft != null) return ft;
+                Il2Cpp.IdentifiableType ft;
+                if (_typeCache != null && _typeCache.TryGetValue(foodName, out ft))
+                    return ft;
             }
-
-            // 3) último fallback: el crop mismo (puede ser ya el tipo de comida)
             return crop;
         }
 
-        /// <summary>Busca un IdentifiableType por nombre usando el sistema de recursos de Unity.
-        /// Cachea el resultado para no escanear cada vez.</summary>
-        private static Il2Cpp.IdentifiableType FindIdentifiableTypeByName(string name)
-        {
-            if (_typeCache == null)
-            {
-                _typeCache = new Dictionary<string, Il2Cpp.IdentifiableType>();
-                try
-                {
-                    var all = UnityEngine.Resources.FindObjectsOfTypeAll<Il2Cpp.IdentifiableType>();
-                    if (all != null)
-                        foreach (var t in all)
-                            if (t != null && t.name != null && !_typeCache.ContainsKey(t.name))
-                                _typeCache[t.name] = t;
-                }
-                catch { }
-            }
-            _typeCache.TryGetValue(name, out var found);
-            return found;
-        }
-
-        /// <summary>Cuenta cuántas comidas del tipo dado hay cerca del garden.</summary>
         private static int CountFood(Il2CppLandPlot lp, Il2Cpp.IdentifiableType foodType)
         {
             int c = 0;
@@ -170,28 +142,14 @@ namespace SlimeCorralSpawn.Placement
             return c;
         }
 
-        /// <summary>Spawn de la comida. Primero intenta el SpawnResource del juego.
-        /// Si falla, Instantiate manual con escala normal + registro en región + tipo correcto.</summary>
+        /// <summary>Spawn simple: Instantiate del prefab de comida correcto.
+        /// Sin AccessTools, sin Traverse, sin intentar registrar en región.
+        /// El prefab de comida real ya trae el IdentifiableType correcto y es
+        /// directamente aspirable por la vacaspiradora.</summary>
         private static void SpawnFood(Il2CppLandPlot lp, Il2Cpp.IdentifiableType foodType)
         {
             try
             {
-                // 1) Intentar SpawnResource del juego (tamaño real + aspirable).
-                var sr = lp.GetComponentInChildren<Il2Cpp.SpawnResource>(true);
-                if (sr != null)
-                {
-                    foreach (var name in new[] { "TrySpawnResource", "Spawn", "ForceSpawn" })
-                    {
-                        try
-                        {
-                            var m = AccessTools.Method(typeof(Il2Cpp.SpawnResource), name);
-                            if (m != null) { m.Invoke(sr, null); return; }
-                        }
-                        catch { }
-                    }
-                }
-
-                // 2) Manual: Instantiate con el prefab correcto.
                 GameObject prefab = foodType.prefab;
                 if (prefab == null) return;
 
@@ -201,29 +159,8 @@ namespace SlimeCorralSpawn.Placement
                 if (go == null) return;
                 go.transform.localScale = Vector3.one;
                 if (!go.activeSelf) go.SetActive(true);
-
-                // Forzar tipo de comida y registro en región para que la vacaspiradora lo chupe
-                RegisterInRegion(go, lp, foodType);
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("GardenDriver.SpawnFood", ex); }
-        }
-
-        /// <summary>Asigna la región y el IdentifiableType correcto para que la comida sea aspirable.</summary>
-        private static void RegisterInRegion(GameObject go, Il2CppLandPlot lp, Il2Cpp.IdentifiableType foodType)
-        {
-            Il2Cpp.Identifiable ident = null;
-            try { ident = go.GetComponent<Il2Cpp.Identifiable>(); } catch { }
-            if (ident == null) try { ident = go.GetComponentInChildren<Il2Cpp.Identifiable>(true); } catch { }
-            if (ident == null) return;
-
-            try { ident.identType = foodType; } catch { }
-            try
-            {
-                var regionField = AccessTools.Field(typeof(Il2Cpp.Identifiable), "_region");
-                if (regionField != null && lp._region != null)
-                    regionField.SetValue(ident, lp._region);
-            }
-            catch { }
         }
 
         internal static void ResetTimer(string uniqueId, double now, double interval)
