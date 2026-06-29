@@ -110,8 +110,8 @@ namespace SlimeCorralSpawn.Gadgets
                     return;
                 }
 
-                // === FREE CAM (tecla F) ===
-                if (InputHelper.GetKeyDown(KeyCode.F)) ToggleFreeCam();
+                // === FREE CAM (tecla F) — solo en modo edición ===
+                if (_editing != null && InputHelper.GetKeyDown(KeyCode.F)) ToggleFreeCam();
                 if (_freeCam)
                 {
                     if (InputHelper.GetKeyDown(KeyCode.Escape)) { ExitFreeCam(); }

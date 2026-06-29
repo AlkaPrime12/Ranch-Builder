@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using HarmonyLib;
 using Il2CppLandPlot = Il2Cpp.LandPlot;
 
 namespace SlimeCorralSpawn.Placement
@@ -40,15 +39,11 @@ namespace SlimeCorralSpawn.Placement
 
                 double interval = Math.Max(GetIntervalHours(lp), MIN_INTERVAL_H);
 
-                // Obtener FOOD TYPE desde el SpawnResource (la comida que se recoge,
-                // NO el crop plantado que devuelve GetAttachedCropId).
-                Il2Cpp.IdentifiableType foodType = GetFoodType(lp);
-                if (foodType == null) continue;
+                Il2Cpp.IdentifiableType crop = lp.GetAttachedCropId();
+                if (crop == null) continue;
 
                 if (!_nextDrop.TryGetValue(pd.UniqueId, out var nextDrop))
                 {
-                    // Primer ciclo: nextDrop = now (NO now+interval) para que suelte 1 ítem
-                    // ahora en vez de esperar 6h y soltar 8 de golpe.
                     _nextDrop[pd.UniqueId] = now;
                     continue;
                 }
@@ -63,19 +58,13 @@ namespace SlimeCorralSpawn.Placement
                 int drops = 0;
                 while (now >= nextDrop && drops < MAX_CATCHUP)
                 {
-                    if (CountFood(lp, foodType) >= MAX_CROPS) { nextDrop = now + interval; break; }
-                    SpawnFood(lp, foodType);
+                    if (CountFood(lp, crop) >= MAX_CROPS) { nextDrop = now + interval; break; }
+                    SpawnFood(lp, crop);
                     nextDrop += interval;
                     drops++;
                 }
                 _nextDrop[pd.UniqueId] = nextDrop;
             }
-        }
-
-        private static Il2Cpp.IdentifiableType GetFoodType(Il2CppLandPlot lp)
-        {
-            try { return lp.GetAttachedCropId(); } catch { }
-            return null;
         }
 
         private static double GetIntervalHours(Il2CppLandPlot lp)
@@ -93,7 +82,7 @@ namespace SlimeCorralSpawn.Placement
             return DEFAULT_INTERVAL_H;
         }
 
-        private static int CountFood(Il2CppLandPlot lp, Il2Cpp.IdentifiableType foodType)
+        private static int CountFood(Il2CppLandPlot lp, Il2Cpp.IdentifiableType crop)
         {
             int c = 0;
             try
@@ -105,68 +94,26 @@ namespace SlimeCorralSpawn.Placement
                     Il2Cpp.Identifiable id = null;
                     try { id = col.GetComponentInParent<Il2Cpp.Identifiable>(); } catch { }
                     if (id == null) continue;
-                    try { if (id.identType != null && id.identType.name == foodType.name) c++; } catch { }
+                    try { if (id.identType != null && id.identType.name == crop.name) c++; } catch { }
                 }
             }
             catch { }
             return c;
         }
 
-        private static void SpawnFood(Il2CppLandPlot lp, Il2Cpp.IdentifiableType foodType)
+        private static void SpawnFood(Il2CppLandPlot lp, Il2Cpp.IdentifiableType crop)
         {
             try
             {
-                // 1) Intentar que el SpawnResource del juego genere la comida (tamaño real + aspirable).
-                var sr = lp.GetComponentInChildren<Il2Cpp.SpawnResource>(true);
-                bool spawned = false;
-                if (sr != null)
-                {
-                    // Harmony Traverse: prueba varios nombres de método.
-                    string[] methodNames = { "TrySpawnResource", "Spawn", "DropResource", "ForceSpawn" };
-                    foreach (var name in methodNames)
-                    {
-                        try { Traverse.Create(sr).Method(name).GetValue(); spawned = true; break; }
-                        catch { }
-                    }
-                }
+                GameObject prefab = crop.prefab;
+                if (prefab == null) return;
 
-                // 2) Fallback manual si el SpawnResource del juego no respondió.
-                if (!spawned)
-                {
-                    UnityEngine.GameObject prefab = null;
-                    try { prefab = foodType.prefab; } catch { }
-                    if (prefab == null) return;
-
-                    Vector3 basePos = lp.transform.position;
-                    Vector3 pos = basePos + new Vector3(UnityEngine.Random.Range(-1.5f, 1.5f), 1.6f, UnityEngine.Random.Range(-1.5f, 1.5f));
-                    var go = UnityEngine.Object.Instantiate(prefab, pos, Quaternion.identity);
-                    if (go != null && !go.activeSelf) go.SetActive(true);
-                    if (go != null) RegisterInRegion(lp, go);
-                }
+                Vector3 basePos = lp.transform.position;
+                Vector3 pos = basePos + new Vector3(UnityEngine.Random.Range(-1.5f, 1.5f), 1.6f, UnityEngine.Random.Range(-1.5f, 1.5f));
+                var go = UnityEngine.Object.Instantiate(prefab, pos, Quaternion.identity);
+                if (go != null && !go.activeSelf) go.SetActive(true);
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("GardenDriver.SpawnFood", ex); }
-        }
-
-        private static void RegisterInRegion(Il2CppLandPlot lp, GameObject go)
-        {
-            try
-            {
-                Il2Cpp.Identifiable ident = null;
-                try { ident = go.GetComponent<Il2Cpp.Identifiable>(); } catch { }
-                if (ident == null) { try { ident = go.GetComponentInChildren<Il2Cpp.Identifiable>(true); } catch { } }
-                if (ident == null) return;
-
-                if (lp._region != null)
-                {
-                    try
-                    {
-                        var field = AccessTools.Field(typeof(Il2Cpp.Identifiable), "_region");
-                        if (field != null) field.SetValue(ident, lp._region);
-                    }
-                    catch { }
-                }
-            }
-            catch { }
         }
 
         internal static void ResetTimer(string uniqueId, double now, double interval)
