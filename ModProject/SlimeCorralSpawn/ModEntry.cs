@@ -23,8 +23,8 @@ namespace SlimeCorralSpawn
 
         // Transición pausa→no pausa: en el PRIMER frame tras reanudar, SKIP todas las actualizaciones
         // para que los sistemas throttleados (drivers, luces) NO disparen TODOS a la vez.
-        private static bool _prevPaused = true;
-        private static bool _justUnpaused;
+        private static bool _prevPaused;
+        private static int _unpauseSkip;
 
         public override void OnInitializeMelon()
         {
@@ -49,10 +49,10 @@ namespace SlimeCorralSpawn
             try
             {
                 bool paused = UnityEngine.Time.timeScale == 0f;
-                if (_prevPaused && !paused) { _justUnpaused = true; }
+                if (_prevPaused && !paused) { _unpauseSkip = 3; }
                 _prevPaused = paused;
                 if (paused) return;
-                if (_justUnpaused) { _justUnpaused = false; return; }
+                if (_unpauseSkip > 0) { _unpauseSkip--; return; }
             }
             catch { }
 

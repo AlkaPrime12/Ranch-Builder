@@ -139,7 +139,7 @@ namespace SlimeCorralSpawn.UI
                     {
                         var id = gc.InputDirector;
                         if (frozen) { try { id._mainGame.Map.Disable(); } catch { } try { id._paused.Map.Disable(); } catch { } }
-                        else { try { id._mainGame.Map.Enable(); } catch { } try { id._paused.Map.Enable(); } catch { } }
+                        else { try { id._mainGame.Map.Enable(); } catch { } }
                     }
                 }
                 catch (Exception e) { ModEntry.LogErrorOnce("PlotsMenuUI.InputDirectorFreeze", e); }
