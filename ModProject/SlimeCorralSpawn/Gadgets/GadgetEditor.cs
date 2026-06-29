@@ -409,7 +409,7 @@ namespace SlimeCorralSpawn.Gadgets
                 {
                     var id = gc.InputDirector;
                     if (freeze) { try { id._mainGame.Map.Disable(); } catch { } try { id._paused.Map.Disable(); } catch { } }
-                    else { try { id._mainGame.Map.Enable(); } catch { } try { id._paused.Map.Enable(); } catch { } }
+                    else { try { id._mainGame.Map.Enable(); } catch { } }
                 }
             }
             catch { }
