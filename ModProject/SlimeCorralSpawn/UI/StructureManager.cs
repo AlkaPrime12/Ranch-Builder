@@ -22,7 +22,7 @@ namespace SlimeCorralSpawn.UI
         public bool Emissive;   // bombilla/antorcha: brilla sin depender de reflejos metálicos
         public float EmissiveIntensity = 2.2f;
         public bool PointLight;     // si true, además emite una LUZ puntual HDRP real que ilumina el entorno
-        public float LightRange = 8f;
+        public float LightRange = 18f;   // 9→18: bounding sphere más grande evita culling agresivo de HDRP en bordes de pantalla
         public float LightIntensity = 1200f;   // unidades del template vanilla (lumen aprox.)
         public BoxPart() { Tint = Color.white; }
     }
@@ -246,7 +246,7 @@ namespace SlimeCorralSpawn.UI
         private static BoxPart G(float px, float py, float pz, float sx, float sy, float sz, Color glow, float intensity = 2.2f)
             => new BoxPart { Pos = new Vector3(px, py, pz), Size = new Vector3(sx, sy, sz), Mat = Themes.MatKind.Plain, Tint = glow,
                              Emissive = true, EmissiveIntensity = intensity * 3.5f,
-                             PointLight = true, LightRange = 9f, LightIntensity = 500f + intensity * 250f };
+                             PointLight = true, LightRange = 18f, LightIntensity = 500f + intensity * 250f };
         private static readonly Color LampGlow = new Color(1f, 0.84f, 0.48f, 1f);
         private static readonly Color FireGlow = new Color(1f, 0.48f, 0.12f, 1f);
         private static BoxPart Br(float px, float py, float pz, float sx, float sy, float sz, Themes.MatKind m, float ex, float ey, float ez)
