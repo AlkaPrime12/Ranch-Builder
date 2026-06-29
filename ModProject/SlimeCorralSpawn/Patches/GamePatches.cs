@@ -119,13 +119,17 @@ namespace SlimeCorralSpawn.Patches
         }
     }
 
-    /// <summary>Fast-forward usando PlotData.GetAll() en vez de FindObjectsOfType (EVITA ALLOC LAG).</summary>
+    /// <summary>Fast-forward usando PlotData.GetAll() en vez de FindObjectsOfType (EVITA ALLOC LAG).
+    /// También resetea `_nextDrop` de GardenDriver para que NO haya doble spawn (el vanilla
+    /// FastForwardCorrals + nuestro catch-up = 2x).</summary>
     public static class RanchCellFFPatch
     {
         public static void Prefix(Il2Cpp.RanchCellFastForwarder __instance, double __0, double __1, double __2)
         {
             try
             {
+                double now = 0;
+                try { var sc = Il2Cpp.SceneContext.Instance; if (sc != null && sc.TimeDirector != null) now = sc.TimeDirector.WorldTime(); } catch { }
                 foreach (var pd in Plots.PlotData.GetAll())
                 {
                     if (pd?.LinkedObject == null) continue;
@@ -134,6 +138,10 @@ namespace SlimeCorralSpawn.Patches
                     if (lp == null || !GamePatches.IsOurLandPlot(lp)) continue;
                     if (!Placement.CorralRegistrationHelper.IsRegistered(lp)) continue;
                     Placement.CorralRegistrationHelper.RunFastForwardOps(lp, __instance);
+                    // Resetear timer de GardenDriver para evitar doble catch-up tras el fast-forward.
+                    double interval = Placement.GardenDriver.GetCurrentInterval(lp);
+                    if (interval > 1.0 && now > 0)
+                        Placement.GardenDriver.ResetTimer(pd.UniqueId, now, interval);
                 }
             }
             catch (Exception ex)

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Il2CppLandPlot = Il2Cpp.LandPlot;
@@ -17,13 +18,15 @@ namespace SlimeCorralSpawn.Placement
         private const int MaxCrops = 50;
         private static readonly Collider[] _cropBuffer = new Collider[MaxCrops];
         private static float _nextTick;
-        private const float TickInterval = 2f;
-        private const int MAX_CROPS = 24;          // máximo de comidas vivas en el jardín a la vez
-        private const int MAX_CATCHUP = 16;        // tope de drops al ponerse al día (tras dormir mucho)
+        private const float TickInterval = 3f;          // 3s en vez de 2s = menos frames de iteración
+        private const int MAX_CROPS = 24;
+        private const int MAX_CATCHUP = 8;              // menos catch-up por ciclo
+        private const double MIN_INTERVAL_H = 2.0;      // mínimo absoluto 2h (evita spawn cada 2s)
         private const double DEFAULT_INTERVAL_H = 6.0;
+        private const float REAL_TIME_COOLDOWN = 45f;   // no spawnear más de una vez cada 45s reales (misma fruta)
 
-        // nextDrop (en WorldTime/horas-juego) por jardín. Sobrevive el re-spawn del plot (clave = UniqueId estable).
         private static readonly Dictionary<string, double> _nextDrop = new Dictionary<string, double>();
+        private static readonly Dictionary<string, float> _lastRealSpawn = new Dictionary<string, float>();
 
         internal static void Update()
         {
@@ -44,25 +47,29 @@ namespace SlimeCorralSpawn.Placement
 
                 Il2Cpp.IdentifiableType crop = null;
                 try { crop = lp.GetAttachedCropId(); } catch { }
-                if (crop == null) { _nextDrop.Remove(pd.UniqueId); continue; }
+                // NO remover _nextDrop cuando crop es null — mantener timer para cuando vuelva a tener cultivo
+                if (crop == null) continue;
 
-                // NOTA: NO deferir al SpawnResource vanilla — en plots custom "parece activo" pero NO produce.
-                // El GardenDriver siempre maneja el spawn de comida (si no, el jardín no genera nada).
-
-                double interval = GetIntervalHours(lp);
+                double interval = Math.Max(GetIntervalHours(lp), MIN_INTERVAL_H);
 
                 if (!_nextDrop.TryGetValue(pd.UniqueId, out var nextDrop))
                 {
-                    _nextDrop[pd.UniqueId] = now + interval;   // primera vez: programar
+                    _nextDrop[pd.UniqueId] = now + interval;
                     continue;
                 }
                 if (now < nextDrop) continue;
 
-                // Catch-up: por cada intervalo vencido, soltar comida (con tope, y respetando el máximo del jardín).
+                // Cooldown en tiempo real: no spawnear más de una vez cada REAL_TIME_COOLDOWN segundos.
+                float rn = Time.time;
+                string uid = pd.UniqueId;
+                if (_lastRealSpawn.TryGetValue(uid, out var lastSpawn) && rn - lastSpawn < REAL_TIME_COOLDOWN)
+                    continue;
+                _lastRealSpawn[uid] = rn;
+
                 int drops = 0;
                 while (now >= nextDrop && drops < MAX_CATCHUP)
                 {
-                    if (CountCrops(lp, crop) >= MAX_CROPS) { nextDrop = now + interval; break; }   // jardín lleno → esperar
+                    if (CountCrops(lp, crop) >= MAX_CROPS) { nextDrop = now + interval; break; }
                     SpawnFood(lp, crop);
                     nextDrop += interval;
                     drops++;
@@ -79,7 +86,7 @@ namespace SlimeCorralSpawn.Placement
                 if (sr != null)
                 {
                     var def = sr._resourceGrowerDefinition;
-                    if (def != null) { float h = def.MinSpawnIntervalGameHours; if (h > 0.01f) return h; }
+                    if (def != null) { float h = def.MinSpawnIntervalGameHours; return Math.Max(h, (float)MIN_INTERVAL_H); }
                 }
             }
             catch { }
@@ -91,7 +98,8 @@ namespace SlimeCorralSpawn.Placement
             int c = 0;
             try
             {
-                int n = Physics.OverlapSphereNonAlloc(lp.transform.position, 6f, _cropBuffer);
+                // Radio 10m: captura la comida que el jardín eyecta (animación vanilla la tira ~3-4m).
+                int n = Physics.OverlapSphereNonAlloc(lp.transform.position, 10f, _cropBuffer);
                 for (int i = 0; i < n; i++)
                 {
                     var col = _cropBuffer[i]; if (col == null) continue;
@@ -114,7 +122,7 @@ namespace SlimeCorralSpawn.Placement
                 if (prefab == null) return;
 
                 Vector3 basePos = lp.transform.position;
-                Vector3 pos = basePos + new Vector3(Random.Range(-1.5f, 1.5f), 1.6f, Random.Range(-1.5f, 1.5f));
+                Vector3 pos = basePos + new Vector3(UnityEngine.Random.Range(-1.5f, 1.5f), 1.6f, UnityEngine.Random.Range(-1.5f, 1.5f));
                 var go = UnityEngine.Object.Instantiate(prefab, pos, Quaternion.identity);
                 if (go != null && !go.activeSelf) go.SetActive(true);
 
@@ -149,6 +157,29 @@ namespace SlimeCorralSpawn.Placement
             catch { }
         }
 
-        internal static void Reset() { _nextDrop.Clear(); }
+        /// <summary>Resetea el timer de un plot (llamado desde RanchCellFFPatch tras fast-forward).</summary>
+        internal static void ResetTimer(string uniqueId, double now, double interval)
+        {
+            _nextDrop[uniqueId] = now + interval;
+        }
+
+        /// <summary>Expone el intervalo calculado para un plot (para RanchCellFFPatch).</summary>
+        internal static double GetCurrentInterval(Il2CppLandPlot lp)
+        {
+            double interval = DEFAULT_INTERVAL_H;
+            try
+            {
+                var sr = lp.GetComponentInChildren<Il2Cpp.SpawnResource>(true);
+                if (sr != null)
+                {
+                    var def = sr._resourceGrowerDefinition;
+                    if (def != null) interval = Math.Max((double)def.MinSpawnIntervalGameHours, MIN_INTERVAL_H);
+                }
+            }
+            catch { }
+            return Math.Max(interval, MIN_INTERVAL_H);
+        }
+
+        internal static void Reset() { _nextDrop.Clear(); _lastRealSpawn.Clear(); }
     }
 }

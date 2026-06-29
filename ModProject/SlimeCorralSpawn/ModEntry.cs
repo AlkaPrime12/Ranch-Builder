@@ -12,16 +12,19 @@ namespace SlimeCorralSpawn
     {
         public static ModEntry Instance { get; private set; }
 
-        // Each unique error is logged only once so we don't spam the console every frame.
         private static readonly HashSet<string> _loggedErrors = new HashSet<string>();
 
         private static Camera _mainCamera;
-        /// <summary>Cache de Camera.main (el menú artefacto del juego cambia el tag MainCamera).</summary>
         internal static Camera GetMainCamera()
         {
             if (_mainCamera == null || !_mainCamera.enabled) _mainCamera = Camera.main;
             return _mainCamera;
         }
+
+        // Transición pausa→no pausa: en el PRIMER frame tras reanudar, SKIP todas las actualizaciones
+        // para que los sistemas throttleados (drivers, luces) NO disparen TODOS a la vez.
+        private static bool _prevPaused = true;
+        private static bool _justUnpaused;
 
         public override void OnInitializeMelon()
         {
@@ -43,7 +46,15 @@ namespace SlimeCorralSpawn
         public override void OnUpdate()
         {
             // No procesar nada mientras el juego está en pausa (escape abierto).
-            try { if (UnityEngine.Time.timeScale == 0f) return; } catch { }
+            try
+            {
+                bool paused = UnityEngine.Time.timeScale == 0f;
+                if (_prevPaused && !paused) { _justUnpaused = true; }
+                _prevPaused = paused;
+                if (paused) return;
+                if (_justUnpaused) { _justUnpaused = false; return; }
+            }
+            catch { }
 
             // CLAVE anti-lag: el trabajo pesado (texturas + escaneo de materiales del juego) SOLO corre
             // cuando ya estamos en el rancho. En el menú principal no tocamos nada => carga rápida.
