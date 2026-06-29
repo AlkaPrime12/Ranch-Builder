@@ -21,11 +21,10 @@ namespace SlimeCorralSpawn
             return _mainCamera;
         }
 
-        // Transición pausa→no pausa: en el PRIMER frame tras reanudar, SKIP todas las actualizaciones
-        // para que los sistemas throttleados (drivers, luces) NO disparen TODOS a la vez.
+        // Transición pausa→no pausa: SÓLO el primer frame tras reanudar se salta COMPLETO
+        // (OnUpdate + OnLateUpdate + OnGUI) para que el juego se estabilice sin interferencia del mod.
         private static bool _prevPaused;
-        private static int _unpauseSkip;
-        private static float _unpauseTime;
+        private static bool _justUnpaused;
 
         public override void OnInitializeMelon()
         {
@@ -46,14 +45,15 @@ namespace SlimeCorralSpawn
 
         public override void OnUpdate()
         {
-            // No procesar nada mientras el juego está en pausa (escape abierto).
+            // Skip COMPLETO en el primer frame tras reanudar: el juego necesita estabilizarse
+            // sin interferencia del mod (cursor, inputs, textures, drivers, GUI).
             try
             {
                 bool paused = UnityEngine.Time.timeScale == 0f;
-                if (_prevPaused && !paused) { _unpauseSkip = 15; _unpauseTime = Time.realtimeSinceStartup; Plots.PlotData.ResetContentCaptureTimer(); }
+                if (_prevPaused && !paused) { _justUnpaused = true; }
                 _prevPaused = paused;
                 if (paused) return;
-                if (_unpauseSkip > 0 || Time.realtimeSinceStartup - _unpauseTime < 0.5f) { if (_unpauseSkip > 0) _unpauseSkip--; return; }
+                if (_justUnpaused) return;   // NO limpiar flag aquí — OnLateUpdate la limpia al final del frame
             }
             catch { }
 
@@ -181,20 +181,21 @@ namespace SlimeCorralSpawn
 
         public override void OnLateUpdate()
         {
-            // Lock de cámara mientras el menú está abierto (corre en LateUpdate para imponerse
-            // sobre el controlador de cámara del juego).
+            // Mismo skip que OnUpdate: el primer frame tras reanudar no toca nada del mod.
+            if (_justUnpaused) { _justUnpaused = false; return; }
+
             try { UI.PlotsMenuUI.OnLateUpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("PlotsMenuUI.OnLateUpdateStatic", ex); }
 
-            // Re-aplicar FreeCam (el juego reactiva cosas en su Update).
             try { Gadgets.GadgetEditor.OnLateUpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("GadgetEditor.OnLateUpdateStatic", ex); }
         }
 
         public override void OnGUI()
         {
-            // Saltar toda la UI del mod mientras el juego está en pausa (escape abierto).
-            try { if (UnityEngine.Time.timeScale == 0f) return; } catch { }
+            // Saltar toda la UI del mod mientras el juego está en pausa (escape abierto)
+            // o en el primer frame tras reanudar (cursor/input del juego vulnerable).
+            try { if (UnityEngine.Time.timeScale == 0f || _justUnpaused) return; } catch { }
 
             try { Placement.PlacementManager.OnGUIStatic(); }
             catch (Exception ex) { LogErrorOnce("PlacementManager.OnGUIStatic", ex); }
