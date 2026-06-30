@@ -194,6 +194,25 @@ namespace SlimeCorralSpawn.Plots
             if (any) SaveData.ModDataManager.Save();
         }
 
+        /// <summary>Captura el contenido vivo de los plots y FUERZA el guardado a disco (sin cooldown). Es el
+        /// guardado "de verdad": se llama enganchado al guardado del JUEGO (con el rancho cargado) y al salir al
+        /// menú, para que el cambio recién hecho SÍ quede en el archivo del slot. Lo que se coloca (estructuras/
+        /// plots/trazos/polígonos) ya está en currentData; esto además captura silo/jardín y escribe todo ya.</summary>
+        public static void CaptureAndForceSave()
+        {
+            foreach (var kv in allPlots)
+            {
+                var pd = kv.Value;
+                if (pd == null || !pd.ContentReady || pd.LinkedObject == null) continue;
+                Il2Cpp.LandPlot lp = pd.GetLandPlot();
+                if (lp == null) continue;
+                if (!Placement.CorralRegistrationHelper.ContentCaptureReady(lp)) continue;
+                ContentPersistence.CaptureContent(lp, pd);
+                SaveData.ModDataManager.SyncPlot(pd);
+            }
+            SaveData.ModDataManager.ForceSave();
+        }
+
         private static float _lastContentCapture;
         private static float _lastDiskSave;
 

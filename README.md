@@ -1,8 +1,9 @@
-# Custom Ranch Builder v1.9.3 - Changelog
+# Custom Ranch Builder v1.9.4 - Changelog
 
 ---
 
 <ul>
+<li>✅ <strong>Reliable save on exit</strong> — the mod now saves alongside the game's own save (autosave / Save &amp; Exit), so the change you just made is always written and shows up when you reload the slot.</li>
 <li>✅ <strong>Gardens fully working</strong> — crops grow and drop produce on their own (real-time, sleeping, and time-skip).</li>
 <li>✅ <strong>Save slots fully isolated</strong> — every save is independent, a new save starts <em>empty</em>, no cross-contamination, and you can switch saves <em>without restarting the game</em>.</li>
 <li>✅ <strong>Purple/magenta textures fixed</strong> — root cause solved: shared materials are no longer destroyed while structures are using them (on sub-scene loads / pausing).</li>
@@ -66,7 +67,7 @@ Thanks for all the support.
 
 **A MelonLoader mod that turns Slime Rancher 2 into a full sandbox builder**
 
-[![Version](https://img.shields.io/badge/version-1.9.3-blue?style=flat-square)](https://github.com/AlkaPrime12/Ranch-Builder/releases)
+[![Version](https://img.shields.io/badge/version-1.9.4-blue?style=flat-square)](https://github.com/AlkaPrime12/Ranch-Builder/releases)
 [![Game](https://img.shields.io/badge/game-Slime%20Rancher%202-ff69b4?style=flat-square)](https://www.slimerancher.com/)
 [![Loader](https://img.shields.io/badge/loader-MelonLoader_0.7+-orange?style=flat-square)](https://melonloader.net/)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)

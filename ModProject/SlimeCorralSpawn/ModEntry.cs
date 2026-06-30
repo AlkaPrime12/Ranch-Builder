@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Slime Corral Spawn", "1.9.3", "SlimeRancherModder")]
+[assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Slime Corral Spawn", "1.9.4", "SlimeRancherModder")]
 [assembly: MelonGame("MonomiPark", "SlimeRancher2")]
 
 namespace SlimeCorralSpawn
@@ -216,6 +216,12 @@ namespace SlimeCorralSpawn
                 // la partida nueva.
                 if (!Placement.RealPlotFactory.ContextReady())
                 {
+                    // SALIR AL MENÚ = autosave de salida: forzar el guardado a disco ANTES de limpiar el estado.
+                    // Garantiza que lo construido (estructuras/plots/trazos) quede en el archivo del slot aunque
+                    // el último Save haya sido bloqueado por el cooldown. (El hook del guardado del juego ya
+                    // capturó el contenido fresco con el rancho cargado.)
+                    try { Plots.PlotData.CaptureAndForceSave(); } catch { }
+
                     Plots.PlotData.ResetLinksForSceneChange();
                     Plots.PlotData.ResetLoadState();                  // vacía allPlots
                     UI.StructureManager.DestroyAndClearAll();         // vacía _placed (antes solo nuleaba links)
