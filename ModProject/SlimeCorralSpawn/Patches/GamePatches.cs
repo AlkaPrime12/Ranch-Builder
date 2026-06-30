@@ -33,6 +33,24 @@ namespace SlimeCorralSpawn.Patches
             _harmony.PatchAll();
             GadgetPlacementPatchInstaller.Apply(_harmony);
             TryPatchFastForwardCorrals();
+            TryPatchLandPlotStartSuppress();
+        }
+
+        /// <summary>Nuestros LandPlots custom (clonados del prefab del juego) lanzan NullReferenceException en
+        /// el <c>Start()</c> vanilla (algún ref interno que el juego espera no existe en el clon), pero IGUAL
+        /// funcionan por nuestro cableado. Sin esto, al activarlos se spameaban CIENTOS de errores (lag + log).
+        /// Finalizer = se traga la excepción de Start (NO afecta plots vanilla: esos no lanzan en Start).</summary>
+        private static void TryPatchLandPlotStartSuppress()
+        {
+            try
+            {
+                var m = typeof(Il2Cpp.LandPlot).GetMethod("Start",
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (m != null)
+                    _harmony.Patch(m, finalizer: new HarmonyMethod(
+                        typeof(LandPlotStartSuppressPatch).GetMethod(nameof(LandPlotStartSuppressPatch.Finalizer))));
+            }
+            catch (Exception ex) { MelonLogger.Warning($"[SCS] LandPlot.Start suppress: {ex.Message}"); }
         }
 
         private static void PatchPostfix(string typeName, string method, Type patchType, string patchMethod)
@@ -122,6 +140,13 @@ namespace SlimeCorralSpawn.Patches
             }
             return false;
         }
+    }
+
+    /// <summary>Se traga la NRE del Start() vanilla de nuestros LandPlots custom (que igual funcionan) para no
+    /// spamear el log ni lagear. Devolver null = excepción "manejada".</summary>
+    public static class LandPlotStartSuppressPatch
+    {
+        public static Exception Finalizer(Exception __exception) => null;
     }
 
     /// <summary>Engancha NUESTRO guardado al del juego: cuando SR2 guarda (autosave / Save & Exit), persistimos

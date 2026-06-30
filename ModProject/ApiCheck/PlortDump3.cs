@@ -20,26 +20,13 @@ class PlortDump3
         }
         Console.WriteLine();
     }
-    static Type FN(Assembly a, string full) => a.GetTypes().FirstOrDefault(t => t.FullName == full);
     static Type F(Assembly a, string n) => a.GetTypes().FirstOrDefault(t => t.Name == n);
 
     static void Main()
     {
         var asm = typeof(SiloStorage).Assembly;
-
-        // GameSaveIdentifier: el identificador ÚNICO de un save (usado por Load/BeginLoad)
-        Console.WriteLine("### Tipos GameSaveIdentifier / Metadata ###");
-        foreach (var t in asm.GetTypes().Where(t =>
-            t.Name.IndexOf("GameSaveIdentifier", StringComparison.OrdinalIgnoreCase) >= 0
-            || t.Name.IndexOf("GameMetadata", StringComparison.OrdinalIgnoreCase) >= 0
-            || t.Name.IndexOf("SaveIdentifier", StringComparison.OrdinalIgnoreCase) >= 0))
-            Console.WriteLine("  - " + t.FullName);
-        Console.WriteLine();
-
-        DumpType(F(asm, "GameSaveIdentifier"));
-        DumpType(FN(asm, "Il2CppMonomiPark.SlimeRancher.Persist.Summary"));
-        DumpType(FN(asm, "Il2CppMonomiPark.SlimeRancher.Persist.GameSummaryV03"));
-        DumpType(F(asm, "CurrentGameMetadata"));
-        DumpType(F(asm, "GameMetadata"));
+        DumpType(F(asm, "IdentifiableModel"));
+        DumpType(F(asm, "ActorModel"));
+        DumpType(F(asm, "PositionalModel"));
     }
 }

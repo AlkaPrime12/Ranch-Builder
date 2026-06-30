@@ -162,6 +162,10 @@ namespace SlimeCorralSpawn.Gadgets
                     t.localScale *= Mathf.Max(0.05f, 1f - ScaleSpeed * dt);
                 if (InputHelper.GetKeyDown(KeyCode.Home))
                     t.localScale = _savedScale;
+
+                // CLAVE persistencia: el juego guarda el gadget desde su MODELO, no desde el transform suelto.
+                // Sincronizamos el modelo con la nueva pose para que el move/rotación QUEDEN guardados.
+                SyncGadgetModel(t);
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("GadgetEditor.Update", ex); }
         }
@@ -331,6 +335,25 @@ namespace SlimeCorralSpawn.Gadgets
         }
 
         // ---- Modo Mover ----
+
+        /// <summary>Sincroniza el GadgetModel (lo que el juego SERIALIZA al guardar) con el transform editado,
+        /// para que la posición/rotación nuevas persistan al recargar. Sin esto, el juego restaura el gadget en
+        /// su posición ORIGINAL (la del modelo, que no se actualiza al mover solo el transform).</summary>
+        private static void SyncGadgetModel(Transform t)
+        {
+            if (_editing == null || t == null) return;
+            try
+            {
+                var g = _editing.GetComponent<Il2CppGadget>();
+                if (g == null) return;
+                var model = g.GetModel();
+                if (model == null) return;
+                try { model.SetTransform(t); } catch { }
+                try { model.lastPosition = t.position; } catch { }     // ← campo que el juego SERIALIZA (posición)
+                try { model.eulerRotation = t.eulerAngles; } catch { } // rotación persistente
+            }
+            catch { }
+        }
 
         private static void MoveGadget(Transform t, float dt)
         {
