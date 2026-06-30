@@ -41,19 +41,34 @@ namespace SlimeCorralSpawn.SaveData
         public static string DefaultSaveLabel()
             => "Save " + DateTime.Now.ToString("dd/MM/yyyy HH:mm");
 
+        /// <summary>Número de slot legible a partir del SlotId interno ("game_20260629200044_4" → "4").</summary>
+        public static string SlotNumber(string slotId)
+        {
+            if (string.IsNullOrEmpty(slotId)) return "?";
+            int us = slotId.LastIndexOf('_');
+            if (us >= 0 && us < slotId.Length - 1)
+            {
+                string tail = slotId.Substring(us + 1);
+                if (tail.Length <= 2 && int.TryParse(tail, out _)) return tail;
+            }
+            return slotId.StartsWith("game_") ? slotId.Substring(5) : slotId;
+        }
+
         public static string GetDisplayName(PackEntry entry)
         {
             if (entry == null) return "";
-            string name;
-            if (!string.IsNullOrWhiteSpace(entry.Label) && !entry.Label.StartsWith("backup_") && !entry.Label.StartsWith("export_"))
-                name = entry.Label.Trim();
-            else if (entry.WriteTimeUtc != default)
-                name = "Save " + entry.WriteTimeUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
-            else
-                name = Path.GetFileNameWithoutExtension(entry.FileName ?? "Save");
-            if (!string.IsNullOrEmpty(entry.SlotId))
-                name += " [" + entry.SlotId + "]";
-            return name;
+            string when = entry.WriteTimeUtc != default
+                ? entry.WriteTimeUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                : "";
+            string slot = SlotNumber(entry.SlotId);
+
+            // Si el usuario le puso nombre propio al backup, mostralo; si no, "Slot N · fecha hora".
+            bool custom = !string.IsNullOrWhiteSpace(entry.Label)
+                          && !entry.Label.StartsWith("backup_") && !entry.Label.StartsWith("export_")
+                          && !entry.Label.StartsWith("Save ") && entry.Label != "Antes de actualizar";
+            if (custom)
+                return $"Slot {slot} · {entry.Label.Trim()} · {when}";
+            return $"Slot {slot} · {when}";
         }
 
         public static void OpenImportsFolder()
@@ -207,7 +222,18 @@ namespace SlimeCorralSpawn.SaveData
             CollectPacks(BackupsDir, "backup", list);
             CollectPacks(ImportsDir, "import", list);
             CollectPacks(ExportsDir, "export", list);
-            return list.OrderByDescending(p => p.WriteTimeUtc).ToList();
+            // Agrupado por SLOT (numérico cuando se puede), y dentro de cada slot el MÁS NUEVO primero.
+            return list
+                .OrderBy(p => SlotSortKey(p.SlotId))
+                .ThenByDescending(p => p.WriteTimeUtc)
+                .ToList();
+        }
+
+        /// <summary>Clave de orden por slot: número si se puede (0,1,2…), si no, al final por nombre.</summary>
+        private static long SlotSortKey(string slotId)
+        {
+            string s = SlotNumber(slotId);
+            return int.TryParse(s, out int n) ? n : 100000L + (s?.GetHashCode() & 0xFFFF ?? 0);
         }
 
         private static void CollectPacks(string dir, string kind, List<PackEntry> list)

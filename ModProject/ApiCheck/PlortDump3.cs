@@ -20,39 +20,26 @@ class PlortDump3
         }
         Console.WriteLine();
     }
+    static Type FN(Assembly a, string full) => a.GetTypes().FirstOrDefault(t => t.FullName == full);
     static Type F(Assembly a, string n) => a.GetTypes().FirstOrDefault(t => t.Name == n);
 
     static void Main()
     {
         var asm = typeof(SiloStorage).Assembly;
 
-        DumpType(F(asm, "LandPlot"));
-        DumpType(F(asm, "LandPlotModel"));
-        DumpType(F(asm, "SpawnResourceModel"));
-        DumpType(F(asm, "GardenCatcher"));
-        DumpType(F(asm, "SpawnResource"));
+        // GameSaveIdentifier: el identificador ÚNICO de un save (usado por Load/BeginLoad)
+        Console.WriteLine("### Tipos GameSaveIdentifier / Metadata ###");
+        foreach (var t in asm.GetTypes().Where(t =>
+            t.Name.IndexOf("GameSaveIdentifier", StringComparison.OrdinalIgnoreCase) >= 0
+            || t.Name.IndexOf("GameMetadata", StringComparison.OrdinalIgnoreCase) >= 0
+            || t.Name.IndexOf("SaveIdentifier", StringComparison.OrdinalIgnoreCase) >= 0))
+            Console.WriteLine("  - " + t.FullName);
+        Console.WriteLine();
 
-        // GameModel: métodos relacionados a landplot/spawnresource/garden
-        var gm = F(asm, "GameModel");
-        if (gm != null)
-        {
-            Console.WriteLine("### GameModel: métodos con LandPlot/Spawn/Garden/Model ###");
-            foreach (var m in gm.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
-            {
-                string n = m.Name;
-                if (n.IndexOf("LandPlot", StringComparison.OrdinalIgnoreCase) >= 0 || n.IndexOf("Spawn", StringComparison.OrdinalIgnoreCase) >= 0 || n.IndexOf("Garden", StringComparison.OrdinalIgnoreCase) >= 0)
-                    Console.WriteLine($"  {m.ReturnType.Name} {n}({string.Join(",", m.GetParameters().Select(x => x.ParameterType.Name))})");
-            }
-            Console.WriteLine();
-        }
-
-        // LandPlotModel: cómo se obtiene el SpawnResourceModel / participantes
-        var lpm = F(asm, "LandPlotModel");
-        if (lpm != null)
-        {
-            Console.WriteLine("### LandPlotModel: TODOS los métodos (buscar Spawn/Resource/Garden/Crop) ###");
-            foreach (var m in lpm.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
-                Console.WriteLine($"  {m.ReturnType.Name} {m.Name}({string.Join(",", m.GetParameters().Select(x => x.ParameterType.Name))})");
-        }
+        DumpType(F(asm, "GameSaveIdentifier"));
+        DumpType(FN(asm, "Il2CppMonomiPark.SlimeRancher.Persist.Summary"));
+        DumpType(FN(asm, "Il2CppMonomiPark.SlimeRancher.Persist.GameSummaryV03"));
+        DumpType(F(asm, "CurrentGameMetadata"));
+        DumpType(F(asm, "GameMetadata"));
     }
 }

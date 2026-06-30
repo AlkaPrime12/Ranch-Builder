@@ -25,7 +25,10 @@ namespace SlimeCorralSpawn.Placement
         internal static void OnSceneLoaded()
         {
             _nextSweep = 0f;
-            try { PlacementManager.ResetLitTemplates(); } catch { }
+            // NO resetear el template Lit acá: corría en CADA carga de sub-escena/zona (durante el juego),
+            // forzando un re-escaneo carísimo de TODOS los MeshRenderer (lag) + antes destruía materiales en
+            // uso (violeta). El template se auto-recaptura si su fuente se descarga (GetLitTemplate valida null).
+            // El reset real va sólo al volver al MENÚ (ModEntry, bloque !ContextReady).
             DestroyOrphanGhosts();
         }
 

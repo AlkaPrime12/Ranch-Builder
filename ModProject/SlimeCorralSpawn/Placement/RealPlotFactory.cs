@@ -192,18 +192,27 @@ namespace SlimeCorralSpawn.Placement
             {
                 Il2CppLandPlot newLp = null;
                 try { newLp = plotGo != null ? plotGo.GetComponent<Il2CppLandPlot>() : null; } catch { }
-                if (newLp == null) newLp = obj.GetComponentInChildren<Il2CppLandPlot>();
+                // GUARDA: obj puede haberse destruido entre el spawn y este frame diferido → tiraba NRE en bucle.
+                if (newLp == null && obj != null)
+                {
+                    try { newLp = obj.GetComponentInChildren<Il2CppLandPlot>(); } catch { newLp = null; }
+                }
+                if (newLp == null) return;   // plot destruido / aún no listo → no seguir
+
                 ApplySavedUpgrades(newLp, plotKey);
                 CorralRegistrationHelper.SyncUpgradeVisibility(newLp);
 
                 Deferred.Run(() =>
                 {
                     var pdc = SlimeCorralSpawn.Plots.PlotData.Find(plotKey);
-                    if (pdc != null)
+                    if (pdc == null) return;
+                    Il2CppLandPlot lp2 = newLp;
+                    if (lp2 == null && obj != null)
                     {
-                        var lp2 = newLp ?? obj.GetComponentInChildren<Il2CppLandPlot>();
-                        CorralRegistrationHelper.RegisterPlotForInit(lp2, plotKey);
+                        try { lp2 = obj.GetComponentInChildren<Il2CppLandPlot>(); } catch { lp2 = null; }
                     }
+                    if (lp2 == null) return;
+                    CorralRegistrationHelper.RegisterPlotForInit(lp2, plotKey);
                 }, 3);
             }, 2);
         }

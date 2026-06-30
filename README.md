@@ -1,4 +1,22 @@
-# Custom Ranch Builder v1.8.0 - Changelog
+# Custom Ranch Builder v1.9.3 - Changelog
+
+---
+
+<ul>
+<li>✅ <strong>Gardens fully working</strong> — crops grow and drop produce on their own (real-time, sleeping, and time-skip).</li>
+<li>✅ <strong>Save slots fully isolated</strong> — every save is independent, a new save starts <em>empty</em>, no cross-contamination, and you can switch saves <em>without restarting the game</em>.</li>
+<li>✅ <strong>Purple/magenta textures fixed</strong> — root cause solved: shared materials are no longer destroyed while structures are using them (on sub-scene loads / pausing).</li>
+<li>✅ <strong>Pause no longer breaks textures.</strong></li>
+<li>✅ <strong>Free cam (noclip)</strong> in the gadget editor.</li>
+<li>✅ <strong>"Clear All" button</strong> in Config (with double confirmation) to wipe every custom corral, wall, floor and paint.</li>
+<li>✅ <strong>Hardened save/backup</strong> — atomic writes, rotating backups, and automatic recovery from a corrupted save.</li>
+<li>✅ <strong>Readable save names</strong> in the menu (Slot N · date/time), grouped and sorted by slot.</li>
+<li>✅ <strong>Much less lag</strong> on load and during gameplay.</li>
+</ul>
+
+<br>
+
+**v1.9.3 — Stability & save-isolation release.** Gardens now grow and drop produce by themselves; every save slot is fully independent (new saves start empty and switching saves works live, no restart); the purple-texture bug is fixed at its root (materials aren't destroyed while in use), and pausing no longer breaks them; loading is faster; and there's a Clear All button plus a hardened backup system. — alka
 
 ---
 
@@ -48,7 +66,7 @@ Thanks for all the support.
 
 **A MelonLoader mod that turns Slime Rancher 2 into a full sandbox builder**
 
-[![Version](https://img.shields.io/badge/version-1.8.0-blue?style=flat-square)](https://github.com/AlkaPrime12/Ranch-Builder/releases)
+[![Version](https://img.shields.io/badge/version-1.9.3-blue?style=flat-square)](https://github.com/AlkaPrime12/Ranch-Builder/releases)
 [![Game](https://img.shields.io/badge/game-Slime%20Rancher%202-ff69b4?style=flat-square)](https://www.slimerancher.com/)
 [![Loader](https://img.shields.io/badge/loader-MelonLoader_0.7+-orange?style=flat-square)](https://melonloader.net/)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
