@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Slime Corral Spawn", "1.8.1", "SlimeRancherModder")]
+[assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Slime Corral Spawn", "1.9.3", "SlimeRancherModder")]
 [assembly: MelonGame("MonomiPark", "SlimeRancher2")]
 
 namespace SlimeCorralSpawn
@@ -27,6 +27,11 @@ namespace SlimeCorralSpawn
         // Tras reanudar (despausar), saltamos VARIOS frames de trabajo del mod para que el juego termine su
         // propia reanudación sin interferencia (resume más fluido). Lo decrementa OnLateUpdate.
         private static int _resumeSkip;
+
+        // Detección ROBUSTA de cambio de partida: el slot VIVO de la partida actual. Si cambia, wipear TODO el
+        // estado del mod (independiente del timing de escenas, que no era confiable).
+        private static string _activeSlot;
+        private static float _nextSlotCheck;
 
         public override void OnInitializeMelon()
         {
@@ -79,6 +84,24 @@ namespace SlimeCorralSpawn
             try { ranchReady = Placement.RealPlotFactory.ContextReady(); } catch { }
             if (ranchReady)
             {
+                // DETECCIÓN DE CAMBIO DE PARTIDA (robusta, no depende del timing de escenas): si el slot VIVO
+                // difiere del que tenemos cargado → wipear TODO el estado del mod antes de que se cargue/guarde
+                // nada de la partida nueva. Esto es lo que impedía que las partidas nuevas arrancaran vacías.
+                try
+                {
+                    if (Time.realtimeSinceStartup >= _nextSlotCheck)
+                    {
+                        _nextSlotCheck = Time.realtimeSinceStartup + 0.5f;
+                        string live = SaveData.ModDataManager.PeekCurrentSlot();
+                        if (!string.IsNullOrEmpty(live) && live != _activeSlot)
+                        {
+                            if (!string.IsNullOrEmpty(_activeSlot)) WipeAllModState();  // cambió de partida → limpiar
+                            _activeSlot = live;
+                        }
+                    }
+                }
+                catch (Exception ex) { LogErrorOnce("SlotChangeCheck", ex); }
+
                 // Prioridad 1: buscar material Lit del juego (presupuesto por frame, no escaneo de 2s).
                 try { if (!Placement.PlacementManager.LitTemplateReady) Placement.PlacementManager.WarmLitTemplate(); }
                 catch (Exception ex) { LogErrorOnce("WarmLitTemplate", ex); }
@@ -90,10 +113,6 @@ namespace SlimeCorralSpawn
                 // Culling de luces: solo deja encendidas las más cercanas (HDRP cobra caro por luz).
                 try { Placement.StructureLightHelper.Update(); }
                 catch (Exception ex) { LogErrorOnce("StructureLightHelper.Update", ex); }
-
-                // Auto-reparación de materiales violeta (re-asigna shader válido a estructuras rotas).
-                try { Placement.MaterialRepair.Update(); }
-                catch (Exception ex) { LogErrorOnce("MaterialRepair.Update", ex); }
 
                 try { Gadgets.GadgetPlacementHelper.Tick(); }
                 catch (Exception ex) { LogErrorOnce("GadgetPlacementHelper.Tick", ex); }
@@ -160,6 +179,24 @@ namespace SlimeCorralSpawn
 
         private bool _ranchWasActive;
 
+        /// <summary>Vacía ABSOLUTAMENTE TODO el estado en memoria del mod (plots, estructuras, terrenos,
+        /// polígonos, registro, luces, materiales) y fuerza recargar desde disco. Se llama al DETECTAR cambio de
+        /// partida y al volver al menú → una partida nueva/distinta arranca 100% limpia.</summary>
+        internal static void WipeAllModState()
+        {
+            try { Plots.PlotData.DestroyAndClearAll(); } catch { }
+            try { UI.StructureManager.DestroyAndClearAll(); } catch { }
+            try { Placement.FreeDrawTool.DestroyAndClearAll(); } catch { }
+            try { Placement.PolygonTool.DestroyAndClearAll(); } catch { }
+            try { Placement.CorralRegistrationHelper.ClearRegistrationState(); } catch { }
+            try { Placement.StructureLightHelper.Reset(); } catch { }
+            try { Placement.GardenDriver.Reset(); } catch { }
+            try { Placement.PlacementManager.ResetLitTemplates(); } catch { }
+            try { Placement.PlacementManager.ClearSharedMaterialCache(); } catch { }
+            try { Plots.PlotData.ResetLoadState(); } catch { }      // _dataLoaded=false → recarga del slot nuevo
+            try { SaveData.ModDataManager.ClearSlot(); } catch { }   // fuerza re-resolución del slot correcto
+        }
+
         public override void OnSceneWasLoaded(int buildIndex, string sceneName)
         {
             try
@@ -172,17 +209,26 @@ namespace SlimeCorralSpawn
                 Placement.RealPlotFactory.ResetRoots();
                 Placement.SceneArtifactCleanup.OnSceneLoaded();
 
-                // Reset COMPLETO sólo al volver al MENÚ (no estamos en rancho). Acá sí limpiamos todo y
-                // marcamos para recargar desde disco en la próxima partida.
+                // Reset COMPLETO sólo al volver al MENÚ (no estamos en rancho). Acá sí limpiamos TODO el estado
+                // del mod y marcamos para recargar desde disco en la próxima partida. CLAVE anti-contaminación
+                // entre saves: vaciar TODOS los registros estáticos (no solo los plots), si no las estructuras/
+                // terrenos/polígonos de la partida anterior quedaban en memoria y se respawneaban + guardaban en
+                // la partida nueva.
                 if (!Placement.RealPlotFactory.ContextReady())
                 {
                     Plots.PlotData.ResetLinksForSceneChange();
-                    UI.StructureManager.ResetLinksForSceneChange();
+                    Plots.PlotData.ResetLoadState();                  // vacía allPlots
+                    UI.StructureManager.DestroyAndClearAll();         // vacía _placed (antes solo nuleaba links)
+                    Placement.FreeDrawTool.DestroyAndClearAll();      // vacía trazos (terrenos irregulares/pintura)
+                    Placement.PolygonTool.DestroyAndClearAll();       // vacía polígonos
                     Placement.StructureLightHelper.Reset();
-                    Placement.MaterialRepair.Reset();
                     Placement.GardenDriver.Reset();
                     SaveData.ModDataManager.ClearSlot();
-                    Plots.PlotData.ResetLoadState();
+
+                    // Materiales: AHORA sí se pueden destruir (las estructuras ya no existen) → libera memoria y
+                    // re-captura el template Lit limpio para la próxima partida. (Durante el juego NO se tocan.)
+                    Placement.PlacementManager.ResetLitTemplates();
+                    Placement.PlacementManager.ClearSharedMaterialCache();
                 }
             }
             catch (Exception ex) { LogErrorOnce("OnSceneWasLoaded", ex); }

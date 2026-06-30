@@ -47,16 +47,13 @@ namespace SlimeCorralSpawn.Placement
 
             if (_gardens.Count == 0) return;
 
-            double now = GetWorldTime();
-            float rt = Time.realtimeSinceStartup;
-
-            // CADA FRAME: tickear el SpawnResource vanilla (crece + dropea), y re-anclar si quedó trabado.
+            // CADA FRAME: SOLO tickear el SpawnResource vanilla (crece + dropea). El chequeo de "trabado"
+            // (que usa reflexión) se hace en el scan de 2s, NO por-frame → cero allocs/reflexión por frame.
             for (int i = 0; i < _gardens.Count; i++)
             {
                 var sr = _gardens[i];
                 if (sr == null) continue;
                 try { sr.Update(); } catch { }
-                ReanchorIfStuck(sr, now, rt);
             }
         }
 
@@ -64,6 +61,7 @@ namespace SlimeCorralSpawn.Placement
         {
             _gardens.Clear();
             double now = GetWorldTime();
+            float rt = Time.realtimeSinceStartup;
 
             foreach (var pd in Plots.PlotData.GetAll())
             {
@@ -78,6 +76,7 @@ namespace SlimeCorralSpawn.Placement
 
                 _gardens.Add(sr);
                 TryKickstart(sr, now);
+                ReanchorIfStuck(sr, now, rt);   // chequeo de "trabado" cada 2s (no por-frame)
             }
         }
 
@@ -109,6 +108,10 @@ namespace SlimeCorralSpawn.Placement
             SetNextSpawnTime(sr, now);
         }
 
+        // Nombres de campo cacheados (sin allocs de array por llamada).
+        private static readonly string[] _modelFields = { "nextSpawnTime", "_nextSpawnTime", "m_nextSpawnTime" };
+        private static readonly string[] _srFields = { "nextSpawnTime", "_nextSpawnTime", "m_nextSpawnTime", "_nextResourceTime" };
+
         private static double ReadNextSpawnTime(Il2Cpp.SpawnResource sr)
         {
             // 1) Intentar _model.nextSpawnTime (modelo interno del juego)
@@ -117,23 +120,18 @@ namespace SlimeCorralSpawn.Placement
                 var model = sr._model;
                 if (model != null)
                 {
-                    foreach (var n in new[] { "nextSpawnTime", "_nextSpawnTime", "m_nextSpawnTime" })
+                    for (int i = 0; i < _modelFields.Length; i++)
                     {
-                        try { var v = Traverse.Create(model).Field(n).GetValue<double>(); if (v > 0) return v; } catch { }
+                        try { var v = Traverse.Create(model).Field(_modelFields[i]).GetValue<double>(); if (v > 0) return v; } catch { }
                     }
                 }
             }
             catch { }
 
             // 2) Intentar campo directo en SpawnResource
-            foreach (var n in new[] { "nextSpawnTime", "_nextSpawnTime", "m_nextSpawnTime", "_nextResourceTime" })
+            for (int i = 0; i < _srFields.Length; i++)
             {
-                try
-                {
-                    var v = Traverse.Create(sr).Field(n).GetValue<double>();
-                    if (v > 0) return v;
-                }
-                catch { }
+                try { var v = Traverse.Create(sr).Field(_srFields[i]).GetValue<double>(); if (v > 0) return v; } catch { }
             }
 
             return 0;
@@ -147,18 +145,18 @@ namespace SlimeCorralSpawn.Placement
                 var model = sr._model;
                 if (model != null)
                 {
-                    foreach (var n in new[] { "nextSpawnTime", "_nextSpawnTime", "m_nextSpawnTime" })
+                    for (int i = 0; i < _modelFields.Length; i++)
                     {
-                        try { Traverse.Create(model).Field(n).SetValue(now); return true; } catch { }
+                        try { Traverse.Create(model).Field(_modelFields[i]).SetValue(now); return true; } catch { }
                     }
                 }
             }
             catch { }
 
             // 2) Intentar campo directo en SpawnResource
-            foreach (var n in new[] { "nextSpawnTime", "_nextSpawnTime", "m_nextSpawnTime", "_nextResourceTime" })
+            for (int i = 0; i < _srFields.Length; i++)
             {
-                try { Traverse.Create(sr).Field(n).SetValue(now); return true; } catch { }
+                try { Traverse.Create(sr).Field(_srFields[i]).SetValue(now); return true; } catch { }
             }
 
             return false;

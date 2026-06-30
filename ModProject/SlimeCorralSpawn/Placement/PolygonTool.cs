@@ -54,6 +54,19 @@ namespace SlimeCorralSpawn.Placement
         }
 
         public static void RestoreLinkedObjects() { foreach (var kv in _polys) if (kv.Value.Go == null) Build(kv.Value); }
+
+        /// <summary>CLEAR ALL: destruye TODOS los polígonos de piso/pintura y vacía el registro.</summary>
+        public static void DestroyAndClearAll()
+        {
+            foreach (var kv in _polys)
+            {
+                try { if (kv.Value != null && kv.Value.Go != null) UnityEngine.Object.Destroy(kv.Value.Go); }
+                catch { }
+            }
+            _polys.Clear();
+            _pts.Clear();
+        }
+
         private static void RetryPending()
         {
             if (!Placement.PlacementManager.LitTemplateReady) return;

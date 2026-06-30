@@ -94,6 +94,20 @@ namespace SlimeCorralSpawn.Placement
         }
 
         public static void RestoreLinkedObjects() { foreach (var kv in _strokes) if (kv.Value.Go == null) BuildMesh(kv.Value); }
+
+        /// <summary>CLEAR ALL: destruye las mallas de TODOS los trazos de pintura y vacía el registro.</summary>
+        public static void DestroyAndClearAll()
+        {
+            foreach (var kv in _strokes)
+            {
+                try { if (kv.Value != null && kv.Value.Go != null) UnityEngine.Object.Destroy(kv.Value.Go); }
+                catch { }
+            }
+            _strokes.Clear();
+            _dirty.Clear();
+            _toRemove.Clear();
+        }
+
         private static void RetryPending()
         {
             if (_pendingCount <= 0 || !Placement.PlacementManager.LitTemplateReady) return;

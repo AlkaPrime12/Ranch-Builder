@@ -601,7 +601,10 @@ namespace SlimeCorralSpawn.Placement
         public static bool LitTemplateReady => _litTemplate != null;
         /// <summary>Pre-busca el template Lit (llamado en la carga) para que el escaneo caro no caiga en pausa.</summary>
         public static void WarmLitTemplate() { GetLitTemplate(); }
-        /// <summary>Descarta templates contaminados (p. ej. holograma EMPTY) al cambiar de escena.</summary>
+        /// <summary>Resetea SOLO las referencias de template (se re-capturan solas). NO destruye los materiales
+        /// compartidos/cacheados: hacerlo mientras hay estructuras vivas usándolos = TEXTURAS VIOLETAS (material
+        /// destruido). La limpieza REAL de esos materiales va aparte (`ClearSharedMaterialCache`), sólo al volver
+        /// al MENÚ (cuando las estructuras ya no existen). Llamar a esto en cada carga de sub-escena es seguro.</summary>
         internal static void ResetLitTemplates()
         {
             _litTemplate = null;
@@ -610,7 +613,7 @@ namespace SlimeCorralSpawn.Placement
             _litScanPool = null;
             _litScanIdx = 0;
             _lastTemplateScan = -999f;
-            ClearSharedMaterialCache();
+            // OJO: NO llamar ClearSharedMaterialCache() acá (destruía materiales en uso → violeta).
         }
         internal static Material GetGlassTemplate() { GetLitTemplate(); return _glassTemplate; }
         private static bool ShouldSkipRendererForTemplate(MeshRenderer r)

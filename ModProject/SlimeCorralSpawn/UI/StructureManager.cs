@@ -718,6 +718,18 @@ namespace SlimeCorralSpawn.UI
             _restoreWaitStart = -1f;
         }
 
+        /// <summary>CLEAR ALL: destruye los GameObjects de TODAS las estructuras y vacía el registro.</summary>
+        public static void DestroyAndClearAll()
+        {
+            foreach (var kv in _placed)
+            {
+                try { if (kv.Value != null && kv.Value.LinkedObject != null) UnityEngine.Object.Destroy(kv.Value.LinkedObject); }
+                catch { }
+            }
+            _placed.Clear();
+            _restoreWaitStart = -1f;
+        }
+
         private static GameObject SpawnStructureFromData(PlacedStructureData data, bool save)
         {
             var def = GetById(data.DefinitionId);
@@ -1208,10 +1220,9 @@ namespace SlimeCorralSpawn.UI
                 : PlacementManager.CreateBoxMesh(size);
 
             MeshRenderer mr = child.AddComponent<MeshRenderer>();
-            // Asignar material (misma lógica de siempre, ahora centralizada) y REGISTRAR el renderer para
-            // auto-reparación: si alguna vez queda con shader inválido (violeta), se le re-asigna solo.
+            // Asignar material (lógica centralizada en PlacementManager). El root cause del violeta ya está
+            // arreglado (no se destruyen materiales en uso al cargar sub-escenas), así que no hace falta reparador.
             PlacementManager.ApplyStructureMaterial(mr, _currentMat, color, emissive, emissiveIntensity);
-            Placement.MaterialRepair.Track(mr, _currentMat, color, emissive, emissiveIntensity);
 
             BoxCollider col = child.AddComponent<BoxCollider>();
             col.size = size;

@@ -62,6 +62,7 @@ namespace SlimeCorralSpawn.UI
         private enum ConfigView { Main, Keybinds }
         private static ConfigView _configView;
         private static ModAction? _rebindAction;
+        private static int _clearStage;   // 0=idle, 1="¿seguro?", 2="¿REALMENTE seguro?"
 
         public static void ToggleMenu()
         {
@@ -500,8 +501,70 @@ namespace SlimeCorralSpawn.UI
             GUI.Label(new Rect(x + 4, y, w - 8, 56), new GUIContent(Loc.T("cfg_pack_hint")), smallLabelStyle);
             y += 60f;
 
+            // ── ZONA PELIGROSA: CLEAR ALL (doble confirmación) ──────────────
+            y += 6f;
+            Color cRed = new Color(0.80f, 0.16f, 0.20f);
+            Color cRedHi = new Color(0.95f, 0.28f, 0.32f);
+            GUI.Label(new Rect(x, y, w, 22), new GUIContent("⚠  Clear All"), headerStyle);
+            y += 28f;
+
+            if (_clearStage == 0)
+            {
+                if (ClickableBox(new Rect(x, y, w, 40), "CLEAR ALL", cRed, labelStyle))
+                    _clearStage = 1;
+                y += 44f;
+                GUI.Label(new Rect(x + 4, y, w - 8, 40),
+                    new GUIContent("Borra TODO lo custom: corrales, paredes, pisos, techos y pintura. No se puede deshacer."),
+                    smallLabelStyle);
+                y += 44f;
+            }
+            else if (_clearStage == 1)
+            {
+                GUI.Label(new Rect(x, y, w, 24), new GUIContent("Are you sure?  /  ¿Seguro?"), labelStyle);
+                y += 30f;
+                if (ClickableBox(new Rect(x, y, w * 0.48f, 40), "Sí", cRedHi, labelStyle)) _clearStage = 2;
+                if (ClickableBox(new Rect(x + w * 0.52f, y, w * 0.48f, 40), "Cancelar", SlimeTheme.BackgroundButton, labelStyle)) _clearStage = 0;
+                y += 46f;
+            }
+            else
+            {
+                GUI.Label(new Rect(x, y, w, 24), new GUIContent("Are you REALLY sure?  /  ¿REALMENTE seguro?"), labelStyle);
+                y += 30f;
+                if (ClickableBox(new Rect(x, y, w * 0.48f, 40), "SÍ, BORRAR TODO", cRed, labelStyle))
+                {
+                    int n = ExecuteClearAll();
+                    _clearStage = 0;
+                    SetPackStatus($"Borrado: {n} plots + estructuras + pintura.");
+                }
+                if (ClickableBox(new Rect(x + w * 0.52f, y, w * 0.48f, 40), "Cancelar", SlimeTheme.BackgroundButton, labelStyle)) _clearStage = 0;
+                y += 46f;
+            }
+
             if (!string.IsNullOrEmpty(_packStatus) && Time.realtimeSinceStartup < _packStatusUntil)
                 GUI.Label(new Rect(x, y, w, 40), new GUIContent(_packStatus), smallLabelStyle);
+        }
+
+        /// <summary>Borra TODO el contenido custom (plots, estructuras, trazos, polígonos) de la escena y del
+        /// save, al instante. Devuelve cuántos plots+estructuras había. Sirve para limpiar de cero (incluida la
+        /// contaminación vieja entre saves).</summary>
+        private static int ExecuteClearAll()
+        {
+            int n = 0;
+            try { n += Plots.PlotData.Count; } catch { }
+            try { n += StructureManager.PlacedCount; } catch { }
+
+            try { Plots.PlotData.DestroyAndClearAll(); } catch { }
+            try { StructureManager.DestroyAndClearAll(); } catch { }
+            try { Placement.FreeDrawTool.DestroyAndClearAll(); } catch { }
+            try { Placement.PolygonTool.DestroyAndClearAll(); } catch { }
+
+            try { SaveData.ModDataManager.WipeAllCustomData(); } catch { }
+
+            // Limpiar estado en memoria de los sistemas dependientes (registro, luces, jardines).
+            try { Placement.CorralRegistrationHelper.ClearRegistrationState(); } catch { }
+            try { Placement.StructureLightHelper.Reset(); } catch { }
+            try { Placement.GardenDriver.Reset(); } catch { }
+            return n;
         }
 
         private static void DrawKeybindsTab(float x, ref float y, float w)

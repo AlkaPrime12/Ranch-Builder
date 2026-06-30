@@ -31,6 +31,7 @@ namespace SlimeCorralSpawn.SaveData
         /// Resolves the current save slot ID from the game's AutoSaveDirector.
         /// Returns null if not yet available (menu, loading, no game loaded).
         /// </summary>
+
         private static string ResolveSlotId()
         {
             if (_slotResolved && !string.IsNullOrEmpty(_currentSlotId))
@@ -44,21 +45,33 @@ namespace SlimeCorralSpawn.SaveData
                 var asd = gc.AutoSaveDirector;
                 if (asd == null) return null;
 
-                // Primary: Summary.SaveSlotIndex
                 var summary = asd.TryGetCurrentGameSummary();
                 if (summary != null)
                 {
-                    int idx = summary.SaveSlotIndex;
-                    RememberSlot($"saveSlot{idx}");
-                    return _currentSlotId;
+                    // ID ÚNICO POR PARTIDA = nombre de la PARTIDA (carpeta del save), NO el SaveSlotIndex
+                    // (ese es la rotación de autosave 0/1/2 y se repite entre partidas distintas → contaminación).
+                    // Orden: Summary.Name (String directo, sin marshaling de struct) → SaveIdentifier.GameName →
+                    // SaveName → CurrentSaveGameName. Logueo el resultado 1 vez para verificar que sea único.
+                    string gameName = null;
+                    try { gameName = summary.Name; } catch { }
+                    if (string.IsNullOrEmpty(gameName)) { try { gameName = summary.SaveIdentifier.GameName; } catch { } }
+                    if (string.IsNullOrEmpty(gameName)) { try { gameName = summary.SaveName; } catch { } }
+                    if (string.IsNullOrEmpty(gameName)) { try { gameName = asd.CurrentSaveGameName(); } catch { } }
+
+
+                    if (!string.IsNullOrEmpty(gameName))
+                    {
+                        RememberSlot("game_" + SanitizeSlotName(gameName));
+                        return _currentSlotId;
+                    }
                 }
 
-                // Fallback: save game name
+                // Fallback: nombre del save game
                 string name = null;
                 try { name = asd.CurrentSaveGameName(); } catch { }
                 if (!string.IsNullOrEmpty(name))
                 {
-                    RememberSlot(SanitizeSlotName(name));
+                    RememberSlot("game_" + SanitizeSlotName(name));
                     return _currentSlotId;
                 }
             }
@@ -67,9 +80,34 @@ namespace SlimeCorralSpawn.SaveData
             return null;
         }
 
+        /// <summary>Resuelve el slot de la partida ACTUAL EN VIVO (sin usar el cache), para detectar cambios de
+        /// partida de forma robusta (independiente del timing de carga de escenas). null si no hay partida.</summary>
+        public static string PeekCurrentSlot()
+        {
+            try
+            {
+                var gc = Il2Cpp.GameContext.Instance;
+                if (gc == null) return null;
+                var asd = gc.AutoSaveDirector;
+                if (asd == null) return null;
+                var summary = asd.TryGetCurrentGameSummary();
+                if (summary == null) return null;
+
+                string gn = null;
+                try { gn = summary.Name; } catch { }
+                if (string.IsNullOrEmpty(gn)) { try { gn = summary.SaveIdentifier.GameName; } catch { } }
+                if (string.IsNullOrEmpty(gn)) { try { gn = summary.SaveName; } catch { } }
+                if (string.IsNullOrEmpty(gn)) { try { gn = asd.CurrentSaveGameName(); } catch { } }
+                return string.IsNullOrEmpty(gn) ? null : "game_" + SanitizeSlotName(gn);
+            }
+            catch { return null; }
+        }
+
         private static void RememberSlot(string slot)
         {
             if (string.IsNullOrEmpty(slot)) return;
+            if (slot != _currentSlotId)
+                MelonLogger.Msg($"[SlimeCorralSpawn] Slot resuelto → {slot}  (archivo: moddata_{slot}.json)");
             _currentSlotId = slot;
             _lastKnownSlotId = slot;
             _slotResolved = true;
@@ -168,6 +206,11 @@ namespace SlimeCorralSpawn.SaveData
         {
             _currentSlotId = null;
             _slotResolved = false;
+            // CLAVE anti "contaminación entre saves": también olvidar el ÚLTIMO slot conocido. Si no, al
+            // cargar OTRO save antes de que su slot resuelva, GetSlotPath caía en _lastKnownSlotId (el save
+            // ANTERIOR) → leía/escribía el archivo equivocado y todo lo construido aparecía en TODOS los saves
+            // (+ cargaba todo = lag). Ahora, sin slot resuelto, NO se lee/escribe nada hasta resolver el correcto.
+            _lastKnownSlotId = null;
             currentData = null;
         }
 
@@ -217,6 +260,10 @@ namespace SlimeCorralSpawn.SaveData
                     catch { }
                 }
             }
+
+            // NOTA: NO migramos el esquema viejo (moddata_saveSlot*.json). Esa migración hacía que CADA partida
+            // sin archivo nuevo heredara TODOS los builds viejos = contaminación. Regla del usuario: una partida
+            // nueva o distinta arranca 100% VACÍA. El build viejo (mezclado) queda en los .json viejos, sin usar.
 
             // Punto de rollback: backup del save válido recién cargado (1 por sesión; rota últimos MaxBackups).
             if (currentData != null) CreateRotatingBackup(slotPath);
@@ -449,6 +496,26 @@ namespace SlimeCorralSpawn.SaveData
         }
 
         private static double _lastSaveTime;
+
+        /// <summary>Guardado inmediato (sin cooldown). Para acciones puntuales como CLEAR ALL.</summary>
+        public static void ForceSave()
+        {
+            _lastSaveTime = -999;
+            Save();
+        }
+
+        /// <summary>CLEAR ALL: vacía TODO el contenido custom de los datos y guarda al instante.</summary>
+        public static void WipeAllCustomData()
+        {
+            if (currentData == null) currentData = new ModSaveData();
+            try { currentData.Plots?.Clear(); } catch { }
+            try { currentData.Structures?.Clear(); } catch { }
+            try { currentData.Strokes?.Clear(); } catch { }
+            try { currentData.Polygons?.Clear(); } catch { }
+            try { currentData.PurchasedLicenses?.Clear(); } catch { }
+            currentData.TotalPlotsPlaced = 0;
+            ForceSave();
+        }
 
         public static void Save()
         {

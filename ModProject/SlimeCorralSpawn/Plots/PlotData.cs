@@ -98,6 +98,18 @@ namespace SlimeCorralSpawn.Plots
 
         public static int Count => allPlots.Count;
 
+        /// <summary>CLEAR ALL: destruye los GameObjects de TODOS los plots y vacía el registro.</summary>
+        public static void DestroyAndClearAll()
+        {
+            foreach (var kv in allPlots)
+            {
+                try { if (kv.Value != null && kv.Value.LinkedObject != null) UnityEngine.Object.Destroy(kv.Value.LinkedObject); }
+                catch { }
+            }
+            allPlots.Clear();
+            _snapshotDirty = true;
+        }
+
         public static string GenerateUniqueId()
         {
             return $"SCP_{DateTime.Now.Ticks}_{UnityEngine.Random.Range(1000, 9999)}";
