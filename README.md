@@ -1,4 +1,4 @@
-# Custom Ranch Builder v1.9.4 - Changelog
+# Custom Ranch Builder v1.8.2 - Changelog
 
 ---
 
@@ -17,7 +17,7 @@
 
 <br>
 
-**v1.9.3 — Stability & save-isolation release.** Gardens now grow and drop produce by themselves; every save slot is fully independent (new saves start empty and switching saves works live, no restart); the purple-texture bug is fixed at its root (materials aren't destroyed while in use), and pausing no longer breaks them; loading is faster; and there's a Clear All button plus a hardened backup system. — alka
+**v1.8.2 (prev) — Stability & save-isolation release.** Gardens now grow and drop produce by themselves; every save slot is fully independent (new saves start empty and switching saves works live, no restart); the purple-texture bug is fixed at its root (materials aren't destroyed while in use), and pausing no longer breaks them; loading is faster; and there's a Clear All button plus a hardened backup system. — alka
 
 ---
 
@@ -67,7 +67,7 @@ Thanks for all the support.
 
 **A MelonLoader mod that turns Slime Rancher 2 into a full sandbox builder**
 
-[![Version](https://img.shields.io/badge/version-1.9.4-blue?style=flat-square)](https://github.com/AlkaPrime12/Ranch-Builder/releases)
+[![Version](https://img.shields.io/badge/version-1.8.2-blue?style=flat-square)](https://github.com/AlkaPrime12/Ranch-Builder/releases)
 [![Game](https://img.shields.io/badge/game-Slime%20Rancher%202-ff69b4?style=flat-square)](https://www.slimerancher.com/)
 [![Loader](https://img.shields.io/badge/loader-MelonLoader_0.7+-orange?style=flat-square)](https://melonloader.net/)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
