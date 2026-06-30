@@ -23,6 +23,11 @@ namespace SlimeCorralSpawn.Patches
             PatchPostfix("Il2CppMonomiPark.SlimeRancher.UI.Plot.LandPlotUIRoot", "Upgrade",
                          typeof(LandPlotUpgradePatch), "Postfix");
 
+            // Cuando el JUEGO guarda (autosave / Save & Exit), guardamos NUESTROS datos en ese mismo momento
+            // (rancho cargado → captura fresca + escritura forzada al archivo del slot, sin cooldown).
+            PatchPostfix("Il2CppMonomiPark.SlimeRancher.AutoSaveDirector", "SaveGameImpl",
+                         typeof(ModSaveOnGameSavePatch), "Postfix");
+
             TryPatchFeederSpeedChange();
 
             _harmony.PatchAll();
@@ -116,6 +121,19 @@ namespace SlimeCorralSpawn.Patches
                 t = t.parent;
             }
             return false;
+        }
+    }
+
+    /// <summary>Engancha NUESTRO guardado al del juego: cuando SR2 guarda (autosave / Save & Exit), persistimos
+    /// los datos del mod en ese instante (con el rancho cargado → captura fresca de silo/jardín) y forzamos la
+    /// escritura al archivo del slot (sin el cooldown de 5s). Así el cambio recién hecho SÍ queda guardado y se
+    /// refleja al recargar el slot. Todo en try/catch para no afectar el guardado del juego.</summary>
+    public static class ModSaveOnGameSavePatch
+    {
+        public static void Postfix()
+        {
+            try { Plots.PlotData.CaptureAndForceSave(); }
+            catch (Exception ex) { MelonLogger.Warning($"[SCS] save hook: {ex.Message}"); }
         }
     }
 

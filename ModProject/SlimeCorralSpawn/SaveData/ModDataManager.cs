@@ -526,8 +526,9 @@ namespace SlimeCorralSpawn.SaveData
                 if (now - _lastSaveTime < 5.0) return;
                 _lastSaveTime = now;
 
-                if (currentData == null)
-                    currentData = new ModSaveData();
+                // No escribir si no hay datos cargados (p.ej. tras ClearSlot): evita pisar un save válido con
+                // un archivo VACÍO. Una partida nueva real tiene currentData = ModSaveData() vacío (no null).
+                if (currentData == null) return;
 
                 string path = GetSlotPath();
                 if (path == null)
