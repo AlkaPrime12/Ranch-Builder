@@ -241,15 +241,15 @@ namespace SlimeCorralSpawn.Themes
                 case MatKind.Cobblestone: case MatKind.CobbleRound: case MatKind.Flagstone: case MatKind.Gravel: return 7f;
                 case MatKind.RoofTile: return 6.5f;
                 case MatKind.Stone: case MatKind.Slate: case MatKind.Granite: case MatKind.Basalt: return 5f;
-                case MatKind.Bark: case MatKind.Log: return 6f;
-                case MatKind.Wood: case MatKind.DarkWood: case MatKind.Planks: return 3.5f;
+                case MatKind.Bark: case MatKind.Log: return 2.5f;
+                case MatKind.Wood: case MatKind.DarkWood: case MatKind.Planks: return 1.5f;
                 case MatKind.Thatch: case MatKind.Carpet: case MatKind.Fabric: case MatKind.Asphalt: return 3f;
                 case MatKind.Grass: case MatKind.Dirt: case MatKind.Plaster: case MatKind.Sandstone: case MatKind.Concrete: case MatKind.Limestone: return 2.5f;
                 case MatKind.WhiteBrick: case MatKind.SubwayTile: case MatKind.CinderBlock: case MatKind.Adobe: case MatKind.Terracotta: return 8f;
                 case MatKind.DiamondPlate: case MatKind.CorrugatedMetal: return 7f;
                 case MatKind.PebbleMosaic: case MatKind.Terrazzo: case MatKind.PinkGranite: case MatKind.Travertine: case MatKind.RedSandstone: return 5.5f;
                 case MatKind.Bamboo: case MatKind.Coal: return 4.5f;
-                case MatKind.Oak: case MatKind.Walnut: case MatKind.Driftwood: return 3.5f;
+                case MatKind.Oak: case MatKind.Walnut: case MatKind.Driftwood: return 1.5f;
                 case MatKind.Wicker: case MatKind.Burlap: case MatKind.Denim: case MatKind.Leather: case MatKind.Moss: return 3.5f;
                 case MatKind.Ink: case MatKind.Spray: case MatKind.Chalk: return 0.6f;
                 case MatKind.Lava: return 0.4f;
@@ -260,12 +260,12 @@ namespace SlimeCorralSpawn.Themes
             }
         }
 
-        /// <summary>Escala HDRP _NormalScale. 0.5 = mitad de fuerza (estaba 1.0, lo pidieron más suave).</summary>
-        public static float GetNormalScale(MatKind k) => 0.5f;
+        /// <summary>Escala HDRP _NormalScale. 1.0 = sin amplificación; el relieve sale del normal map.</summary>
+        public static float GetNormalScale(MatKind k) => 1.0f;
 
         // Normal map por DETECCIÓN DE BORDES (edge-aware). Samplea el albedo 512×512 a 256×256
-        // con bloque contiguo top-left (como funcionaba originalmente). Sin ruido, sin stride.
-        // edgeThresh=0.012, edgeHardness=12 capturan las juntas de mortero sin falsos en la cara.
+        // con bloque contiguo top-left.
+        // edgeThresh=0.025 filtra grano fino, edgeHardness=18 afina juntas.
         private const int NM_RES = 256;
         private const int HM_RES = 256;
         private static Texture2D BuildNormal(MatKind kind)
@@ -275,8 +275,8 @@ namespace SlimeCorralSpawn.Themes
             if (invert) strength = -strength;
             Color[] src = GetAlbedoPixels(kind);
             int w = NM_RES, sw = S;
-            float str = Mathf.Abs(strength) * 0.18f;
-            float edgeThresh = 0.012f, edgeHardness = 12f;
+            float str = Mathf.Abs(strength) * 0.035f;
+            float edgeThresh = 0.025f, edgeHardness = 18f;
             int stride = w + 2;
             float[] H = new float[stride * stride];
             for (int y = -1; y <= w; y++)
@@ -324,10 +324,12 @@ namespace SlimeCorralSpawn.Themes
                         float nx = gx / mag * str * e;
                         float ny = gy / mag * str * e;
                         Vector3 n = new Vector3(nx, ny, 1f).normalized;
-                        dst[y * w + x] = new Color(n.x * 0.5f + 0.5f, n.y * 0.5f + 0.5f, n.z * 0.5f + 0.5f, 1f);
+                        // HDRP usa UnpackNormalAG: X=Alpha, Y=Green
+                        dst[y * w + x] = new Color(0.5f, n.y * 0.5f + 0.5f, 0.5f, n.x * 0.5f + 0.5f);
                     }
                     else
-                        dst[y * w + x] = new Color(0.5f, 0.5f, 1f, 1f);
+                        // Sin relieve: normal plana (0,0,1) → A/G = 0.5
+                        dst[y * w + x] = new Color(0.5f, 0.5f, 0.5f, 0.5f);
                 }
             }
             // Nearest-neighbor upscale 256→512 + Bilinear con mipmaps: las juntas de 2 px sobreviven

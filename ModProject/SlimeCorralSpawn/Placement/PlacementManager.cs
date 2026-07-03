@@ -762,6 +762,24 @@ namespace SlimeCorralSpawn.Placement
                     }
                 try { if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", met); } catch { }
                 try { if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", smo); } catch { }
+                // Resetear remapeo de smoothness (el template del juego podría tenerlo desviado)
+                try { if (m.HasProperty("_SmoothnessRemapMin")) m.SetFloat("_SmoothnessRemapMin", 0f); } catch { }
+                try { if (m.HasProperty("_SmoothnessRemapMax")) m.SetFloat("_SmoothnessRemapMax", 1f); } catch { }
+
+                // Anti-glossy: solo metales/espejos tienen specular; el resto cero absoluto.
+                bool isMetal = met > 0.5f;
+                if (!isMetal)
+                {
+                    try { if (m.HasProperty("_SpecularColor")) m.SetColor("_SpecularColor", Color.black); } catch { }
+                    try { if (m.HasProperty("_Specular")) m.SetColor("_Specular", Color.black); } catch { }
+                    try { if (m.HasProperty("_EnvironmentReflections")) m.SetFloat("_EnvironmentReflections", 0f); } catch { }
+                    try { if (m.HasProperty("_ReflectionColor")) m.SetColor("_ReflectionColor", Color.black); } catch { }
+                }
+                else
+                {
+                    try { if (m.HasProperty("_SpecularColor")) m.SetColor("_SpecularColor", Color.white); } catch { }
+                    try { if (m.HasProperty("_Specular")) m.SetColor("_Specular", Color.white); } catch { }
+                }
 
                 if (Themes.TextureFactory.IsEmissive(kind))
                 {

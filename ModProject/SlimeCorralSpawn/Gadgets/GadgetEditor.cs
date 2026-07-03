@@ -125,12 +125,15 @@ namespace SlimeCorralSpawn.Gadgets
                     return;
                 }
 
-                // === FREE CAM standalone — F siempre activa (no solo en edición) ===
-                if (InputHelper.GetKeyDown(KeyCode.F)) ToggleFreeCam();
-                if (_freeCam)
+                // === FREE CAM — solo en modo edición ===
+                if (_editing != null)
                 {
-                    if (InputHelper.GetMouseButtonDown(1)) { ExitFreeCam(); }
-                    else FreeCamUpdate();
+                    if (InputHelper.GetKeyDown(KeyCode.F)) ToggleFreeCam();
+                    if (_freeCam)
+                    {
+                        if (InputHelper.GetMouseButtonDown(1)) { ExitFreeCam(); }
+                        else FreeCamUpdate();
+                    }
                 }
 
                 // Toggle modo aire/ground ([H])
