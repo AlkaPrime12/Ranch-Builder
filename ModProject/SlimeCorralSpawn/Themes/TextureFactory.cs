@@ -123,30 +123,42 @@ namespace SlimeCorralSpawn.Themes
         /// <summary>Suavidad/brillo del material (0 mate … 1 espejo). Para shaders Lit.</summary>
         public static float GetSmoothness(MatKind k)
         {
+            // Metales/reflectivos altos — el resto MUY bajo para que no se vean plásticos
             switch (k)
             {
-                case MatKind.Metal: case MatKind.Iron: return 0.78f;
-                case MatKind.Gold: return 0.92f;
-                case MatKind.Copper: return 0.84f;
-                case MatKind.Glass: return 0.96f;
-                case MatKind.Mirror: return 0.98f;
-                case MatKind.Marble: case MatKind.Ceramic: return 0.7f;
-                case MatKind.RoofTile: return 0.35f;
-                case MatKind.Carpet: case MatKind.Fabric: case MatKind.Bark: case MatKind.Asphalt: return 0.05f;
-                case MatKind.Ink: return 0.6f;
-                case MatKind.Spray: case MatKind.Chalk: return 0.05f;
-                case MatKind.Ice: return 0.88f;
-                case MatKind.Lava: return 0.15f;
-                case MatKind.Snow: return 0.08f;
-                case MatKind.Rust: return 0.62f;
-                case MatKind.Checker: return 0.5f;
-                case MatKind.Cardboard: case MatKind.Cork: case MatKind.Mud: case MatKind.Sand: return 0.05f;
-                case MatKind.Chrome: return 0.95f;
-                case MatKind.Obsidian: case MatKind.Crystal: return 0.9f;
-                case MatKind.Bronze: case MatKind.Brass: case MatKind.Gunmetal: case MatKind.DiamondPlate: case MatKind.CorrugatedMetal: return 0.7f;
-                case MatKind.GreenMarble: case MatKind.BlackMarble: case MatKind.Travertine: case MatKind.SubwayTile: return 0.6f;
-                case MatKind.Wicker: case MatKind.Leather: case MatKind.Denim: case MatKind.Burlap: case MatKind.Moss: return 0.05f;
-                default: return 0.12f;
+                case MatKind.Mirror: return 0.96f;
+                case MatKind.Chrome: return 0.92f;
+                case MatKind.Gold: return 0.85f;
+                case MatKind.Copper: return 0.78f;
+                case MatKind.Metal: case MatKind.Iron: return 0.70f;
+                case MatKind.Bronze: case MatKind.Brass: case MatKind.Gunmetal: case MatKind.DiamondPlate: case MatKind.CorrugatedMetal: return 0.55f;
+                case MatKind.Glass: return 0.90f;
+                case MatKind.Ceramic: return 0.50f;
+                case MatKind.Marble: case MatKind.GreenMarble: case MatKind.BlackMarble: return 0.35f;
+                case MatKind.Obsidian: case MatKind.Crystal: return 0.60f;
+                case MatKind.Ice: return 0.70f;
+                case MatKind.Rust: return 0.40f;
+                case MatKind.Ink: return 0.40f;
+                case MatKind.Checker: return 0.30f;
+                // Materiales de construcción — mate
+                case MatKind.RoofTile: return 0.20f;
+                case MatKind.Slate: return 0.18f;
+                case MatKind.Granite: case MatKind.Basalt: case MatKind.PinkGranite: case MatKind.RedSandstone: return 0.16f;
+                case MatKind.Wood: case MatKind.DarkWood: case MatKind.Planks: case MatKind.Oak: case MatKind.Walnut: case MatKind.Driftwood: return 0.12f;
+                case MatKind.Stone: case MatKind.Cobblestone: case MatKind.Flagstone: case MatKind.CobbleRound: case MatKind.Limestone: return 0.10f;
+                case MatKind.Brick: case MatKind.StoneBrick: case MatKind.WhiteBrick: case MatKind.CinderBlock: case MatKind.Adobe: case MatKind.Terracotta: return 0.08f;
+                case MatKind.Sandstone: case MatKind.Concrete: return 0.06f;
+                case MatKind.PebbleMosaic: case MatKind.Terrazzo: case MatKind.Travertine: case MatKind.SubwayTile: return 0.20f;
+                case MatKind.Bamboo: return 0.10f;
+                case MatKind.Log: case MatKind.Bark: return 0.08f;
+                case MatKind.Thatch: case MatKind.Grass: case MatKind.Dirt: case MatKind.Gravel: case MatKind.Plaster: return 0.04f;
+                case MatKind.Carpet: case MatKind.Fabric: case MatKind.Denim: case MatKind.Burlap: case MatKind.Wicker: case MatKind.Leather: case MatKind.Moss: return 0.03f;
+                case MatKind.Cardboard: case MatKind.Cork: case MatKind.Mud: case MatKind.Sand: return 0.02f;
+                case MatKind.Spray: case MatKind.Chalk: return 0.02f;
+                case MatKind.Lava: return 0.08f;
+                case MatKind.Snow: return 0.03f;
+                case MatKind.Coal: return 0.05f;
+                default: return 0.08f;
             }
         }
 
@@ -248,12 +260,12 @@ namespace SlimeCorralSpawn.Themes
             }
         }
 
-        /// <summary>Escala HDRP _NormalScale. 1.0 = relieve a fuerza completa (balance "casi perfecto").</summary>
-        public static float GetNormalScale(MatKind k) => 1.0f;
+        /// <summary>Escala HDRP _NormalScale. 0.5 = mitad de fuerza (estaba 1.0, lo pidieron más suave).</summary>
+        public static float GetNormalScale(MatKind k) => 0.5f;
 
         // Normal map por DETECCIÓN DE BORDES (edge-aware). Samplea el albedo 512×512 a 256×256
         // con bloque contiguo top-left (como funcionaba originalmente). Sin ruido, sin stride.
-        // edgeThresh=0.012, edgeHardness=8 capturan las juntas de mortero sin falsos en la cara.
+        // edgeThresh=0.012, edgeHardness=12 capturan las juntas de mortero sin falsos en la cara.
         private const int NM_RES = 256;
         private const int HM_RES = 256;
         private static Texture2D BuildNormal(MatKind kind)
@@ -264,7 +276,7 @@ namespace SlimeCorralSpawn.Themes
             Color[] src = GetAlbedoPixels(kind);
             int w = NM_RES, sw = S;
             float str = Mathf.Abs(strength) * 0.18f;
-            float edgeThresh = 0.025f, edgeHardness = 8f;
+            float edgeThresh = 0.012f, edgeHardness = 12f;
             int stride = w + 2;
             float[] H = new float[stride * stride];
             for (int y = -1; y <= w; y++)

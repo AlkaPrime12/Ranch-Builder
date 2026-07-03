@@ -14,6 +14,7 @@ namespace SlimeCorralSpawn.Placement
     {
         public static bool Active { get; private set; }
         private const int CostPerShape = 25;
+        public static int CostPerPolygon => CostPerShape;
         private const float Height = 0.3f;
 
         private static readonly List<Vector3> _pts = new List<Vector3>();
@@ -24,6 +25,19 @@ namespace SlimeCorralSpawn.Placement
 
         private class Poly { public string Uid; public List<Vector3> Pts = new List<Vector3>(); public float Height = 0.3f; public int Mat; public GameObject Go; }
         private static readonly Dictionary<string, Poly> _polys = new Dictionary<string, Poly>();
+
+        /// <summary>Devuelve todos los polígonos (para captura de prefab).</summary>
+        public static List<(string Uid, List<Vector3> Pts, float Height, int Mat)> GetAllPolygons()
+        {
+            var list = new List<(string, List<Vector3>, float, int)>();
+            foreach (var kv in _polys)
+            {
+                var p = kv.Value;
+                if (p == null || p.Pts == null || p.Pts.Count < 3) continue;
+                list.Add((p.Uid, new List<Vector3>(p.Pts), p.Height, p.Mat));
+            }
+            return list;
+        }
 
         public static void Start()
         {

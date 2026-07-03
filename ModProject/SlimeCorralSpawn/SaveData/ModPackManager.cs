@@ -15,7 +15,7 @@ namespace SlimeCorralSpawn.SaveData
     public static class ModPackManager
     {
         public const string PackExtension = ".scs-pack.json";
-        public const string ModVersion = "1.8.0";
+        public const string ModVersion = "1.8.3";
         private const string VersionPrefKey = "scs_mod_version";
         private const int MaxBackupsPerSlot = 24;
 

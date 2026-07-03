@@ -384,7 +384,8 @@ namespace SlimeCorralSpawn.UI
             {
                 bool v = !StructureManager.DebugOneNewbuck;
                 StructureManager.DebugOneNewbuck = v;
-                PlotDefinitions.DebugOneNewbuck = v;   // sincronizar: los plots también cambian de precio
+                PlotDefinitions.DebugOneNewbuck = v;
+                Houses.HouseManager.DebugOneNewbuck = v;
             }
             y += 56f;
 
@@ -586,7 +587,7 @@ namespace SlimeCorralSpawn.UI
                 y += 44f;
             }
 
-            foreach (ModAction action in new[] { ModAction.OpenMenu, ModAction.PaintTool, ModAction.RemoveTool })
+            foreach (ModAction action in new[] { ModAction.OpenMenu, ModAction.PaintTool, ModAction.RemoveTool, ModAction.ConfirmEdit })
             {
                 string label = ModKeybinds.Label(action);
                 string key = _rebindAction == action ? "..." : ModKeybinds.KeyName(ModKeybinds.Get(action));
@@ -623,6 +624,32 @@ namespace SlimeCorralSpawn.UI
                 }
             }
             for (KeyCode k = KeyCode.A; k <= KeyCode.Z; k++)
+            {
+                if (InputHelper.GetKeyDown(k))
+                {
+                    ModKeybinds.Set(_rebindAction.Value, k);
+                    _rebindAction = null;
+                    return;
+                }
+            }
+            for (KeyCode k = KeyCode.Alpha0; k <= KeyCode.Alpha9; k++)
+            {
+                if (InputHelper.GetKeyDown(k))
+                {
+                    ModKeybinds.Set(_rebindAction.Value, k);
+                    _rebindAction = null;
+                    return;
+                }
+            }
+            KeyCode[] extras = { KeyCode.Return, KeyCode.Space, KeyCode.Tab, KeyCode.Backspace,
+                KeyCode.UpArrow, KeyCode.DownArrow, KeyCode.LeftArrow, KeyCode.RightArrow,
+                KeyCode.PageUp, KeyCode.PageDown, KeyCode.Home, KeyCode.End,
+                KeyCode.LeftBracket, KeyCode.RightBracket, KeyCode.Minus, KeyCode.Equals,
+                KeyCode.Comma, KeyCode.Period, KeyCode.Slash, KeyCode.Backslash,
+                KeyCode.Semicolon, KeyCode.Quote, KeyCode.LeftControl, KeyCode.LeftAlt,
+                KeyCode.LeftShift, KeyCode.RightShift, KeyCode.KeypadPlus, KeyCode.KeypadMinus,
+                KeyCode.KeypadEnter, KeyCode.KeypadPeriod, KeyCode.KeypadDivide, KeyCode.KeypadMultiply };
+            foreach (var k in extras)
             {
                 if (InputHelper.GetKeyDown(k))
                 {
@@ -701,30 +728,52 @@ namespace SlimeCorralSpawn.UI
         private static void DrawHousesTab(float x, ref float y, float w)
         {
             GUI.Label(new Rect(x, y, w, 22), new GUIContent(Loc.T("hdr_houses")), headerStyle);
-            y += 28f;
+            y += 30f;
 
-            for (int i = 0; i < HouseManager.HouseDefinitions.Count; i++)
+            // ── PREFABS DE CASAS ──
+            Color prefabCol = new Color(0.42f, 0.55f, 0.9f);
+            Rect selRect = new Rect(x, y, w, 44);
+            if (ClickableBox(selRect, "Seleccion y Guardado  (Prefab)", prefabCol, labelStyle))
             {
-                var house = HouseManager.HouseDefinitions[i];
-                bool isSelected = selectedPlotIndex == i + 100;
-                int cost = HouseManager.GetCost(house);
-                string btnText = $"{Loc.StructName(house.Id)}  |  {cost} Newbucks";
+                CloseMenu();
+                Placement.PrefabTool.StartSelection();
+            }
+            if (selRect.Contains(Event.current.mousePosition))
+                tooltipText = "Seleccioná un área con la mira (2 esquinas + altura, Enter para OK) y guardá todo lo construido ahí como un prefab con su precio.";
+            y += 50f;
 
-                Rect btnRect = new Rect(x, y, w, 42);
-                if (ClickableBox(btnRect, btnText, isSelected ? SlimeTheme.BackgroundButtonHover : SlimeTheme.BackgroundButton, labelStyle))
+            var prefabs = SaveData.PrefabManager.List();
+            GUI.Label(new Rect(x, y, w, 20), new GUIContent($"Prefabs guardados:  ({prefabs.Count})"), headerStyle);
+            y += 26f;
+            if (prefabs.Count == 0)
+            {
+                GUI.Label(new Rect(x + 4, y, w - 8, 20), new GUIContent("(ninguno todavía — usá el botón de arriba)"), smallLabelStyle);
+                y += 24f;
+            }
+            else
+            {
+                for (int i = 0; i < prefabs.Count; i++)
                 {
-                    selectedPlotIndex = i + 100;
-                    showPurchasePanel = true;
+                    var p = prefabs[i];
+                    Rect row = new Rect(x, y, w - 42f, 36f);
+                    if (ClickableBox(row, $"{p.Name}   ·   {p.Parts.Count} pzs   ·   {p.Price} NB", SlimeTheme.BackgroundButton, smallLabelStyle))
+                    {
+                        CloseMenu();
+                        Placement.PrefabTool.StartPlacement(p);
+                    }
+                    if (row.Contains(Event.current.mousePosition))
+                        tooltipText = "Click para colocar este prefab (aparece una preview siguiendo la mira).";
+                    Rect del = new Rect(x + w - 38f, y, 38f, 36f);
+                    if (ClickableBox(del, "X", new Color(0.8f, 0.25f, 0.3f), smallLabelStyle))
+                        SaveData.PrefabManager.Delete(p.Name);
+                    y += 40f;
                 }
-
-                if (btnRect.Contains(Event.current.mousePosition))
-                    tooltipText = house.Description;
-
-                y += 47f;
             }
 
             y += 10f;
-            DrawPlacedPlotsList(x, ref y, w);
+            Rect closeRect = new Rect(x, y, w, 40);
+            if (ClickableBox(closeRect, "Abrir carpeta de prefabs", SlimeTheme.BackgroundButton, smallLabelStyle))
+                SaveData.PrefabManager.OpenFolder();
         }
 
         /// <summary>Fila de botones de categoría (estilo Sims): Muros, Puertas, Ventanas, Pisos, etc.</summary>

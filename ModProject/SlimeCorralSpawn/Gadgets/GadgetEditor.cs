@@ -18,6 +18,12 @@ namespace SlimeCorralSpawn.Gadgets
         private static Vector3 _savedPos;
         private static Quaternion _savedRot;
         private static Vector3 _savedScale;
+        private static Vector3 _baselinePos;
+        private static bool _firstMove;
+        private static bool _hideUI;
+        private static readonly Vector2[] _arrowScr = new Vector2[9]; // 3 ejes × 3 puntos cada uno
+        private static readonly bool[] _arrowOk = new bool[9];
+        private const float ArrowPickPx = 40f;
 
         // Free cam = NOCLIP del jugador: muevo al JUGADOR (freeze del KCC + transform), la cámara del juego
         // lo sigue sola (no peleamos con Cinemachine). Al salir, teleport a la posición inicial.
@@ -31,7 +37,7 @@ namespace SlimeCorralSpawn.Gadgets
         private static bool _airMode;
         /// <summary>Siempre el gadget bajo la mira (se actualiza cada frame incluso en estado bloqueado).</summary>
         private static GameObject _hoverAlways;
-        private const float RotSpeed = 90f;
+
         private const float DragRotPerPixel = 1.2f;
         private const float ScaleSpeed = 0.6f;
         private const float HeightSpeed = 4f;
@@ -98,6 +104,9 @@ namespace SlimeCorralSpawn.Gadgets
                     catch { }
                 }
 
+                // Hide UI toggle ([Tab])
+                if (InputHelper.GetKeyDown(KeyCode.Tab)) _hideUI = !_hideUI;
+
                 // Detectar [R] SIEMPRE — incluso durante el bloqueo — para que la entrada nunca se pierda.
                 if (_editing == null && _hoverAlways != null && InputHelper.GetKeyDown(KeyCode.R))
                 {
@@ -111,14 +120,13 @@ namespace SlimeCorralSpawn.Gadgets
                 if (blocked)
                 {
                     if (_freeCam) ExitFreeCam();
-                    // Si IsPlacingGadget se queda trabado (menú F5 ya cerrado), limpiar
                     if (!UI.PlotsMenuUI.IsVisible && GadgetPlacementHelper.IsPlacingGadget())
                         GadgetPlacementHelper.OnPlacementEnded();
                     return;
                 }
 
-                // === FREE CAM (tecla F) — solo en modo edición ===
-                if (_editing != null && InputHelper.GetKeyDown(KeyCode.F)) ToggleFreeCam();
+                // === FREE CAM standalone — F siempre activa (no solo en edición) ===
+                if (InputHelper.GetKeyDown(KeyCode.F)) ToggleFreeCam();
                 if (_freeCam)
                 {
                     if (InputHelper.GetMouseButtonDown(1)) { ExitFreeCam(); }
@@ -141,19 +149,28 @@ namespace SlimeCorralSpawn.Gadgets
                 try { t = _editing.transform; } catch { StopEdit(); return; }
                 if (t == null) { StopEdit(); return; }
 
-                if (InputHelper.GetKeyDown(KeyCode.Escape) || InputHelper.GetKeyDown(KeyCode.Return)) { StopEdit(); return; }
+                if (InputHelper.GetKeyDown(KeyCode.Escape)) { StopEdit(); return; }
                 if (InputHelper.GetMouseButtonDown(1)) { CancelEdit(); return; }
+                if (ModKeybinds.IsDown(ModAction.ConfirmEdit)) { StopEdit(); return; }
                 if (InputHelper.GetKeyDown(KeyCode.Alpha1)) { _mode = 0; SetDragAxis(-1); }
                 if (InputHelper.GetKeyDown(KeyCode.Alpha2)) { _mode = 1; SetDragAxis(-1); }
+                if (InputHelper.GetKeyDown(KeyCode.Alpha3)) { _mode = 2; SetDragAxis(-1); }
 
                 float dt = Time.deltaTime;
 
                 if (_mode == 0)
-                    MoveGadget(t, dt);
-                else
+                {
+                    if (_firstMove) _firstMove = false;
+                    else MoveGadget(t, dt);
+                }
+                else if (_mode == 1)
                 {
                     HandleGizmoDrag(t);
-                    KeyboardRotate(t, dt);
+                }
+                else // mode 2 = freehand (colocación libre con mira)
+                {
+                    if (_firstMove) _firstMove = false;
+                    else FreehandMoveGadget(t, dt);
                 }
 
                 if (InputHelper.GetKey(KeyCode.KeypadPlus) || InputHelper.GetKey(KeyCode.Equals))
@@ -174,19 +191,19 @@ namespace SlimeCorralSpawn.Gadgets
 
         private static void EnterEdit(GameObject go)
         {
-            // Si FreeCam estaba activo, salir limpio (restaurar input, cámara)
             if (_freeCam) ExitFreeCam();
-            // Safe-check: si el objeto fue destruido entre el raycast y ahora, no entramos.
             if (go == null) { StopEdit(); return; }
             var tr = go.transform;
             if (tr == null) { StopEdit(); return; }
-            // Guardar posición original para cancelar con click derecho
             _savedPos = tr.position;
             _savedRot = tr.rotation;
             _savedScale = tr.localScale;
+            _baselinePos = tr.position;
+            _firstMove = true;
+            _height = 0f;
             _editing = go;
             _mode = 0;
-            _height = 0f;
+            SetInputFrozen(true);   // congelar input del juego (no tirar items mientras editamos)
             SetDragAxis(-1);
         }
 
@@ -195,6 +212,7 @@ namespace SlimeCorralSpawn.Gadgets
             if (_editing == null && !_freeCam) return;
             _editing = null;
             _hovered = null;
+            SetInputFrozen(false);
             SetDragAxis(-1);
             _mode = 0;
             _height = 0f;
@@ -349,13 +367,42 @@ namespace SlimeCorralSpawn.Gadgets
                 var model = g.GetModel();
                 if (model == null) return;
                 try { model.SetTransform(t); } catch { }
-                try { model.lastPosition = t.position; } catch { }     // ← campo que el juego SERIALIZA (posición)
-                try { model.eulerRotation = t.eulerAngles; } catch { } // rotación persistente
+                try { model.lastPosition = t.position; } catch { }
+                try { model.eulerRotation = t.eulerAngles; } catch { }
+                // Escala: la mayoría de modelos no tienen campo scale propio; SetTransform lo maneja si puede
             }
             catch { }
         }
 
+        // ---- Modo Mover ----
+
+        /// <summary>Mueve el gadget: flechas del teclado + arrastre de flechitas 3D.</summary>
         private static void MoveGadget(Transform t, float dt)
+        {
+            try
+            {
+                Vector3 move = Vector3.zero;
+                if (InputHelper.GetKey(KeyCode.UpArrow))    move += Vector3.forward;
+                if (InputHelper.GetKey(KeyCode.DownArrow))  move -= Vector3.forward;
+                if (InputHelper.GetKey(KeyCode.RightArrow)) move += Vector3.right;
+                if (InputHelper.GetKey(KeyCode.LeftArrow))  move -= Vector3.right;
+                if (InputHelper.GetKey(KeyCode.E)) move.y += 1f;
+                if (InputHelper.GetKey(KeyCode.Q)) move.y -= 1f;
+                if (InputHelper.GetKey(KeyCode.PageUp))   move.y += 1f;
+                if (InputHelper.GetKey(KeyCode.PageDown)) move.y -= 1f;
+
+                if (move.sqrMagnitude > 0.001f)
+                    _baselinePos += move.normalized * HeightSpeed * dt;
+
+                t.position = _baselinePos;
+
+                HandleArrowDrag(t);
+            }
+            catch { }
+        }
+
+        /// <summary>Modo colocación libre (freehand): el gadget sigue el rayo de la cámara como antes.</summary>
+        private static void FreehandMoveGadget(Transform t, float dt)
         {
             try
             {
@@ -373,66 +420,101 @@ namespace SlimeCorralSpawn.Gadgets
                 if (hitGround) { try { self = hit.collider != null && hit.collider.transform.IsChildOf(t); } catch { } }
 
                 if (_airMode)
-                {
                     basePos = ray.origin + ray.direction * AirPlaceDist;
-                }
                 else if (hitGround && !self)
-                {
                     basePos = hit.point;
-                }
                 else if (hitGround && self)
-                {
-                    basePos = t.position;   // el rayo pega en el propio gadget → mantener posición actual
-                }
+                    basePos = t.position;
                 else
-                {
                     basePos = ray.origin + ray.direction * AirPlaceDist;
-                }
 
-                basePos.y += _height;
-                t.position = basePos;
+                _baselinePos = basePos;
+                _baselinePos.y += _height;
+                t.position = _baselinePos;
             }
             catch { }
         }
 
-        // ---- Gizmo ----
-
-        private static void HandleGizmoDrag(Transform t)
+        private static void HandleArrowDrag(Transform t)
         {
-            // Apunto la mira (centro de pantalla) a un círculo y mantengo click para agarrarlo y rotar con el mouse.
             Vector2 center = new Vector2(Screen.width / 2f, Screen.height / 2f);
 
             if (InputHelper.GetMouseButtonDown(0))
             {
-                int axis = PickAxis(t, center);
-                if (axis >= 0) SetDragAxis(axis);   // agarra eje + congela cámara/vac mientras arrastro
+                int axis = PickArrow(t, center);
+                if (axis >= 0) SetDragAxis(axis);
             }
             else if (!InputHelper.GetMouseButton(0))
             {
-                if (_dragAxis >= 0) SetDragAxis(-1); // suelto → descongela
+                if (_dragAxis >= 0) SetDragAxis(-1);
             }
 
             if (_dragAxis >= 0 && InputHelper.GetMouseButton(0))
             {
-                // Cursor bloqueado → uso el DELTA del mouse (la cámara está congelada, no se mueve).
+                Vector2 d = InputHelper.GetMouseDelta();
+                float move = Mathf.Abs(d.x) >= Mathf.Abs(d.y) ? d.x : d.y;
+                float step = move * 0.025f * GizmoRadius(t);
+                var dir = AxisVec(_dragAxis);
+                _baselinePos += dir * step;
+                t.position = _baselinePos;
+            }
+        }
+
+        private static int PickArrow(Transform t, Vector2 mouse)
+        {
+            var cam = GetMainCam(); if (cam == null) return -1;
+            var center = t.position;
+            float r = GizmoRadius(t) * 2f;
+            int best = -1; float bestDist = ArrowPickPx;
+            for (int a = 0; a < 3; a++)
+            {
+                // Proyectar 3 puntos por eje (base, mitad, punta) para mejor detección
+                for (int p = 0; p < 3; p++)
+                {
+                    int idx = a * 3 + p;
+                    float tlen = (p + 1) / 3f;
+                    ProjectArrow(cam, center, AxisVec(a), r * tlen, idx);
+                    if (!_arrowOk[idx]) continue;
+                    float d = Vector2.Distance(mouse, _arrowScr[idx]);
+                    if (d < bestDist) { bestDist = d; best = a; }
+                }
+            }
+            return best;
+        }
+
+        private static void ProjectArrow(Camera cam, Vector3 center, Vector3 axis, float len, int idx)
+        {
+            try
+            {
+                var tip = center + axis * len;
+                var sp = cam.WorldToScreenPoint(tip);
+                if (sp.z <= 0f) { _arrowOk[idx] = false; return; }
+                _arrowScr[idx] = new Vector2(sp.x, Screen.height - sp.y);
+                _arrowOk[idx] = true;
+            }
+            catch { _arrowOk[idx] = false; }
+        }
+
+        // ---- Gizmo Rotación ----
+
+        private static void HandleGizmoDrag(Transform t)
+        {
+            Vector2 center = new Vector2(Screen.width / 2f, Screen.height / 2f);
+            if (InputHelper.GetMouseButtonDown(0))
+            {
+                int axis = PickAxis(t, center);
+                if (axis >= 0) SetDragAxis(axis);
+            }
+            else if (!InputHelper.GetMouseButton(0))
+            {
+                if (_dragAxis >= 0) SetDragAxis(-1);
+            }
+            if (_dragAxis >= 0 && InputHelper.GetMouseButton(0))
+            {
                 Vector2 d = InputHelper.GetMouseDelta();
                 float move = Mathf.Abs(d.x) >= Mathf.Abs(d.y) ? d.x : d.y;
                 try { t.Rotate(AxisVec(_dragAxis), move * DragRotPerPixel, Space.World); } catch { }
             }
-        }
-
-        private static void KeyboardRotate(Transform t, float dt)
-        {
-            try
-            {
-                if (InputHelper.GetKey(KeyCode.Q)) { t.Rotate(Vector3.up, -RotSpeed * dt, Space.World); _dragAxis = 1; }
-                if (InputHelper.GetKey(KeyCode.E)) { t.Rotate(Vector3.up, RotSpeed * dt, Space.World); _dragAxis = 1; }
-                if (InputHelper.GetKey(KeyCode.Z)) { t.Rotate(Vector3.right, -RotSpeed * dt, Space.World); _dragAxis = 0; }
-                if (InputHelper.GetKey(KeyCode.C)) { t.Rotate(Vector3.right, RotSpeed * dt, Space.World); _dragAxis = 0; }
-                if (InputHelper.GetKey(KeyCode.V)) { t.Rotate(Vector3.forward, -RotSpeed * dt, Space.World); _dragAxis = 2; }
-                if (InputHelper.GetKey(KeyCode.B)) { t.Rotate(Vector3.forward, RotSpeed * dt, Space.World); _dragAxis = 2; }
-            }
-            catch { }
         }
 
         private static int PickAxis(Transform t, Vector2 mouse)
@@ -568,36 +650,40 @@ namespace SlimeCorralSpawn.Gadgets
                 float cx = Screen.width / 2f;
                 if (_editing != null)
                 {
-                    float py = Screen.height - 120f;
-                    Rect panel = new Rect(cx - 340f, py, 680f, 90f);
-                    Fill(panel, DarkBg);
-                    DrawBorder(panel, Pink, 2f);
-
-                    string modeLabel = Loc.T(_airMode ? "gadget_air" : "gadget_ground");
-                    string freeCamLabel = _freeCam ? Loc.T("gadget_freecam_on") : "";
-                    GUI.Label(new Rect(cx - 320f, py + 6f, 640f, 22f),
-                        string.Format(Loc.T("gadget_edit_hud"), modeLabel, freeCamLabel), _labelStyle);
-                    GUI.Label(new Rect(cx - 320f, py + 28f, 640f, 20f),
-                        _mode == 0 ? Loc.T("gadget_move_hint") : Loc.T("gadget_rotate_hint"), _labelStyle);
-
                     Transform t = null; try { t = _editing.transform; } catch { }
-                    if (_mode == 1 && t != null) DrawGizmo(t);
-
+                    if (t != null) DrawGizmo(t);
                     DrawReticle(cx, Screen.height / 2f);
 
+                    if (!_hideUI)
+                    {
+                        float py = Screen.height - 86f;
+                        Rect panel = new Rect(cx - 280f, py, 560f, 70f);
+                        Fill(panel, DarkBg);
+                        DrawBorder(panel, Pink, 2f);
+
+                        string modeLabel = Loc.T(_airMode ? "gadget_air" : "gadget_ground");
+                        string freeCamLabel = _freeCam ? Loc.T("gadget_freecam_on") : "";
+                        GUI.Label(new Rect(cx - 264f, py + 5f, 528f, 20f),
+                            string.Format(Loc.T("gadget_edit_hud"), modeLabel, freeCamLabel), _labelStyle);
+                        GUI.Label(new Rect(cx - 264f, py + 26f, 528f, 20f),
+                            _mode == 0 ? Loc.T("gadget_move_hint") : _mode == 1 ? Loc.T("gadget_rotate_hint") : Loc.T("gadget_freehand_hint"), _labelStyle);
+                    }
                     GUI.color = Color.white;
                     return;
                 }
                 if (_freeCam)
                 {
-                    float fy = Screen.height - 56f;
-                    Rect fp = new Rect(cx - 330f, fy, 660f, 40f);
-                    Fill(fp, DarkBg); DrawBorder(fp, Pink, 2f);
-                    GUI.Label(new Rect(cx - 314f, fy + 9f, 628f, 22f), Loc.T("gadget_freecam_hud"), _labelStyle);
+                    if (!_hideUI)
+                    {
+                        float fy = Screen.height - 46f;
+                        Rect fp = new Rect(cx - 260f, fy, 520f, 34f);
+                        Fill(fp, DarkBg); DrawBorder(fp, Pink, 2f);
+                        GUI.Label(new Rect(cx - 248f, fy + 6f, 496f, 22f), Loc.T("gadget_freecam_hud"), _labelStyle);
+                    }
                     GUI.color = Color.white;
                     return;
                 }
-                if (_hovered != null || _hoverAlways != null)
+                if (!_hideUI && (_hovered != null || _hoverAlways != null))
                 {
                     var show = _hovered ?? _hoverAlways;
                     Vector3 sp = Vector3.zero;
@@ -623,10 +709,40 @@ namespace SlimeCorralSpawn.Gadgets
         private static void DrawGizmo(Transform t)
         {
             var cam = GetMainCam(); if (cam == null) return;
-            float r = GizmoRadius(t);
-            DrawCircle(cam, t, 0, _dragAxis == 0 ? Pink : new Color(0.9f, 0.2f, 0.2f), r);
-            DrawCircle(cam, t, 1, _dragAxis == 1 ? Pink : new Color(0.2f, 0.9f, 0.2f), r);
-            DrawCircle(cam, t, 2, _dragAxis == 2 ? Pink : new Color(0.3f, 0.5f, 1f), r);
+            if (_mode == 0)
+            {
+                // Flechitas de movimiento
+                var center = t.position;
+                float r = GizmoRadius(t) * 2f;
+                DrawArrow(cam, center, AxisVec(0), _dragAxis == 0 ? Pink : new Color(0.9f, 0.2f, 0.2f), r);
+                DrawArrow(cam, center, AxisVec(1), _dragAxis == 1 ? Pink : new Color(0.2f, 0.9f, 0.2f), r);
+                DrawArrow(cam, center, AxisVec(2), _dragAxis == 2 ? Pink : new Color(0.3f, 0.5f, 1f), r);
+            }
+            else if (_mode == 1)
+            {
+                float r = GizmoRadius(t);
+                DrawCircle(cam, t, 0, _dragAxis == 0 ? Pink : new Color(0.9f, 0.2f, 0.2f), r);
+                DrawCircle(cam, t, 1, _dragAxis == 1 ? Pink : new Color(0.2f, 0.9f, 0.2f), r);
+                DrawCircle(cam, t, 2, _dragAxis == 2 ? Pink : new Color(0.3f, 0.5f, 1f), r);
+            }
+            // mode 2 = freehand → sin gizmo
+        }
+
+        private static void DrawArrow(Camera cam, Vector3 center, Vector3 axis, Color col, float len)
+        {
+            var tip = center + axis * len;
+            var sp = cam.WorldToScreenPoint(center);
+            var ep = cam.WorldToScreenPoint(tip);
+            if (sp.z <= 0f || ep.z <= 0f) return;
+            Vector2 a = new Vector2(sp.x, Screen.height - sp.y);
+            Vector2 b = new Vector2(ep.x, Screen.height - ep.y);
+            DrawLine(a, b, col, _dragAxis >= 0 ? 4f : 2.5f);
+            // Cabeza de flecha (triángulo)
+            float head = 10f;
+            Vector2 dir = (b - a).normalized;
+            Vector2 perp = new Vector2(-dir.y, dir.x);
+            DrawLine(b, b - dir * head + perp * head * 0.5f, col, 2f);
+            DrawLine(b, b - dir * head - perp * head * 0.5f, col, 2f);
         }
 
         /// <summary>Mira (cruz) en el centro de la pantalla: marca el punto con el que se apunta a los círculos.</summary>
