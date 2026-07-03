@@ -669,6 +669,7 @@ namespace SlimeCorralSpawn.Placement
                 if (_litScanPool == null) return _litTemplate;
 
                 Material fallback = null;
+                Material normalLit = null;
                 int budget = (Plots.PlotData.HasPendingRestore() || UI.StructureManager.HasPendingRestore()) ? 256 : 64;
                 while (_litScanIdx < _litScanPool.Length && budget-- > 0)
                 {
@@ -679,15 +680,20 @@ namespace SlimeCorralSpawn.Placement
                     string sn = m.shader.name;
                     if (string.IsNullOrEmpty(sn)) continue;
                     bool isLit = sn == "HDRP/Lit";
+                    if (!isLit) continue;
                     bool transparent = IsMaterialTransparent(m);
-                    if (_glassTemplate == null && isLit && transparent) _glassTemplate = m;
-                    if (_litTemplate == null)
+                    if (_glassTemplate == null && transparent) _glassTemplate = m;
+                    bool hasNormal = false;
+                    try { hasNormal = m.IsKeywordEnabled("_NORMALMAP_TANGENT_SPACE"); } catch { }
+                    if (_litTemplate == null && !transparent)
                     {
-                        if (isLit && !transparent) { _litTemplate = m; }
-                        else if (fallback == null && sn.Contains("Lit") && !sn.Contains("Unlit") && !transparent) fallback = m;
+                        if (hasNormal) normalLit = normalLit ?? m;
+                        _litTemplate = m;
                     }
                     if (_litTemplate != null && (_glassTemplate != null || _glassScanned)) break;
                 }
+                // Preferir el material que YA tiene normal map activo
+                if (normalLit != null) _litTemplate = normalLit;
                 if (_litTemplate == null && _litScanIdx >= _litScanPool.Length) _litTemplate = fallback;
                 if (_litScanIdx >= _litScanPool.Length) _glassScanned = true;
             }

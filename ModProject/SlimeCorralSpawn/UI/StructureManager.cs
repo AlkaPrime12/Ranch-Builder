@@ -494,6 +494,167 @@ namespace SlimeCorralSpawn.UI
             return SpawnStructure(def, position, rotation, 1f, 0f, 0f, null, true) != null;
         }
 
+        // ===== PREFABS DE CASAS: capturar un área y re-colocarla =====
+
+        /// <summary>Captura TODAS las estructuras custom dentro de la caja como un prefab (posiciones relativas a
+        /// <paramref name="origin"/>) y suma su precio (el de cada pieza). No modifica nada existente.</summary>
+        public static SaveData.PrefabEntry CaptureInBox(Bounds box, Vector3 origin)
+        {
+            var e = new SaveData.PrefabEntry { Name = "" };
+            int price = 0;
+
+            // ── Estructuras ──
+            foreach (var kv in _placed)
+            {
+                var d = kv.Value;
+                if (d == null) continue;
+                if (!box.Contains(d.Position)) continue;
+
+                int cost;
+                if (d.DefinitionId == CustomFloorDef.Id) cost = FloorCost(d.SizeX <= 0 ? 1 : d.SizeX, d.SizeZ <= 0 ? 1 : d.SizeZ);
+                else { var def = GetById(d.DefinitionId); cost = def != null ? GetCost(def) : 0; }
+                price += cost;
+
+                e.Parts.Add(new SaveData.PrefabPart
+                {
+                    DefinitionId = d.DefinitionId,
+                    RelPos = new[] { d.Position.x - origin.x, d.Position.y - origin.y, d.Position.z - origin.z },
+                    Rotation = new[] { d.Rotation.x, d.Rotation.y, d.Rotation.z, d.Rotation.w },
+                    Scale = d.Scale,
+                    SizeX = d.SizeX,
+                    SizeZ = d.SizeZ,
+                    Mat = d.Mat,
+                    Tint = d.Tint
+                });
+            }
+
+            // ── Polígonos (formas irregulares) ──
+            foreach (var (uid, pts, height, mat) in Placement.PolygonTool.GetAllPolygons())
+            {
+                if (pts.Count < 3) continue;
+                // Incluir si el polígono INTERSECTA la caja (no solo su ancla)
+                Bounds polyBounds = new Bounds(pts[0], Vector3.zero);
+                for (int i = 1; i < pts.Count; i++) polyBounds.Encapsulate(pts[i]);
+                polyBounds.Expand(0.01f);
+                if (!box.Intersects(polyBounds)) continue;
+
+                int polyCost = Placement.PolygonTool.CostPerPolygon;
+                if (DebugOneNewbuck) polyCost = 1;
+                price += polyCost;
+
+                var verts = new float[pts.Count * 3];
+                for (int i = 0; i < pts.Count; i++)
+                {
+                    verts[i * 3] = pts[i].x - origin.x;
+                    verts[i * 3 + 1] = pts[i].y - origin.y;
+                    verts[i * 3 + 2] = pts[i].z - origin.z;
+                }
+                e.PolyParts.Add(new SaveData.PrefabPolyPart
+                {
+                    Verts = verts,
+                    Height = height,
+                    Mat = mat
+                });
+            }
+
+            // ── Plots ──
+            foreach (var pd in PlotData.GetAll())
+            {
+                if (pd == null) continue;
+                if (!box.Contains(pd.Position)) continue;
+
+                int plotCost = Placement.PlotDefinitions.GetCost(pd.PlotType, pd.PlotSize);
+                if (DebugOneNewbuck) plotCost = 1;
+                price += plotCost;
+
+                e.PlotParts.Add(new SaveData.PrefabPlotPart
+                {
+                    PlotType = pd.PlotType.ToString(),
+                    PlotSize = pd.PlotSize.ToString(),
+                    RelPos = new[] { pd.Position.x - origin.x, pd.Position.y - origin.y, pd.Position.z - origin.z },
+                    Rotation = new[] { pd.Rotation.x, pd.Rotation.y, pd.Rotation.z, pd.Rotation.w },
+                    UpgradeLevel = pd.UpgradeLevel
+                });
+            }
+
+            e.Price = price;
+            e.Size = new[] { box.size.x, box.size.y, box.size.z };
+            return e;
+        }
+
+        /// <summary>Coloca todas las piezas de un prefab en el mundo, con <paramref name="origin"/> como base.
+        /// Devuelve cuántas piezas colocó. (El COBRO del precio lo hace quien llama.)</summary>
+        public static int SpawnPrefab(SaveData.PrefabEntry e, Vector3 origin)
+        {
+            if (e == null) return 0;
+            int n = 0;
+
+            // ── Estructuras ──
+            if (e.Parts != null)
+            {
+                foreach (var p in e.Parts)
+                {
+                    var def = GetById(p.DefinitionId);
+                    if (def == null || p.RelPos == null || p.RelPos.Length < 3) continue;
+                    Vector3 pos = origin + new Vector3(p.RelPos[0], p.RelPos[1], p.RelPos[2]);
+                    Quaternion rot = (p.Rotation != null && p.Rotation.Length >= 4)
+                        ? new Quaternion(p.Rotation[0], p.Rotation[1], p.Rotation[2], p.Rotation[3])
+                        : Quaternion.identity;
+                    var go = SpawnStructure(def, pos, rot, p.Scale <= 0f ? 1f : p.Scale, p.SizeX, p.SizeZ, null, true, p.Mat, p.Tint);
+                    if (go != null) n++;
+                }
+            }
+
+            // ── Polígonos ──
+            if (e.PolyParts != null)
+            {
+                foreach (var pp in e.PolyParts)
+                {
+                    if (pp.Verts == null || pp.Verts.Length < 9) continue;
+                    int count = pp.Verts.Length / 3;
+                    var pts = new List<Vector3>();
+                    for (int i = 0; i < count; i++)
+                        pts.Add(origin + new Vector3(pp.Verts[i * 3], pp.Verts[i * 3 + 1], pp.Verts[i * 3 + 2]));
+                    float h = pp.Height <= 0f ? 0.3f : pp.Height;
+                    try
+                    {
+                        var polyGo = new GameObject("SCS_PolyPrefab_" + DateTime.Now.Ticks);
+                        polyGo.AddComponent<MeshFilter>();
+                        var mr = polyGo.AddComponent<MeshRenderer>();
+                        mr.material = Placement.PlacementManager.CreateTexturedMaterial(Color.white, (Themes.MatKind)pp.Mat);
+                        polyGo.transform.position = pts[0];
+                        var col = polyGo.AddComponent<MeshCollider>();
+                        var mesh = Placement.PlacementManager.CreatePrismMesh3D(pts, h);
+                        polyGo.GetComponent<MeshFilter>().mesh = mesh;
+                        col.sharedMesh = mesh;
+                        n++;
+                    }
+                    catch { }
+                }
+            }
+
+            // ── Plots ──
+            if (e.PlotParts != null)
+            {
+                foreach (var pp in e.PlotParts)
+                {
+                    if (pp.RelPos == null || pp.RelPos.Length < 3) continue;
+                    Vector3 pos = origin + new Vector3(pp.RelPos[0], pp.RelPos[1], pp.RelPos[2]);
+                    Quaternion rot = (pp.Rotation != null && pp.Rotation.Length >= 4)
+                        ? new Quaternion(pp.Rotation[0], pp.Rotation[1], pp.Rotation[2], pp.Rotation[3])
+                        : Quaternion.identity;
+                    if (System.Enum.TryParse<Placement.PlotType>(pp.PlotType, out var ptype) &&
+                        System.Enum.TryParse<Placement.PlotSize>(pp.PlotSize, out var psize))
+                    {
+                        bool ok = Placement.RealPlotManager.TrySpawnRealClone(ptype, psize, pos, rot);
+                        if (ok) n++;
+                    }
+                }
+            }
+
+            return n;
+        }
+
         // ===== SUELO A MEDIDA (Free Build) =====
         public const float FloorPricePerTile = 8;   // ~8 NB por baldosa de 1x1
         public static int FloorCost(float width, float depth)

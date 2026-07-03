@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Slime Corral Spawn", "1.8.2", "SlimeRancherModder")]
+[assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Slime Corral Spawn", "1.8.3", "SlimeRancherModder")]
 [assembly: MelonGame("MonomiPark", "SlimeRancher2")]
 
 namespace SlimeCorralSpawn
@@ -138,6 +138,9 @@ namespace SlimeCorralSpawn
 
             try { Placement.FloorBuilder.UpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("FloorBuilder.UpdateStatic", ex); }
+
+            try { Placement.PrefabTool.UpdateStatic(); }
+            catch (Exception ex) { LogErrorOnce("PrefabTool.UpdateStatic", ex); }
 
             try { Placement.FreeDrawTool.UpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("FreeDrawTool.UpdateStatic", ex); }
@@ -275,6 +278,9 @@ namespace SlimeCorralSpawn
 
             try { Placement.FloorBuilder.OnGUIStatic(); }
             catch (Exception ex) { LogErrorOnce("FloorBuilder.OnGUIStatic", ex); }
+
+            try { Placement.PrefabTool.OnGUIStatic(); }
+            catch (Exception ex) { LogErrorOnce("PrefabTool.OnGUIStatic", ex); }
 
             try { Placement.FreeDrawTool.OnGUIStatic(); }
             catch (Exception ex) { LogErrorOnce("FreeDrawTool.OnGUIStatic", ex); }
