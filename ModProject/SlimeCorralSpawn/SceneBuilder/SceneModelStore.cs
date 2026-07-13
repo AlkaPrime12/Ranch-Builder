@@ -238,13 +238,10 @@ namespace SlimeCorralSpawn.SceneBuilder
         /// <summary>True si hay un template de material real disponible para reconstruir sin que salga negro.</summary>
         private static bool MaterialReady()
         {
-            try
-            {
-                if (Placement.PlacementManager.LitTemplateReady) return true;
-                Placement.PlacementManager.WarmLitTemplate();   // forzar el escaneo del template
-                return Placement.PlacementManager.LitTemplateReady;
-            }
-            catch { return true; }
+            // Ya NO bloqueamos la reconstrucción esperando el template Lit: el clon usa el shader REAL (escaneado)
+            // o Unlit de fallback, así que se puede reconstruir YA. Igual "calentamos" el template para otras cosas.
+            try { Placement.PlacementManager.WarmLitTemplate(); } catch { }
+            return true;
         }
 
         /// <summary>True si ese modelo está guardado en disco (se puede reconstruir bajo demanda).</summary>

@@ -99,12 +99,14 @@ namespace SlimeCorralSpawn.SceneBuilder
         {
             if (_placed.Count == 0) { _ctxSince = -1f; return; }
             if (!Placement.RealPlotFactory.ContextReady()) { _ctxSince = -1f; return; }
-            if (Time.deltaTime > 0.05f) return;   // solo si el frame viene MUY pesado (fps<20) → evita lock total
             if (_ctxSince < 0f) _ctxSince = Time.realtimeSinceStartup;
 
-            // FRONT-LOAD: los primeros ~3.5 s tras entrar usamos presupuesto GRANDE → lo colocado aparece casi al
-            // instante (los slimes no se caen). Después baja a un presupuesto chico → sin lag mientras jugás.
-            float budget = (Time.realtimeSinceStartup - _ctxSince < 3.5f) ? 0.028f : 0.006f;
+            // FRONT-LOAD agresivo: durante los primeros ~6 s tras entrar (o mientras quede mucho por cargar) usamos
+            // un presupuesto GRANDE y NO nos salteamos frames pesados → lo colocado aparece casi al INSTANTE (los
+            // slimes no se caen). Después bajamos a un presupuesto chico y sí respetamos los frames pesados → 0 lag.
+            bool frontLoad = (Time.realtimeSinceStartup - _ctxSince) < 6f;
+            if (!frontLoad && Time.deltaTime > 0.05f) return;   // fuera de la ventana: no sumar si el frame va MUY pesado
+            float budget = frontLoad ? 0.05f : 0.006f;
             float start = Time.realtimeSinceStartup;
 
             // Los PISOS/SUELOS primero (para pararse encima), luego el resto. Comparten el presupuesto de tiempo.
