@@ -98,6 +98,19 @@ namespace SlimeCorralSpawn
             }
         }
 
+        public static bool GetMouseButtonUp(int button)
+        {
+            Mouse mouse = Mouse.current;
+            if (mouse == null) return false;
+            switch (button)
+            {
+                case 0: return mouse.leftButton.wasReleasedThisFrame;
+                case 1: return mouse.rightButton.wasReleasedThisFrame;
+                case 2: return mouse.middleButton.wasReleasedThisFrame;
+                default: return false;
+            }
+        }
+
         public static Vector2 GetMousePosition()
         {
             Mouse mouse = Mouse.current;

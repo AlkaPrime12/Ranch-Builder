@@ -15,7 +15,7 @@ namespace SlimeCorralSpawn.SaveData
     public static class ModPackManager
     {
         public const string PackExtension = ".scs-pack.json";
-        public const string ModVersion = "1.8.3";
+        public const string ModVersion = "1.9.0";
         private const string VersionPrefKey = "scs_mod_version";
         private const int MaxBackupsPerSlot = 24;
 
@@ -200,6 +200,12 @@ namespace SlimeCorralSpawn.SaveData
                 else
                     ModDataManager.MergeData(pack.Data);
 
+                // Restaurar los archivos de los modelos de escena colocados (geometría/materiales/texturas) al store,
+                // para que al recargar la partida las escenas se reconstruyan aunque el store local no los tuviera.
+                if (pack.SceneAssets != null)
+                    foreach (var a in pack.SceneAssets)
+                        try { SceneBuilder.SceneModelStore.ImportAssetFile(a.P, Convert.FromBase64String(a.B)); } catch { }
+
                 ModDataManager.Save();
                 return true;
             }
@@ -290,6 +296,28 @@ namespace SlimeCorralSpawn.SaveData
                 Data = data
             };
 
+            // Adjuntar SOLO los archivos de los modelos COLOCADOS (geometría + materiales + texturas): así el backup
+            // recuerda qué usaste, su posición (ya va en Data.SceneModels) y su textura, y restaura todo lo de escenas.
+            try
+            {
+                var placed = SceneBuilder.SceneBuilderManager.PlacedKeys();
+                if (placed != null && placed.Count > 0)
+                {
+                    var assetFiles = SceneBuilder.SceneModelStore.CollectAssetFilesFor(placed);
+                    var assets = new List<SceneAsset>();
+                    long total = 0;
+                    foreach (var f in assetFiles)
+                    {
+                        byte[] bytes; try { bytes = File.ReadAllBytes(f); } catch { continue; }
+                        total += bytes.Length;
+                        if (total > 80_000_000) break;   // tope de seguridad (~80 MB)
+                        assets.Add(new SceneAsset { P = SceneBuilder.SceneModelStore.RelPathOf(f), B = Convert.ToBase64String(bytes) });
+                    }
+                    pack.SceneAssets = assets;
+                }
+            }
+            catch (Exception ex) { MelonLogger.Warning($"[SCS] Scene assets bundle: {ex.Message}"); }
+
             var options = new JsonSerializerOptions { WriteIndented = true };
             File.WriteAllText(path, JsonSerializer.Serialize(pack, options));
         }
@@ -344,6 +372,15 @@ namespace SlimeCorralSpawn.SaveData
             public string Label { get; set; }
             public string ExportedAt { get; set; }
             public ModSaveData Data { get; set; }
+            // Archivos (base64) de los modelos de escena COLOCADOS: geometría + materiales + texturas. Así el
+            // backup restaura las escenas aunque el store local no esté (si faltan texturas, no rompe: re-actualizar).
+            public List<SceneAsset> SceneAssets { get; set; }
+        }
+
+        public class SceneAsset
+        {
+            public string P { get; set; }   // ruta relativa en el store (ej "models/x.scsm")
+            public string B { get; set; }   // contenido en base64
         }
     }
 }

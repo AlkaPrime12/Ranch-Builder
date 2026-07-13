@@ -38,6 +38,16 @@ namespace SlimeCorralSpawn.SaveData
         public int UpgradeLevel { get; set; }
     }
 
+    /// <summary>Modelo de escena custom (SceneBuilder) dentro de un prefab (solo para poder incluirlos).</summary>
+    public class PrefabScenePart
+    {
+        public string Zone { get; set; }
+        public string Key { get; set; }
+        public float[] RelPos { get; set; }
+        public float[] Rotation { get; set; }
+        public float Scale { get; set; } = 1f;
+    }
+
     /// <summary>Un prefab de casa: nombre, precio (suma de lo que copiaste) y sus piezas relativas.</summary>
     public class PrefabEntry
     {
@@ -47,6 +57,7 @@ namespace SlimeCorralSpawn.SaveData
         public List<PrefabPart> Parts { get; set; } = new List<PrefabPart>();
         public List<PrefabPolyPart> PolyParts { get; set; } = new List<PrefabPolyPart>();
         public List<PrefabPlotPart> PlotParts { get; set; } = new List<PrefabPlotPart>();
+        public List<PrefabScenePart> SceneParts { get; set; } = new List<PrefabScenePart>();
     }
 
     /// <summary>Guarda/carga prefabs de casas en disco (GLOBAL, sirven en cualquier partida).
@@ -78,7 +89,7 @@ namespace SlimeCorralSpawn.SaveData
                     try
                     {
                         var e = JsonSerializer.Deserialize<PrefabEntry>(File.ReadAllText(f));
-                        if (e != null && ((e.Parts != null && e.Parts.Count > 0) || (e.PolyParts != null && e.PolyParts.Count > 0) || (e.PlotParts != null && e.PlotParts.Count > 0))) _cache.Add(e);
+                        if (e != null && ((e.Parts != null && e.Parts.Count > 0) || (e.PolyParts != null && e.PolyParts.Count > 0) || (e.PlotParts != null && e.PlotParts.Count > 0) || (e.SceneParts != null && e.SceneParts.Count > 0))) _cache.Add(e);
                     }
                     catch { }
                 }
@@ -92,7 +103,8 @@ namespace SlimeCorralSpawn.SaveData
             if (e == null || string.IsNullOrWhiteSpace(e.Name)) return false;
             if ((e.Parts == null || e.Parts.Count == 0) &&
                 (e.PolyParts == null || e.PolyParts.Count == 0) &&
-                (e.PlotParts == null || e.PlotParts.Count == 0)) return false;
+                (e.PlotParts == null || e.PlotParts.Count == 0) &&
+                (e.SceneParts == null || e.SceneParts.Count == 0)) return false;
             try
             {
                 if (!Directory.Exists(Dir)) Directory.CreateDirectory(Dir);

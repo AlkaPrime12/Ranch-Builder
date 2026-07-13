@@ -25,9 +25,34 @@ namespace SlimeCorralSpawn.UI
         private static string editingPlotUniqueId;
         private static int cachedBalance = -1;
 
-        private enum MenuTab { Plots, Houses, Structures, FreeBuild, Config }
-        private static MenuTab currentTab = MenuTab.Plots;
+        private enum MenuTab { Plots, Houses, Structures, FreeBuild, Scene, Config }
+        private static MenuTab currentTab = MenuTab.Scene;   // Escena primero (es lo principal del mod)
         private static StructureCategory structCat = StructureCategory.Wall;
+
+        // Estado del tab SceneBuilder (zona / categoría seleccionadas).
+        private static string scbZone;
+        private static string scbCat;
+        private static bool _scbFavMode;      // mostrando FAVORITOS en vez de una zona
+        private static bool _scbZoneOpen;     // desplegable de zonas abierto
+        private static bool _scbDeleteOpen;   // popup de confirmación de "Reiniciar catálogo/texturas"
+        // Animación de hover de las tarjetas del catálogo (una sola tarjeta activa → estado mínimo, 0 lag).
+        private static string _scbHoverKey;
+        private static float _scbHoverT;
+        // Indicador deslizante bajo la pestaña activa (se anima suave entre pestañas).
+        private static float _tabIndX = -1f, _tabIndW;
+
+        // Tutorial de SceneBuilder: se muestra al entrar a la pestaña (una vez por sesión). El botón
+        // "No volver a mostrar" persiste entre partidas y cierres del juego (PlayerPrefs).
+        private static bool _scbTutOpen;
+        private static int _scbTutPage;
+        private static bool _scbTutShownSession;
+        private const string ScbTutHideKey = "scs_scb_tutorial_hide";
+        private const int ScbTutPages = 3;
+        private static bool ScbTutHidden
+        {
+            get { try { return PlayerPrefs.GetInt(ScbTutHideKey, 0) != 0; } catch { return false; } }
+            set { try { PlayerPrefs.SetInt(ScbTutHideKey, value ? 1 : 0); PlayerPrefs.Save(); } catch { } }
+        }
 
         private static readonly StructureCategory[] CatOrder = {
             StructureCategory.Wall, StructureCategory.HalfWall, StructureCategory.Door, StructureCategory.Window,
@@ -49,6 +74,8 @@ namespace SlimeCorralSpawn.UI
         private static GUIStyle tabStyle;
         private static GUIStyle tabActiveStyle;
         private static GUIStyle buyStyle;
+        private static GUIStyle bodyWrapStyle;   // texto del tutorial (con salto de línea automático)
+        private static GUIStyle cardNameStyle;   // nombre centrado de las tarjetas del catálogo
         private static bool stylesReady;
 
         private static string tooltipText;
@@ -76,6 +103,7 @@ namespace SlimeCorralSpawn.UI
                 scrollOffset = 0;
                 // NO reseteamos currentTab/structCat: el menú recuerda dónde estabas.
             }
+            else _scbTutOpen = false;   // al cerrar el menú, cerrar también el tutorial
         }
 
         public static void OpenMenu()
@@ -86,7 +114,7 @@ namespace SlimeCorralSpawn.UI
             scrollOffset = 0;
         }
 
-        public static void CloseMenu() => IsVisible = false;
+        public static void CloseMenu() { IsVisible = false; _scbTutOpen = false; }
 
         public static void UpdateStatic()
         {
@@ -191,6 +219,8 @@ namespace SlimeCorralSpawn.UI
                 tabStyle ??= new GUIStyle();
                 tabActiveStyle ??= new GUIStyle();
                 buyStyle ??= new GUIStyle();
+                bodyWrapStyle ??= new GUIStyle();
+                cardNameStyle ??= new GUIStyle();
             }
         }
 
@@ -250,12 +280,43 @@ namespace SlimeCorralSpawn.UI
             buyStyle.fontStyle = FontStyle.Bold;
             buyStyle.alignment = TextAnchor.MiddleCenter;
             buyStyle.normal.textColor = SlimeTheme.CreamText;
+
+            bodyWrapStyle = new GUIStyle();
+            bodyWrapStyle.fontSize = 14;
+            bodyWrapStyle.wordWrap = true;
+            bodyWrapStyle.alignment = TextAnchor.UpperLeft;
+            bodyWrapStyle.normal.textColor = SlimeTheme.TextWhite;
+
+            cardNameStyle = new GUIStyle();
+            cardNameStyle.fontSize = 11;
+            cardNameStyle.fontStyle = FontStyle.Bold;
+            cardNameStyle.alignment = TextAnchor.MiddleCenter;
+            cardNameStyle.clipping = TextClipping.Clip;
+            cardNameStyle.normal.textColor = SlimeTheme.CreamText;
         }
 
         public static void OnGUIStatic()
         {
             if (IsVisible) SetCursorFree(true);
             InitStyles();
+
+            // Modal del tutorial: si está abierto, los clics/scroll FUERA del panel se consumen ACÁ (antes de que
+            // los dibuje el menú) → nada del menú de atrás reacciona. Los clics DENTRO del panel siguen su curso y
+            // los reciben los botones del tutorial (que se dibuja al final, encima de todo).
+            if (_scbTutOpen)
+            {
+                var te = Event.current;
+                if ((te.type == EventType.MouseDown || te.type == EventType.MouseUp || te.type == EventType.ScrollWheel)
+                    && !ScbTutPanelRect().Contains(te.mousePosition))
+                    te.Use();
+            }
+            if (_scbDeleteOpen)
+            {
+                var te = Event.current;
+                if ((te.type == EventType.MouseDown || te.type == EventType.MouseUp || te.type == EventType.ScrollWheel)
+                    && !ScbDeletePanelRect().Contains(te.mousePosition))
+                    te.Use();
+            }
 
             // El botón "Custom Ranch Builder" se ha quitado por molestia visual. Usá F5.
 
@@ -301,6 +362,7 @@ namespace SlimeCorralSpawn.UI
                     case MenuTab.Houses: DrawHousesTab(relX, ref sy, contentW); break;
                     case MenuTab.Structures: DrawStructuresTab(relX, ref sy, contentW); break;
                     case MenuTab.FreeBuild: DrawFreeBuildTab(relX, ref sy, contentW); break;
+                    case MenuTab.Scene: DrawSceneBuilderTab(relX, ref sy, contentW); break;
                     case MenuTab.Config: DrawConfigTab(relX, ref sy, contentW); break;
                 }
                 GUI.EndClip();
@@ -311,12 +373,15 @@ namespace SlimeCorralSpawn.UI
 
             if (tooltipText != null)
                 DrawTooltip();
+
+            DrawSceneTutorial();      // modal, encima de todo (si está abierto)
+            DrawSceneDeletePopup();   // popup de confirmación de reinicio
         }
 
         private static void DrawTabs(float x, float y, float w)
         {
-            string[] labels = { Loc.T("tab_plots"), Loc.T("tab_houses"), Loc.T("tab_struct"), Loc.T("tab_free"), Loc.T("tab_config") };
-            MenuTab[] tabs = { MenuTab.Plots, MenuTab.Houses, MenuTab.Structures, MenuTab.FreeBuild, MenuTab.Config };
+            string[] labels = { Loc.T("tab_scene"), Loc.T("tab_plots"), Loc.T("tab_houses"), Loc.T("tab_struct"), Loc.T("tab_free"), Loc.T("tab_config") };
+            MenuTab[] tabs = { MenuTab.Scene, MenuTab.Plots, MenuTab.Houses, MenuTab.Structures, MenuTab.FreeBuild, MenuTab.Config };
             int count = tabs.Length;
             float tabW = w / count;
 
@@ -326,8 +391,9 @@ namespace SlimeCorralSpawn.UI
                 bool active = currentTab == tabs[i];
                 bool hover = tabRect.Contains(Event.current.mousePosition);
 
-                Color bg = active ? SlimeTheme.PrimaryPink : (hover ? SlimeTheme.BackgroundButtonHover : SlimeTheme.BackgroundButton);
-                Fill(tabRect, bg);
+                Color baseCol = active ? SlimeTheme.PrimaryPink : (hover ? SlimeTheme.BackgroundButtonHover : SlimeTheme.BackgroundButton);
+                FillVGradient(tabRect, Color.Lerp(baseCol, Color.white, 0.12f), Color.Lerp(baseCol, Color.black, 0.08f), 6);
+                Fill(new Rect(tabRect.x, tabRect.y, tabRect.width, 1), new Color(1f, 1f, 1f, 0.12f));
 
                 bool clicked = false;
                 Event e = Event.current;
@@ -354,6 +420,20 @@ namespace SlimeCorralSpawn.UI
                         RefreshPackList();
                 }
             }
+
+            // Indicador deslizante bajo la pestaña activa (animado, suave, framerate-independiente).
+            int act = System.Array.IndexOf(tabs, currentTab); if (act < 0) act = 0;
+            float tX = x + tabW * act, tW = tabW - 2f;
+            if (_tabIndX < 0f) { _tabIndX = tX; _tabIndW = tW; }
+            else if (Event.current.type == EventType.Repaint)
+            {
+                float k = 1f - Mathf.Exp(-Time.deltaTime * 14f);
+                _tabIndX = Mathf.Lerp(_tabIndX, tX, k);
+                _tabIndW = Mathf.Lerp(_tabIndW, tW, k);
+            }
+            Fill(new Rect(_tabIndX, y + 30f, _tabIndW, 3f), SlimeTheme.GlowCyan);
+            Fill(new Rect(_tabIndX, y + 33f, _tabIndW, 2f),
+                new Color(SlimeTheme.GlowCyan.r, SlimeTheme.GlowCyan.g, SlimeTheme.GlowCyan.b, 0.22f));
         }
 
         private static void DrawConfigTab(float x, ref float y, float w)
@@ -733,21 +813,27 @@ namespace SlimeCorralSpawn.UI
             // ── PREFABS DE CASAS ──
             Color prefabCol = new Color(0.42f, 0.55f, 0.9f);
             Rect selRect = new Rect(x, y, w, 44);
-            if (ClickableBox(selRect, "Seleccion y Guardado  (Prefab)", prefabCol, labelStyle))
+            if (ClickableBox(selRect, Loc.T("prefab_select_save"), prefabCol, labelStyle))
             {
                 CloseMenu();
                 Placement.PrefabTool.StartSelection();
             }
             if (selRect.Contains(Event.current.mousePosition))
-                tooltipText = "Seleccioná un área con la mira (2 esquinas + altura, Enter para OK) y guardá todo lo construido ahí como un prefab con su precio.";
+                tooltipText = Loc.T("prefab_select_tip");
             y += 50f;
 
+            // Toggle: mostrar/ocultar los consejos on-screen de prefabs (persiste entre partidas).
+            bool pfHidden = Placement.PrefabTool.HintsHidden;
+            if (ClickableBox(new Rect(x, y, w, 26), (pfHidden ? "[  ] " : "[X] ") + Loc.T("pf_hints_toggle"), SlimeTheme.BackgroundButton, smallLabelStyle))
+                Placement.PrefabTool.HintsHidden = !pfHidden;
+            y += 32f;
+
             var prefabs = SaveData.PrefabManager.List();
-            GUI.Label(new Rect(x, y, w, 20), new GUIContent($"Prefabs guardados:  ({prefabs.Count})"), headerStyle);
+            GUI.Label(new Rect(x, y, w, 20), new GUIContent($"{Loc.T("prefab_saved_list")}  ({prefabs.Count})"), headerStyle);
             y += 26f;
             if (prefabs.Count == 0)
             {
-                GUI.Label(new Rect(x + 4, y, w - 8, 20), new GUIContent("(ninguno todavía — usá el botón de arriba)"), smallLabelStyle);
+                GUI.Label(new Rect(x + 4, y, w - 8, 20), new GUIContent(Loc.T("prefab_none_yet")), smallLabelStyle);
                 y += 24f;
             }
             else
@@ -756,13 +842,13 @@ namespace SlimeCorralSpawn.UI
                 {
                     var p = prefabs[i];
                     Rect row = new Rect(x, y, w - 42f, 36f);
-                    if (ClickableBox(row, $"{p.Name}   ·   {p.Parts.Count} pzs   ·   {p.Price} NB", SlimeTheme.BackgroundButton, smallLabelStyle))
+                    if (ClickableBox(row, $"{p.Name}   ·   {p.Parts.Count} {Loc.T("prefab_pieces")}   ·   {p.Price} NB", SlimeTheme.BackgroundButton, smallLabelStyle))
                     {
                         CloseMenu();
                         Placement.PrefabTool.StartPlacement(p);
                     }
                     if (row.Contains(Event.current.mousePosition))
-                        tooltipText = "Click para colocar este prefab (aparece una preview siguiendo la mira).";
+                        tooltipText = Loc.T("prefab_place_tip");
                     Rect del = new Rect(x + w - 38f, y, 38f, 36f);
                     if (ClickableBox(del, "X", new Color(0.8f, 0.25f, 0.3f), smallLabelStyle))
                         SaveData.PrefabManager.Delete(p.Name);
@@ -772,7 +858,7 @@ namespace SlimeCorralSpawn.UI
 
             y += 10f;
             Rect closeRect = new Rect(x, y, w, 40);
-            if (ClickableBox(closeRect, "Abrir carpeta de prefabs", SlimeTheme.BackgroundButton, smallLabelStyle))
+            if (ClickableBox(closeRect, Loc.T("prefab_open_folder"), SlimeTheme.BackgroundButton, smallLabelStyle))
                 SaveData.PrefabManager.OpenFolder();
         }
 
@@ -837,6 +923,374 @@ namespace SlimeCorralSpawn.UI
             {
                 GUI.Label(new Rect(x + 8, y, w - 16, 20), new GUIContent(Loc.T("no_items_cat")), smallLabelStyle);
                 y += 24f;
+            }
+        }
+
+        // Orden preferido de categorías (Suelos primero, como pediste).
+        private static readonly string[] ScbCatOrder =
+            { "Suelos", "Caminos", "Piedras", "Cuevas", "Arcos", "Estructuras", "Ruinas",
+              "Arboles", "Vegetacion", "Hongos", "Vallas", "Luces", "Agua", "Props" };
+
+        /// <summary>Indicador de carga animado (3 puntos que laten) para las miniaturas que aún no se renderizaron.</summary>
+        private static void DrawLoadingDots(Rect area)
+        {
+            Fill(area, new Color(0.06f, 0.07f, 0.10f, 0.9f));
+            float cx = area.x + area.width / 2f, cy = area.y + area.height / 2f;
+            float t = Time.realtimeSinceStartup * 3f;
+            for (int i = 0; i < 3; i++)
+            {
+                float a = 0.35f + 0.55f * (0.5f + 0.5f * Mathf.Sin(t - i * 0.7f));
+                Fill(new Rect(cx - 10 + i * 8, cy - 2, 4, 4), new Color(0.55f, 0.75f, 0.95f, a));
+            }
+        }
+
+        /// <summary>Nombre de categoría traducido para mostrar (la key interna sigue en español).</summary>
+        private static string ScbCatDisplay(string cat)
+        {
+            string t = Loc.T("scbcat_" + cat);
+            return (string.IsNullOrEmpty(t) || t.StartsWith("scbcat_")) ? cat : t;
+        }
+
+        private static string PrettyZone(string zone)
+        {
+            if (string.IsNullOrEmpty(zone)) return zone;
+            string s = zone.StartsWith("zone") ? zone.Substring(4) : zone;
+            s = s.Replace("_", " ");
+            return s.Length == 0 ? zone : s;
+        }
+
+        private static void DrawSceneBuilderTab(float x, ref float y, float w)
+        {
+            // Al entrar a la pestaña Escena, mostrar el tutorial una vez por sesión (salvo "No volver a mostrar").
+            if (!_scbTutShownSession && !ScbTutHidden)
+            { _scbTutOpen = true; _scbTutPage = 0; _scbTutShownSession = true; }
+
+            int totalModels = SceneBuilder.SceneModelLibrary.Count;
+            var zones = SceneBuilder.SceneModelLibrary.GetZones();
+            GUI.Label(new Rect(x, y, w - 30, 22),
+                new GUIContent(string.Format(Loc.T("scb_title"), totalModels, zones.Count)), headerStyle);
+            // Botón "?" para reabrir el tutorial en cualquier momento.
+            if (ClickableBox(new Rect(x + w - 26, y, 26, 22), "?", SlimeTheme.BackgroundButtonActive, labelStyle))
+            { _scbTutOpen = true; _scbTutPage = 0; }
+            y += 26f;
+            GUI.Label(new Rect(x, y, w, 16), new GUIContent(Loc.T("scb_help")), smallLabelStyle);
+            y += 20f;
+
+            // ── Botones: GUARDAR la zona a disco  +  ACTUALIZAR TEXTURAS de la zona cargada ──
+            float bw2 = (w - 6f) / 2f;
+            Rect saveBtn = new Rect(x, y, bw2, 28);
+            Rect texBtn = new Rect(x + bw2 + 6f, y, bw2, 28);
+            if (ClickableBox(saveBtn, Loc.T("scb_save_btn"), SlimeTheme.BackgroundButton, labelStyle))
+                SceneBuilder.SceneModelLibrary.SaveDetectedToDisk();
+            if (ClickableBox(texBtn, Loc.T("scb_tex_btn"), new Color(0.22f, 0.30f, 0.42f, 0.95f), labelStyle))
+                SceneBuilder.SceneModelLibrary.RefreshTexturesLoaded();
+            y += 32f;
+
+            // Herramienta de escena: agarrar / mover / rotar / borrar lo YA colocado apuntando con la mira.
+            if (ClickableBox(new Rect(x, y, w, 28), Loc.T("scb_tool_btn"), new Color(0.34f, 0.26f, 0.46f, 0.96f), labelStyle))
+            { SceneBuilder.SceneBuilderTool.StartSceneTool(); CloseMenu(); }
+            y += 32f;
+            if (SceneBuilder.SceneModelStore.Working)
+            {
+                int wd = SceneBuilder.SceneModelStore.WorkDone, wt = SceneBuilder.SceneModelStore.WorkTotal;
+                Rect bar = new Rect(x, y, w, 16);
+                Fill(bar, new Color(0f, 0f, 0f, 0.35f));
+                float frac = wt > 0 ? Mathf.Clamp01(wd / (float)wt) : 0f;
+                Fill(new Rect(bar.x, bar.y, bar.width * frac, bar.height), new Color(0.35f, 0.75f, 0.45f, 0.95f));
+                GUI.Label(new Rect(x, y + 14f, w, 20),
+                    new GUIContent(string.Format(Loc.T("scb_working"), wd, wt)), smallLabelStyle);
+                y += 36f;
+            }
+            else
+            {
+                GUI.Label(new Rect(x, y, w, 22),
+                    new GUIContent(string.Format(Loc.T("scb_save_tip"), SceneBuilder.SceneModelStore.BakedCount)), smallLabelStyle);
+                y += 22f;
+                GUI.Label(new Rect(x, y, w, 18),
+                    new GUIContent(string.Format(Loc.T("scb_builds"), SceneBuilder.SceneBuilderManager.Count)), headerStyle);
+                y += 24f;
+                // (El botón de "Reiniciar catálogo/texturas" se movió al FONDO del tab, con popup de confirmación.)
+            }
+
+            if (zones.Count == 0)
+            {
+                GUI.Label(new Rect(x + 4, y, w - 8, 40), new GUIContent(Loc.T("scb_scanning")), smallLabelStyle);
+                y += 46f;
+                return;
+            }
+
+            // ── Selector de ZONA: barra CLICKEABLE (con ▼) que despliega la lista + flechas para ir rápido ──
+            if (string.IsNullOrEmpty(scbZone) || !zones.Contains(scbZone))
+            { scbZone = SceneBuilder.SceneModelLibrary.MostPopulatedZone() ?? zones[0]; scbCat = null; }
+            int zi = zones.IndexOf(scbZone);
+            Rect zPrev = new Rect(x, y, 34, 34);
+            Rect zName = new Rect(x + 38, y, w - 76, 34);
+            Rect zNext = new Rect(x + w - 34, y, 34, 34);
+            if (ClickableBox(zPrev, "◄", SlimeTheme.BackgroundButton, labelStyle) && !_scbFavMode)
+            { scbZone = zones[(zi - 1 + zones.Count) % zones.Count]; scbCat = null; }
+            string zoneLabel = _scbFavMode
+                ? $"{Loc.T("scb_fav_zone")}  ({SceneBuilder.SceneFavorites.Count})   {(_scbZoneOpen ? "▲" : "▼")}"
+                : $"{PrettyZone(scbZone)}  ({SceneBuilder.SceneModelLibrary.CountInZone(scbZone)})   {(_scbZoneOpen ? "▲" : "▼")}";
+            if (ClickableBox(zName, zoneLabel, _scbZoneOpen ? SlimeTheme.PrimaryPink : SlimeTheme.BackgroundButtonActive, labelStyle))
+                _scbZoneOpen = !_scbZoneOpen;
+            if (ClickableBox(zNext, "►", SlimeTheme.BackgroundButton, labelStyle) && !_scbFavMode)
+            { scbZone = zones[(zi + 1) % zones.Count]; scbCat = null; }
+            y += 38f;
+
+            // ── Desplegable: lista de ZONAS + FAVORITOS separado abajo (más fácil que las flechas una por una) ──
+            if (_scbZoneOpen)
+            {
+                for (int i = 0; i < zones.Count; i++)
+                {
+                    bool sel = !_scbFavMode && zones[i] == scbZone;
+                    Rect zr = new Rect(x, y, w, 26);
+                    if (ClickableBox(zr, $"{PrettyZone(zones[i])}  ({SceneBuilder.SceneModelLibrary.CountInZone(zones[i])})",
+                        sel ? SlimeTheme.PrimaryPink : SlimeTheme.BackgroundButton, smallLabelStyle))
+                    { scbZone = zones[i]; scbCat = null; _scbFavMode = false; _scbZoneOpen = false; }
+                    y += 28f;
+                }
+                Fill(new Rect(x, y + 2, w, 2), SlimeTheme.GlowCyan); y += 8f;   // separador
+                Rect fr = new Rect(x, y, w, 28);
+                if (ClickableBox(fr, $"{Loc.T("scb_fav_zone")}  ({SceneBuilder.SceneFavorites.Count})",
+                    _scbFavMode ? SlimeTheme.PrimaryPink : new Color(0.55f, 0.20f, 0.32f, 0.95f), labelStyle))
+                { _scbFavMode = true; _scbZoneOpen = false; }
+                y += 32f;
+                DrawSceneResetButton(x, ref y, w);
+                return;   // con el desplegable abierto no dibujamos la grilla (más claro)
+            }
+
+            // ── Modelos: FAVORITOS, o zona + categoría ──
+            List<SceneBuilder.SceneModelInfo> models;
+            if (_scbFavMode)
+            {
+                models = SceneBuilder.SceneFavorites.All();
+                GUI.Label(new Rect(x, y, w, 18), new GUIContent($"{Loc.T("scb_fav_zone")}:  ({models.Count})"), headerStyle);
+                y += 24f;
+            }
+            else
+            {
+                var cats = SceneBuilder.SceneModelLibrary.GetCategories(scbZone);
+                var ordered = new List<string>();
+                foreach (var c in ScbCatOrder) if (cats.Contains(c)) ordered.Add(c);
+                foreach (var c in cats) if (!ordered.Contains(c)) ordered.Add(c);
+                if (ordered.Count == 0) { y += 6f; DrawSceneResetButton(x, ref y, w); return; }
+                if (string.IsNullOrEmpty(scbCat) || !ordered.Contains(scbCat)) scbCat = ordered[0];
+
+                int perRow = 3;
+                float cw = (w - (perRow - 1) * 4f) / perRow;
+                for (int i = 0; i < ordered.Count; i++)
+                {
+                    int col = i % perRow;
+                    Rect cr = new Rect(x + col * (cw + 4f), y, cw, 30);
+                    bool active = ordered[i] == scbCat;
+                    int cCount = SceneBuilder.SceneModelLibrary.CountInZoneCategory(scbZone, ordered[i]);
+                    if (ClickableBox(cr, $"{ScbCatDisplay(ordered[i])} {cCount}", active ? SlimeTheme.PrimaryPink : SlimeTheme.BackgroundButton, smallLabelStyle))
+                        scbCat = ordered[i];
+                    if (col == perRow - 1 || i == ordered.Count - 1) y += 34f;
+                }
+                y += 6f;
+                models = SceneBuilder.SceneModelLibrary.GetModels(scbZone, scbCat);
+                GUI.Label(new Rect(x, y, w, 18), new GUIContent($"{ScbCatDisplay(scbCat)}:  ({models.Count})"), headerStyle);
+                y += 24f;
+            }
+
+            if (models.Count == 0)
+            {
+                GUI.Label(new Rect(x + 8, y, w - 16, 20), new GUIContent(Loc.T(_scbFavMode ? "scb_fav_empty" : "scb_empty")), smallLabelStyle);
+                y += 24f; DrawSceneResetButton(x, ref y, w); return;
+            }
+
+            // ── Grilla de tarjetas (estilo Sims) con botón de FAVORITO (corazón dibujado por código) ──
+            const int cols = 3;
+            const float gap = 8f;
+            float cardW = (w - (cols - 1) * gap) / cols;
+            float thumbH = cardW;             // miniatura cuadrada
+            const float nameH = 20f;
+            float cardH = thumbH + nameH;
+            string hoverFrame = null;
+
+            for (int i = 0; i < models.Count; i++)
+            {
+                int col = i % cols, row = i / cols;
+                float cx = x + col * (cardW + gap);
+                float cy = y + row * (cardH + gap);
+                if (cy + cardH <= 0f || cy >= scrollClipRect.height) continue;   // fuera de vista → ni se dibuja
+
+                var m = models[i];
+                string mkey = m.Zone + "/" + m.Key;
+                Rect card = new Rect(cx, cy, cardW, cardH);
+                bool hover = card.Contains(Event.current.mousePosition);
+                if (hover) hoverFrame = mkey;
+                float a = (mkey == _scbHoverKey) ? _scbHoverT : 0f;
+
+                Rect cc = new Rect(card.x - a * 3f, card.y - a * 3f, card.width + a * 6f, card.height + a * 6f);
+                Fill(new Rect(cc.x + 2, cc.y + 3, cc.width, cc.height), new Color(0f, 0f, 0f, 0.28f));   // sombra
+                Fill(cc, Color.Lerp(SlimeTheme.BackgroundButton, SlimeTheme.BackgroundButtonActive, 0.35f + a * 0.6f));
+
+                Rect ic = new Rect(cc.x + 5, cc.y + 5, cc.width - 10, thumbH + a * 6f - 10);
+                Fill(new Rect(ic.x - 1, ic.y - 1, ic.width + 2, ic.height + 2), new Color(0f, 0f, 0f, 0.35f));
+                Texture2D tex = SceneBuilder.SceneThumbnailRenderer.Get(m);
+                if (tex != null) GUI.DrawTexture(ic, tex, ScaleMode.ScaleToFit);
+                else DrawLoadingDots(ic);
+
+                GUI.Label(new Rect(cc.x + 2, cc.yMax - nameH - a * 6f, cc.width - 4, nameH),
+                    new GUIContent(Trunc(m.Key, 16)), cardNameStyle);
+                DrawCardBorder(cc, Color.Lerp(new Color(0.96f, 0.36f, 0.53f, 0.5f), SlimeTheme.GlowCyan, a), 1f + a * 1.5f);
+
+                // Cuadradito de FAVORITO arriba a la derecha → deja un corazón (dibujado por código, sin unicode).
+                bool fav = SceneBuilder.SceneFavorites.Is(m);
+                Rect favBtn = new Rect(cc.xMax - 22, cc.y + 4, 18, 18);
+                bool overFav = favBtn.Contains(Event.current.mousePosition);
+                Fill(favBtn, new Color(0f, 0f, 0f, overFav ? 0.6f : (fav ? 0.5f : 0.32f)));
+                DrawCardBorder(favBtn, new Color(1f, 1f, 1f, overFav ? 0.6f : 0.35f), 1f);
+                if (fav) DrawHeart(new Rect(favBtn.x + 3, favBtn.y + 4, 12, 11), new Color(0.98f, 0.35f, 0.45f));
+
+                if (overFav && Event.current.type == EventType.MouseDown && Event.current.button == 0)
+                { Event.current.Use(); SceneBuilder.SceneFavorites.Toggle(m); }
+                else if (hover && Event.current.type == EventType.MouseDown && Event.current.button == 0)
+                { Event.current.Use(); SceneBuilder.SceneBuilderTool.Start(m); CloseMenu(); }
+            }
+
+            int rowsTotal = (models.Count + cols - 1) / cols;
+            y += rowsTotal * (cardH + gap);
+
+            // Suavizado del hover (solo en Repaint → no se acelera con múltiples eventos por frame).
+            if (Event.current.type == EventType.Repaint)
+            {
+                if (hoverFrame != _scbHoverKey) { _scbHoverKey = hoverFrame; _scbHoverT = 0f; }
+                else _scbHoverT = Mathf.MoveTowards(_scbHoverT, _scbHoverKey != null ? 1f : 0f, Time.deltaTime * 8f);
+            }
+
+            y += 8f;
+            DrawSceneResetButton(x, ref y, w);
+        }
+
+        /// <summary>Botón "Reiniciar catálogo/texturas" al FONDO del tab; abre el popup de confirmación.</summary>
+        private static void DrawSceneResetButton(float x, ref float y, float w)
+        {
+            Rect delBtn = new Rect(x, y, w, 26);
+            if (ClickableBox(delBtn, Loc.T("scb_del_btn"), new Color(0.33f, 0.16f, 0.16f, 0.9f), smallLabelStyle))
+                _scbDeleteOpen = true;
+            y += 30f;
+        }
+
+        // Corazón dibujado por CÓDIGO (sin unicode): un mini-bitmap de celdas rellenas.
+        private static readonly string[] HeartRows = { " ## ## ", "#######", "#######", " ##### ", "  ###  ", "   #   " };
+        private static void DrawHeart(Rect area, Color col)
+        {
+            int hc = 7, hr = 6;
+            float cwd = area.width / hc, chd = area.height / hr;
+            for (int r = 0; r < hr; r++)
+                for (int c = 0; c < hc; c++)
+                    if (HeartRows[r][c] == '#')
+                        Fill(new Rect(area.x + c * cwd, area.y + r * chd, cwd + 0.6f, chd + 0.6f), col);
+        }
+
+        private static Rect ScbDeletePanelRect()
+        {
+            const float pw = 440f, ph = 180f;
+            float x = Mathf.Max((Screen.width - pw) / 2f, menuWidth + 40f);
+            float y = Mathf.Max(60f, (Screen.height - ph) / 2f);
+            return new Rect(x, y, pw, ph);
+        }
+
+        private static void DrawSceneDeletePopup()
+        {
+            if (!_scbDeleteOpen) return;
+            Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0f, 0f, 0f, 0.55f));
+            Rect p = ScbDeletePanelRect();
+            DrawPopupPanel(p);
+
+            float px = p.x + 20f, py = p.y + 16f, pcw = p.width - 40f;
+            GUI.Label(new Rect(px, py, pcw, 26), new GUIContent(Loc.T("scb_del_title")), titleStyle);
+            py += 34f;
+            Fill(new Rect(px, py - 4, pcw, 2), SlimeTheme.GlowCyan); py += 6f;
+            GUI.Label(new Rect(px, py, pcw, 66), new GUIContent(Loc.T("scb_del_q")), bodyWrapStyle);
+
+            float by = p.yMax - 46f;
+            const float bw = 150f;
+            Rect no = new Rect(px, by, bw, 32);
+            Rect yes = new Rect(p.xMax - 20f - bw, by, bw, 32);
+            if (ClickableBox(no, Loc.T("scb_del_no"), SlimeTheme.BackgroundButton, labelStyle))
+                _scbDeleteOpen = false;
+            if (ClickableBox(yes, Loc.T("scb_del_yes"), new Color(0.6f, 0.18f, 0.18f, 0.98f), labelStyle))
+            { try { SceneBuilder.SceneModelLibrary.DeleteAllSaved(); } catch { } _scbDeleteOpen = false; }
+        }
+
+        private static string Trunc(string s, int max)
+        {
+            if (string.IsNullOrEmpty(s) || s.Length <= max) return s;
+            return s.Substring(0, max - 1) + "…";
+        }
+
+        private static void DrawCardBorder(Rect r, Color c, float t)
+        {
+            Fill(new Rect(r.x, r.y, r.width, t), c);
+            Fill(new Rect(r.x, r.yMax - t, r.width, t), c);
+            Fill(new Rect(r.x, r.y, t, r.height), c);
+            Fill(new Rect(r.xMax - t, r.y, t, r.height), c);
+        }
+
+        /// <summary>Panel de popup con la MISMA vibra del menú: crema con degradado, borde rosa, sombra y realce.
+        /// (El texto va en navy/teal → legible; antes era navy sobre navy = "todo negro".)</summary>
+        private static void DrawPopupPanel(Rect p)
+        {
+            Fill(new Rect(p.x + 6, p.y + 9, p.width, p.height), new Color(0f, 0f, 0f, 0.35f));   // sombra
+            FillVGradient(p, Color.Lerp(SlimeTheme.BackgroundDark, Color.white, 0.10f), SlimeTheme.BackgroundPanel, 22);
+            Color b = SlimeTheme.PrimaryPink;
+            Fill(new Rect(p.x, p.y, p.width, 3), b);
+            Fill(new Rect(p.x, p.yMax - 3, p.width, 3), b);
+            Fill(new Rect(p.x, p.y, 3, p.height), b);
+            Fill(new Rect(p.xMax - 3, p.y, 3, p.height), b);
+            Fill(new Rect(p.x + 3, p.y + 3, p.width - 6, 1), new Color(1f, 1f, 1f, 0.5f));   // realce superior
+        }
+
+        // ─────────────────────────── Tutorial de SceneBuilder (modal) ───────────────────────────
+        private static Rect ScbTutPanelRect()
+        {
+            const float pw = 480f, ph = 300f;
+            float x = Mathf.Max((Screen.width - pw) / 2f, menuWidth + 40f);   // a la derecha del menú (sin solaparse)
+            float y = Mathf.Max(60f, (Screen.height - ph) / 2f);
+            return new Rect(x, y, pw, ph);
+        }
+
+        private static void DrawSceneTutorial()
+        {
+            if (!_scbTutOpen) return;
+
+            // Fondo atenuado (los clics fuera del panel ya se consumieron al inicio de OnGUIStatic).
+            Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0f, 0f, 0f, 0.55f));
+
+            Rect panel = ScbTutPanelRect();
+            DrawPopupPanel(panel);
+
+            float px = panel.x + 20f, py = panel.y + 16f, pcw = panel.width - 40f;
+
+            GUI.Label(new Rect(px, py, pcw - 52, 28), new GUIContent(Loc.T("scb_tut_title")), titleStyle);
+            GUI.Label(new Rect(panel.xMax - 66, py + 4, 46, 20),
+                new GUIContent(string.Format(Loc.T("scb_tut_page"), _scbTutPage + 1, ScbTutPages)), smallLabelStyle);
+            py += 36f;
+            Fill(new Rect(px, py - 4, pcw, 2), SlimeTheme.GlowCyan);   // acento teal
+            py += 8f;
+
+            int page = Mathf.Clamp(_scbTutPage, 0, ScbTutPages - 1);
+            GUI.Label(new Rect(px, py, pcw, 150), new GUIContent(Loc.T("scb_tut_p" + (page + 1))), bodyWrapStyle);
+
+            float by = panel.yMax - 46f;
+            bool hidden = ScbTutHidden;
+            if (ClickableBox(new Rect(px, by, 224, 32), (hidden ? "[X] " : "[  ] ") + Loc.T("scb_tut_hide"),
+                             hidden ? SlimeTheme.BackgroundButtonActive : SlimeTheme.BackgroundButton, smallLabelStyle))
+                ScbTutHidden = !hidden;
+
+            const float bw = 104f;
+            Rect nextBtn = new Rect(panel.xMax - 20f - bw, by, bw, 32);
+            Rect prevBtn = new Rect(nextBtn.x - 6f - bw, by, bw, 32);
+            if (page > 0 && ClickableBox(prevBtn, Loc.T("scb_tut_prev"), SlimeTheme.BackgroundButton, labelStyle))
+                _scbTutPage = page - 1;
+            bool last = page >= ScbTutPages - 1;
+            if (ClickableBox(nextBtn, last ? Loc.T("scb_tut_close") : Loc.T("scb_tut_next"), SlimeTheme.PrimaryPink, labelStyle))
+            {
+                if (last) _scbTutOpen = false; else _scbTutPage = page + 1;
             }
         }
 
@@ -1238,8 +1692,11 @@ namespace SlimeCorralSpawn.UI
             float barY = clipRect.y + (scrollOffset / maxScroll) * (clipRect.height - barH2);
             float barX = clipRect.xMax - 8f;
 
-            Fill(new Rect(barX, clipRect.y, 6, clipRect.height), new Color(0.72f, 0.65f, 0.50f, 0.5f));
-            Fill(new Rect(barX, barY, 6, barH2), SlimeTheme.BackgroundButtonActive);
+            // Riel oscuro + thumb con degradado rosa→cian y un brillo arriba.
+            Fill(new Rect(barX, clipRect.y, 6, clipRect.height), new Color(0f, 0f, 0f, 0.18f));
+            Rect thumb = new Rect(barX, barY, 6, Mathf.Max(24f, barH2));
+            FillVGradient(thumb, SlimeTheme.PrimaryPink, SlimeTheme.GlowCyan, 8);
+            Fill(new Rect(thumb.x, thumb.y, 6, 1), new Color(1f, 1f, 1f, 0.35f));
         }
 
         private static bool IsInScrollArea(float y)
@@ -1249,30 +1706,87 @@ namespace SlimeCorralSpawn.UI
 
         private static void DrawBackground(Rect rect)
         {
-            // Panel crema estilo Slimepedia con borde rosa.
-            Fill(rect, SlimeTheme.BackgroundDark);
+            // Sombra suave detrás del panel → sensación de profundidad (flotando sobre el mundo).
+            Fill(new Rect(rect.x + 7, rect.y + 9, rect.width, rect.height), new Color(0f, 0f, 0f, 0.30f));
+
+            // Degradado pastel DIFUMINADO (real, por textura bilineal): un toque rosado arriba → crema → apenas
+            // teal abajo. Suave y "cute", sin escalones.
+            Color top = Color.Lerp(Color.Lerp(SlimeTheme.BackgroundDark, Color.white, 0.10f), SlimeTheme.LightPink, 0.14f);
+            Color bottom = Color.Lerp(Color.Lerp(SlimeTheme.BackgroundDark, Color.black, 0.05f), SlimeTheme.GlowCyan, 0.06f);
+            FillVGradient(rect, top, bottom, 28);
+
+            // Borde rosa + realce interior claro arriba (bisel suave).
             Color border = SlimeTheme.PrimaryPink;
             Fill(new Rect(rect.x, rect.y, rect.width, 3), border);
             Fill(new Rect(rect.x, rect.yMax - 3, rect.width, 3), border);
             Fill(new Rect(rect.x, rect.y, 3, rect.height), border);
             Fill(new Rect(rect.xMax - 3, rect.y, 3, rect.height), border);
+            Fill(new Rect(rect.x + 3, rect.y + 3, rect.width - 6, 1), new Color(1f, 1f, 1f, 0.13f));
+        }
+
+        /// <summary>Rellena un degradado vertical con bandas (barato: N Fills, 0 lag).</summary>
+        // Degradado REAL y difuminado: en vez de dibujar N bandas (se veía "pixelado"), usamos una textura de
+        // gradiente de 1×64 con filtrado BILINEAL estirada al rect → interpolación suave por GPU, sin escalones.
+        // Además es más barato (1 draw en vez de N). El parámetro 'bands' se ignora (se deja por compatibilidad).
+        private static readonly Dictionary<string, Texture2D> _gradCache = new Dictionary<string, Texture2D>();
+
+        private static string ColKey(Color c)
+            => ((int)(c.r * 48)) + "," + ((int)(c.g * 48)) + "," + ((int)(c.b * 48)) + "," + ((int)(c.a * 48));
+
+        private static Texture2D GradTex(Color top, Color bottom)
+        {
+            string key = ColKey(top) + "|" + ColKey(bottom);
+            if (_gradCache.TryGetValue(key, out var t) && t != null) return t;
+            const int H = 64;
+            t = new Texture2D(1, H, TextureFormat.RGBA32, false);
+            t.wrapMode = TextureWrapMode.Clamp;
+            t.filterMode = FilterMode.Bilinear;
+            t.hideFlags = HideFlags.HideAndDontSave;
+            var cols = new Color[H];
+            for (int y = 0; y < H; y++) cols[y] = Color.Lerp(bottom, top, y / (float)(H - 1));   // y=0 abajo, y=H-1 arriba
+            t.SetPixels(cols);
+            t.Apply(false, false);
+            _gradCache[key] = t;
+            return t;
+        }
+
+        private static void FillVGradient(Rect r, Color top, Color bottom, int bands)
+        {
+            var tex = GradTex(top, bottom);
+            if (tex == null) { Fill(r, Color.Lerp(top, bottom, 0.5f)); return; }
+            Color prev = GUI.color;
+            GUI.color = Color.white;
+            GUI.DrawTexture(r, tex, ScaleMode.StretchToFill, true);   // bilineal → degradado suave real
+            GUI.color = prev;
         }
 
         private static void DrawTitleBar(Rect menuRect)
         {
             Rect titleRect = new Rect(menuRect.x, menuRect.y, menuRect.width, 60);
-            Fill(titleRect, SlimeTheme.BackgroundPanel);                                  // crema
-            Fill(new Rect(titleRect.x, titleRect.yMax - 4, titleRect.width, 4), SlimeTheme.BackgroundButtonActive); // strip teal
-            GUI.Label(new Rect(titleRect.x + 14, titleRect.y + 8, titleRect.width - 14, 30), new GUIContent(Loc.T("menu_title")), titleStyle);
-            GUI.Label(new Rect(titleRect.x + 14, titleRect.y + 35, titleRect.width - 14, 20), new GUIContent(Loc.T("menu_subtitle")), subtitleStyle);
+            // Banner con degradado (crema → tinte rosa) + acento rosa a la izquierda + franja teal abajo.
+            FillVGradient(titleRect, SlimeTheme.BackgroundPanel, Color.Lerp(SlimeTheme.BackgroundPanel, SlimeTheme.PrimaryPink, 0.14f), 10);
+            Fill(new Rect(titleRect.x, titleRect.y, 6, titleRect.height), SlimeTheme.PrimaryPink);
+            Fill(new Rect(titleRect.x, titleRect.yMax - 4, titleRect.width, 4), SlimeTheme.BackgroundButtonActive);
+            // Sheen: una banda de luz suave recorre el banner lentamente (efecto sutil, se siente "vivo").
+            float sx = titleRect.x + Mathf.Repeat(Time.realtimeSinceStartup * 45f, titleRect.width + 140f) - 70f;
+            for (int i = 0; i < 4; i++)
+                Fill(new Rect(sx + i * 6f, titleRect.y, 6f, titleRect.height), new Color(1f, 1f, 1f, 0.045f));
+            GUI.Label(new Rect(titleRect.x + 18, titleRect.y + 8, titleRect.width - 24, 30), new GUIContent(Loc.T("menu_title")), titleStyle);
+            GUI.Label(new Rect(titleRect.x + 18, titleRect.y + 35, titleRect.width - 24, 20), new GUIContent(Loc.T("menu_subtitle")), subtitleStyle);
         }
 
         private static bool ClickableBox(Rect rect, string text, Color bgColor, GUIStyle textStyle)
         {
             bool hover = rect.Contains(Event.current.mousePosition);
-            Fill(rect, bgColor);
-            if (hover) Fill(rect, new Color(1f, 1f, 1f, 0.12f));
-            Fill(new Rect(rect.x, rect.y, 3, rect.height), SlimeTheme.PrimaryPink);
+            // Sombra inferior → el botón "flota" (menos plano).
+            Fill(new Rect(rect.x, rect.yMax - 1, rect.width, 3), new Color(0f, 0f, 0f, 0.18f));
+            // Fondo con degradado vertical (claro arriba → oscuro abajo) para dar volumen.
+            FillVGradient(rect, Color.Lerp(bgColor, Color.white, hover ? 0.22f : 0.11f),
+                                Color.Lerp(bgColor, Color.black, 0.10f), 6);
+            // Realce superior + acento lateral (cian al hover, rosa normal) + subrayado cian al hover.
+            Fill(new Rect(rect.x, rect.y, rect.width, 1), new Color(1f, 1f, 1f, hover ? 0.24f : 0.12f));
+            Fill(new Rect(rect.x, rect.y, 3, rect.height), hover ? SlimeTheme.GlowCyan : SlimeTheme.PrimaryPink);
+            if (hover) Fill(new Rect(rect.x, rect.yMax - 2, rect.width, 2), SlimeTheme.GlowCyan);
 
             bool clicked = false;
             Event e = Event.current;
@@ -1280,7 +1794,7 @@ namespace SlimeCorralSpawn.UI
 
             Color prev = GUI.color;
             GUI.color = AutoText(bgColor);
-            GUI.Label(new Rect(rect.x + 8, rect.y, rect.width - 8, rect.height), new GUIContent(text), textStyle);
+            GUI.Label(new Rect(rect.x + 10, rect.y, rect.width - 10, rect.height), new GUIContent(text), textStyle);
             GUI.color = prev;
             return clicked;
         }
