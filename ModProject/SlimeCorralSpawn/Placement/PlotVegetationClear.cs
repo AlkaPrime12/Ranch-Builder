@@ -27,26 +27,29 @@ namespace SlimeCorralSpawn.Placement
             {
                 if (!TryGetBounds(plotGo, out Bounds b)) return;
 
-                Vector3 center = b.center;
-                Vector3 half = b.extents;
-                half.x *= 0.95f; half.z *= 0.95f;
-                half.y = Mathf.Max(half.y, 2f) + 2f;   // algo de alto para atrapar el pasto de arriba
-                float footprintArea = (b.size.x * b.size.z) * 1.2f;   // para no ocultar objetos más grandes que la huella
+                // Caja de la huella (con algo de alto para atrapar el pasto de arriba). Un poco más chica en XZ.
+                Bounds foot = new Bounds(b.center, new Vector3(b.size.x * 0.98f, Mathf.Max(b.size.y, 4f) + 4f, b.size.z * 0.98f));
+                float maxArea = b.size.x * b.size.z * 1.3f;   // no ocultar mallas MÁS grandes que la huella (terreno)
 
-                // 1) Vegetación del juego CON collider bajo la huella.
-                Il2CppReferenceArray<Collider> cols = null;
-                try { cols = Physics.OverlapBox(center, half, plotGo.transform.rotation); } catch { }
-                if (cols != null)
-                    for (int i = 0; i < cols.Length; i++)
+                // El PASTO de SR2 son tufos como GameObjects SIN collider → hay que buscarlos por renderers.
+                // Recorremos los MeshRenderer activos, y ocultamos los que sean vegetación y caigan en la huella.
+                Il2CppArrayBase<MeshRenderer> rends = null;
+                try { rends = UnityEngine.Object.FindObjectsOfType<MeshRenderer>(); } catch { }
+                if (rends != null)
+                    for (int i = 0; i < rends.Length; i++)
                     {
-                        var c = cols[i]; if (c == null) continue;
-                        GameObject go = null; try { go = c.gameObject; } catch { }
+                        var r = rends[i];
+                        if (r == null || !r.enabled) continue;
+                        GameObject go = null; try { go = r.gameObject; } catch { }
                         if (go == null) continue;
                         if (!LooksVeg(go)) continue;
-                        HideVegRenderers(go, footprintArea);
+                        Bounds rb; try { rb = r.bounds; } catch { continue; }
+                        if (!foot.Intersects(rb)) continue;                 // fuera de la huella
+                        if (rb.size.x * rb.size.z > maxArea) continue;      // malla grande (terreno) → no tocar
+                        try { r.enabled = false; } catch { }
                     }
 
-                // 2) Vegetación colocada por el jugador (SceneBuilder) bajo la huella → quitarla (persiste).
+                // Vegetación colocada por el jugador (SceneBuilder) bajo la huella → quitarla (persiste en el slot).
                 try { SceneBuilder.SceneBuilderManager.RemovePlacedVegetationInBox(b); } catch { }
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("PlotVegetationClear.ClearUnder", ex); }
@@ -81,20 +84,5 @@ namespace SlimeCorralSpawn.Placement
             return false;
         }
 
-        private static void HideVegRenderers(GameObject go, float maxArea)
-        {
-            try
-            {
-                var rends = go.GetComponentsInChildren<Renderer>(true);
-                if (rends == null) return;
-                // No ocultar cosas más grandes que la huella (evita esconder mallas grandes por un match de nombre).
-                Bounds b = default; bool has = false;
-                for (int i = 0; i < rends.Length; i++)
-                { var r = rends[i]; if (r == null) continue; if (!has) { b = r.bounds; has = true; } else b.Encapsulate(r.bounds); }
-                if (has && b.size.x * b.size.z > maxArea) return;
-                for (int i = 0; i < rends.Length; i++) { var r = rends[i]; if (r != null) r.enabled = false; }
-            }
-            catch { }
-        }
     }
 }
