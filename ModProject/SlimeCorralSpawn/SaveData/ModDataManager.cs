@@ -312,6 +312,9 @@ namespace SlimeCorralSpawn.SaveData
             if (currentData.Polygons != null)
                 foreach (var pg in currentData.Polygons)
                     Placement.PolygonTool.RegisterFromSave(pg);
+            if (currentData.SceneModels != null)
+                foreach (var sm in currentData.SceneModels)
+                    SceneBuilder.SceneBuilderManager.RegisterFromSave(sm);
             // NO respawnear aquí: PlotData/StructureManager.UpdateRetry lo hace con presupuesto
             // de 1 objeto por frame para no congelar al entrar al rancho.
         }
@@ -323,6 +326,7 @@ namespace SlimeCorralSpawn.SaveData
             if (currentData.Structures == null) currentData.Structures = new List<StructureSaveEntry>();
             if (currentData.Strokes == null) currentData.Strokes = new List<StrokeSaveEntry>();
             if (currentData.Polygons == null) currentData.Polygons = new List<PolygonSaveEntry>();
+            if (currentData.SceneModels == null) currentData.SceneModels = new List<SceneModelSaveEntry>();
             if (currentData.PurchasedLicenses == null) currentData.PurchasedLicenses = new List<PurchasedPlotLicense>();
         }
 
@@ -477,6 +481,30 @@ namespace SlimeCorralSpawn.SaveData
             Save();
         }
 
+        public static void SaveSceneModel(SceneModelSaveEntry m)
+        {
+            EnsureSlotLoaded();
+            if (currentData.SceneModels == null) currentData.SceneModels = new List<SceneModelSaveEntry>();
+            currentData.SceneModels.RemoveAll(s => s.UniqueId == m.UniqueId);
+            currentData.SceneModels.Add(m);
+            Save();
+        }
+
+        public static void RemoveSceneModel(string uniqueId)
+        {
+            if (currentData == null || currentData.SceneModels == null) return;
+            currentData.SceneModels.RemoveAll(s => s.UniqueId == uniqueId);
+            Save();
+        }
+
+        /// <summary>Borra TODOS los modelos de escena colocados del slot (botón "Borrar modelos").</summary>
+        public static void WipeSceneModels()
+        {
+            if (currentData == null || currentData.SceneModels == null) return;
+            currentData.SceneModels.Clear();
+            Save();
+        }
+
         /// <summary>Fuerza guardado antes de salir (usa el último slot conocido si hace falta).</summary>
         public static void FlushBeforeQuit()
         {
@@ -512,6 +540,7 @@ namespace SlimeCorralSpawn.SaveData
             try { currentData.Structures?.Clear(); } catch { }
             try { currentData.Strokes?.Clear(); } catch { }
             try { currentData.Polygons?.Clear(); } catch { }
+            try { currentData.SceneModels?.Clear(); } catch { }
             try { currentData.PurchasedLicenses?.Clear(); } catch { }
             currentData.TotalPlotsPlaced = 0;
             ForceSave();
@@ -592,6 +621,11 @@ namespace SlimeCorralSpawn.SaveData
                 if (currentData.Polygons == null) currentData.Polygons = new List<PolygonSaveEntry>();
                 MergeById(currentData.Polygons, incoming.Polygons, p => p.UniqueId);
             }
+            if (incoming.SceneModels != null)
+            {
+                if (currentData.SceneModels == null) currentData.SceneModels = new List<SceneModelSaveEntry>();
+                MergeById(currentData.SceneModels, incoming.SceneModels, s => s.UniqueId);
+            }
             if (incoming.PurchasedLicenses != null)
             {
                 if (currentData.PurchasedLicenses == null) currentData.PurchasedLicenses = new List<PurchasedPlotLicense>();
@@ -627,6 +661,7 @@ namespace SlimeCorralSpawn.SaveData
         public List<StructureSaveEntry> Structures { get; set; } = new List<StructureSaveEntry>();
         public List<StrokeSaveEntry> Strokes { get; set; } = new List<StrokeSaveEntry>();
         public List<PolygonSaveEntry> Polygons { get; set; } = new List<PolygonSaveEntry>();
+        public List<SceneModelSaveEntry> SceneModels { get; set; } = new List<SceneModelSaveEntry>();
         public List<PurchasedPlotLicense> PurchasedLicenses { get; set; } = new List<PurchasedPlotLicense>();
         public string LastSaveTime { get; set; }
         public int TotalPlotsPlaced { get; set; }
@@ -682,6 +717,19 @@ namespace SlimeCorralSpawn.SaveData
         public float SizeZ { get; set; }
         public int Mat { get; set; } = -1;      // material pintado (-1 = original)
         public float[] Tint { get; set; }        // color pintado (null = ninguno)
+    }
+
+    /// <summary>Un modelo de escena colocado por SceneBuilder (clon de un prop del mundo). Se re-crea en el
+    /// load buscando en el catálogo el modelo Zona/Key y clonando su Sample vivo.</summary>
+    [System.Serializable]
+    public class SceneModelSaveEntry
+    {
+        public string UniqueId { get; set; }
+        public string Zone { get; set; }        // raíz de zona del catálogo (zoneConservatory…)
+        public string Key { get; set; }         // nombre base del modelo (rockFields, areaFieldsPlane…)
+        public float[] Position { get; set; }
+        public float[] Rotation { get; set; }   // quaternion
+        public float Scale { get; set; } = 1f;
     }
 
     [System.Serializable]

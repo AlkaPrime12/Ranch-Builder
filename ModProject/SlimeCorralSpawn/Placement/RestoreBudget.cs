@@ -5,7 +5,7 @@ namespace SlimeCorralSpawn.Placement
     /// entrar (tarda unos frames más en aparecer todo, pero cada frame es liviano).</summary>
     public static class RestoreBudget
     {
-        public const int PlotsPerFrame = 2;        // plots reales = caros → de a poco
+        public const int PlotsPerFrame = 1;        // plots reales = MUY caros (~50 ms c/u) → 1 por frame para repartir
         public const int StructuresPerFrame = 4;   // estructuras = más livianas
     }
 }

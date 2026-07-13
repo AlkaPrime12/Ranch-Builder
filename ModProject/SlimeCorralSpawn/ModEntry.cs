@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Slime Corral Spawn", "1.8.3", "SlimeRancherModder")]
+[assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Slime Corral Spawn", "1.9.0", "SlimeRancherModder")]
 [assembly: MelonGame("MonomiPark", "SlimeRancher2")]
 
 namespace SlimeCorralSpawn
@@ -119,6 +119,18 @@ namespace SlimeCorralSpawn
 
                 try { Gadgets.GadgetEditor.Update(); }
                 catch (Exception ex) { LogErrorOnce("GadgetEditor.Update", ex); }
+
+                // SceneBuilder: descubrimiento del catálogo de modelos, presupuestado (solo en el rancho).
+                try { long __t = System.Diagnostics.Stopwatch.GetTimestamp(); SceneBuilder.SceneModelLibrary.Tick(); ReportPerf("SceneScan/Store", __t); }
+                catch (Exception ex) { LogErrorOnce("SceneModelLibrary.Tick", ex); }
+
+                // Carga forzada de zonas lejanas (opt-in desde el menú): avanza su máquina de estados.
+                try { SceneBuilder.SceneForceLoader.Tick(); }
+                catch (Exception ex) { LogErrorOnce("SceneForceLoader.Tick", ex); }
+
+                // Miniaturas: 1 render por frame, solo cuando el menú está abierto (lo pide DrawSceneBuilderTab).
+                try { if (UI.PlotsMenuUI.IsVisible) SceneBuilder.SceneThumbnailRenderer.Tick(); }
+                catch (Exception ex) { LogErrorOnce("SceneThumbnailRenderer.Tick", ex); }
             }
 
             try { Placement.PlortCollectorDriver.Update(); }
@@ -142,6 +154,9 @@ namespace SlimeCorralSpawn
             try { Placement.PrefabTool.UpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("PrefabTool.UpdateStatic", ex); }
 
+            try { SceneBuilder.SceneBuilderTool.UpdateStatic(); }
+            catch (Exception ex) { LogErrorOnce("SceneBuilderTool.UpdateStatic", ex); }
+
             try { Placement.FreeDrawTool.UpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("FreeDrawTool.UpdateStatic", ex); }
 
@@ -160,7 +175,10 @@ namespace SlimeCorralSpawn
             try { PaintTool.UpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("PaintTool.UpdateStatic", ex); }
 
-            try { Plots.PlotData.UpdateRetry(); }
+            // (El catálogo de SceneBuilder se llena solo mientras jugás; el menú NO depende de ningún dump.
+            //  El dump manual quedó documentado en SceneBuilder/HOWTO_scan_game_objects.md por si hace falta.)
+
+            try { long __t = System.Diagnostics.Stopwatch.GetTimestamp(); Plots.PlotData.UpdateRetry(); ReportPerf("PlotData.UpdateRetry", __t); }
             catch (Exception ex) { Instance?.LoggerInstance.Error($"[UpdateRetry] {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}"); }
 
             try
@@ -170,11 +188,17 @@ namespace SlimeCorralSpawn
             }
             catch { }
 
-            try { Plots.PlotData.UpdateContentCapture(); }
+            try { long __t = System.Diagnostics.Stopwatch.GetTimestamp(); Plots.PlotData.UpdateContentCapture(); ReportPerf("PlotData.ContentCapture", __t); }
             catch (Exception ex) { Instance?.LoggerInstance.Error($"[ContentCapture] {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}"); }
 
-            try { UI.StructureManager.UpdateRetry(); }
+            try { long __t = System.Diagnostics.Stopwatch.GetTimestamp(); UI.StructureManager.UpdateRetry(); ReportPerf("StructureManager.UpdateRetry", __t); }
             catch (Exception ex) { Instance?.LoggerInstance.Error($"[StructureRetry] {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}"); }
+
+            try { long __t = System.Diagnostics.Stopwatch.GetTimestamp(); SceneBuilder.SceneBuilderManager.UpdateRetry(); ReportPerf("SceneBuilder.UpdateRetry", __t); }
+            catch (Exception ex) { LogErrorOnce("SceneBuilderManager.UpdateRetry", ex); }
+
+            try { SceneBuilder.SceneBuilderManager.ProcessColliderQueue(); }
+            catch (Exception ex) { LogErrorOnce("SceneBuilderManager.ProcessColliderQueue", ex); }
 
             // Ejecutar acciones diferidas (creación de LandPlots reales en pasos).
             Deferred.Update();
@@ -189,6 +213,7 @@ namespace SlimeCorralSpawn
         {
             try { Plots.PlotData.DestroyAndClearAll(); } catch { }
             try { UI.StructureManager.DestroyAndClearAll(); } catch { }
+            try { SceneBuilder.SceneBuilderManager.DestroyAndClearAll(); } catch { }
             try { Placement.FreeDrawTool.DestroyAndClearAll(); } catch { }
             try { Placement.PolygonTool.DestroyAndClearAll(); } catch { }
             try { Placement.CorralRegistrationHelper.ClearRegistrationState(); } catch { }
@@ -211,6 +236,7 @@ namespace SlimeCorralSpawn
 
                 Placement.RealPlotFactory.ResetRoots();
                 Placement.SceneArtifactCleanup.OnSceneLoaded();
+                SceneBuilder.SceneModelLibrary.MarkDirty();   // re-escanear: pudo streamear una zona nueva
 
                 // Reset COMPLETO sólo al volver al MENÚ (no estamos en rancho). Acá sí limpiamos TODO el estado
                 // del mod y marcamos para recargar desde disco en la próxima partida. CLAVE anti-contaminación
@@ -228,6 +254,7 @@ namespace SlimeCorralSpawn
                     Plots.PlotData.ResetLinksForSceneChange();
                     Plots.PlotData.ResetLoadState();                  // vacía allPlots
                     UI.StructureManager.DestroyAndClearAll();         // vacía _placed (antes solo nuleaba links)
+                    SceneBuilder.SceneBuilderManager.DestroyAndClearAll();  // modelos de escena colocados
                     Placement.FreeDrawTool.DestroyAndClearAll();      // vacía trazos (terrenos irregulares/pintura)
                     Placement.PolygonTool.DestroyAndClearAll();       // vacía polígonos
                     Placement.StructureLightHelper.Reset();
@@ -282,6 +309,9 @@ namespace SlimeCorralSpawn
             try { Placement.PrefabTool.OnGUIStatic(); }
             catch (Exception ex) { LogErrorOnce("PrefabTool.OnGUIStatic", ex); }
 
+            try { SceneBuilder.SceneBuilderTool.OnGUIStatic(); }
+            catch (Exception ex) { LogErrorOnce("SceneBuilderTool.OnGUIStatic", ex); }
+
             try { Placement.FreeDrawTool.OnGUIStatic(); }
             catch (Exception ex) { LogErrorOnce("FreeDrawTool.OnGUIStatic", ex); }
 
@@ -320,11 +350,96 @@ namespace SlimeCorralSpawn
         /// failure in OnUpdate/OnGUI surfaces in the MelonLoader log instead of being swallowed,
         /// without flooding the console. This is the primary diagnostic for stripped IL2CPP APIs.
         /// </summary>
+        public static void LogInfo(string msg) { try { Instance?.LoggerInstance.Msg(msg); } catch { } }
+
+        // Perfilador liviano: DESACTIVADO (ya diagnosticamos el lag). Se deja el método como no-op para no
+        // ensuciar la consola; reactivar subiendo _perfEnabled si hace falta volver a medir.
+        private static readonly bool _perfEnabled = false;
+        private static float _perfNextLog;
+        public static void ReportPerf(string name, long startTicks)
+        {
+            if (_perfEnabled)   // (if envuelto en vez de early-return para no marcar "código inaccesible")
+            {
+                try
+                {
+                    double ms = (System.Diagnostics.Stopwatch.GetTimestamp() - startTicks) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+                    if (ms >= 20.0 && Time.realtimeSinceStartup >= _perfNextLog)
+                    {
+                        _perfNextLog = Time.realtimeSinceStartup + 1.5f;
+                        Instance?.LoggerInstance.Msg($"[Perf] {name}: {ms:0.0} ms");
+                    }
+                }
+                catch { }
+            }
+        }
+
         public static void LogErrorOnce(string where, Exception ex)
         {
             string key = where + ":" + ex.Message;
             if (!_loggedErrors.Add(key)) return;
             Instance?.LoggerInstance.Error($"[{where}] {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
+        }
+        private static void DumpZoneIds()
+        {
+            try
+            {
+                Instance?.LoggerInstance.Msg("──── Dump de IDs de zonas/terrenos ────");
+
+                var flags = Il2CppSystem.Reflection.BindingFlags.Public | Il2CppSystem.Reflection.BindingFlags.NonPublic | Il2CppSystem.Reflection.BindingFlags.Instance;
+
+                try
+                {
+                    var pzt = UnityEngine.Object.FindObjectOfType<Il2Cpp.PlayerZoneTracker>();
+                    if (pzt != null)
+                    {
+                        var t = pzt.GetIl2CppType();
+                        var gcz = t.GetMethod("GetCurrentZone");
+                        if (gcz != null)
+                        {
+                            var zoneObj = gcz.Invoke(pzt, null);
+                            string zoneStr = zoneObj?.ToString() ?? "null";
+                            Instance?.LoggerInstance.Msg($"GetCurrentZone() = '{zoneStr}'");
+                            if (zoneObj != null)
+                            {
+                                string refId = GetStringProperty(zoneObj, "ReferenceId");
+                                Instance?.LoggerInstance.Msg($"  → ReferenceId = '{refId}'");
+                            }
+                        }
+
+                        var fLast = t.GetField("_lastNotNullZone", flags);
+                        if (fLast != null)
+                        {
+                            var zoneObj = fLast.GetValue(pzt);
+                            if (zoneObj != null)
+                            {
+                                string refId = GetStringProperty(zoneObj, "ReferenceId");
+                                Instance?.LoggerInstance.Msg($"_lastNotNullZone.ReferenceId = '{refId}'");
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex) { Instance?.LoggerInstance.Msg($"  PZT error: {ex.Message}"); }
+
+                Instance?.LoggerInstance.Msg("──── fin dump ────");
+            }
+            catch (Exception ex) { Instance?.LoggerInstance.Error($"[DumpZones] {ex}"); }
+        }
+
+        private static string GetStringProperty(object obj, string propName)
+        {
+            try
+            {
+                var il2cppObj = obj as Il2CppSystem.Object;
+                if (il2cppObj == null) return "(not Il2Cpp)";
+                var getter = il2cppObj.GetIl2CppType().GetMethod("get_" + propName);
+                if (getter == null) return "(no getter)";
+                var result = getter.Invoke(il2cppObj, null);
+                if (result == null) return "null";
+                var il2cppStr = result as Il2CppSystem.String;
+                if (il2cppStr != null) return (string)il2cppStr;
+                return result.ToString();
+            }
+            catch (Exception ex) { return $"(error: {ex.Message})"; }
         }
     }
 }

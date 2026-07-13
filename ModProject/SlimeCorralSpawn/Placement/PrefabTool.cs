@@ -164,7 +164,7 @@ namespace SlimeCorralSpawn.Placement
                     if (cam != null) DrawBox(cam, PlaceBox(), green);
                     int countAll = (_placing.Parts?.Count ?? 0) + (_placing.PolyParts?.Count ?? 0) + (_placing.PlotParts?.Count ?? 0);
                     int pp = UI.StructureManager.DebugOneNewbuck && countAll > 0 ? countAll : _placing.Price;
-                    Hint($"Colocar '{_placing.Name}'  ·  {pp} NB  ·  [Click] colocar  ·  [Click der] cancelar");
+                    Hint(string.Format(Loc.T("pf_place"), _placing.Name, pp));
                     DrawReticle();
                     return;
                 }
@@ -177,10 +177,10 @@ namespace SlimeCorralSpawn.Placement
 
             // Selección: dibujar caja + hint
             if (cam != null && _state != St.PickA) DrawBox(cam, CurrentBox(), _state == St.Confirm ? green : pink);
-            string h = _state == St.PickA ? "Prefab: apuntá y [Click] la 1ª esquina  ·  [Click der] cancelar"
-                     : _state == St.PickB ? "1ª esquina puesta  ·  [Click] la 2ª esquina (ancho/largo)"
-                     : _state == St.PickH ? "Mirá hacia ARRIBA para marcar la altura  ·  [Click] fijar altura"
-                     : $"Área lista ({Mathf.Abs(_b.x - _a.x):F1}×{Mathf.Abs(_b.z - _a.z):F1}×{_height:F1})  ·  [ENTER] guardar prefab  ·  [Click der] cancelar";
+            string h = _state == St.PickA ? Loc.T("pf_pickA")
+                     : _state == St.PickB ? Loc.T("pf_pickB")
+                     : _state == St.PickH ? Loc.T("pf_pickH")
+                     : string.Format(Loc.T("pf_ready"), $"{Mathf.Abs(_b.x - _a.x):F1}", $"{Mathf.Abs(_b.z - _a.z):F1}", $"{_height:F1}");
             Hint(h);
             DrawReticle();
         }
@@ -203,7 +203,7 @@ namespace SlimeCorralSpawn.Placement
             float x = (Screen.width - w) / 2f, y = (Screen.height - h) / 2f;
             Fill(new Rect(x - 4, y - 4, w + 8, h + 8), new Color(0.10f, 0.10f, 0.14f, 0.95f));
             Fill(new Rect(x, y, w, h), new Color(0.16f, 0.16f, 0.22f, 0.98f));
-            GUI.Label(new Rect(x + 16, y + 12, w - 32, 26), "Escribí el nombre de tu prefab:", _title);
+            GUI.Label(new Rect(x + 16, y + 12, w - 32, 26), Loc.T("pf_name"), _title);
 
             // Capturar teclado manualmente (GUI.TextField crash en Il2Cpp)
             Event e = Event.current;
@@ -232,7 +232,7 @@ namespace SlimeCorralSpawn.Placement
             var okRect = new Rect(x + 16, y + 96, (w - 40) / 2f, 38f);
             var cancelRect = new Rect(x + 24 + (w - 40) / 2f, y + 96, (w - 40) / 2f, 38f);
             bool ok = Button(okRect, "OK", new Color(0.35f, 0.8f, 0.45f));
-            bool cancel = Button(cancelRect, "Cancelar", new Color(0.5f, 0.5f, 0.55f));
+            bool cancel = Button(cancelRect, Loc.T("btn_cancel"), new Color(0.5f, 0.5f, 0.55f));
 
             if (ok) ConfirmName();
             else if (cancel) Cancel();
@@ -289,8 +289,16 @@ namespace SlimeCorralSpawn.Placement
             Fill(new Rect(cx - 1, cy - 8, 2, 16), Color.white);
         }
 
+        // Consejos on-screen de prefabs: se pueden ocultar para siempre (persiste en PlayerPrefs).
+        public static bool HintsHidden
+        {
+            get { try { return UnityEngine.PlayerPrefs.GetInt("scs_pf_hints_hide", 0) != 0; } catch { return false; } }
+            set { try { UnityEngine.PlayerPrefs.SetInt("scs_pf_hints_hide", value ? 1 : 0); UnityEngine.PlayerPrefs.Save(); } catch { } }
+        }
+
         private static void Hint(string s)
         {
+            if (HintsHidden) return;   // el jugador eligió "no volver a mostrar"
             float w = Screen.width * 0.7f, x = (Screen.width - w) / 2f, y = Screen.height - 64f;
             Fill(new Rect(x, y, w, 34), new Color(0.10f, 0.10f, 0.14f, 0.85f));
             GUI.Label(new Rect(x + 12, y + 7, w - 24, 22), s, _hint);

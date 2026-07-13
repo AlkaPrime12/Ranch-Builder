@@ -601,6 +601,9 @@ namespace SlimeCorralSpawn.Placement
         public static bool LitTemplateReady => _litTemplate != null;
         /// <summary>Pre-busca el template Lit (llamado en la carga) para que el escaneo caro no caiga en pausa.</summary>
         public static void WarmLitTemplate() { GetLitTemplate(); }
+        /// <summary>Material HDRP/Lit REAL del juego, para usar como fallback (SceneBuilder al reconstruir modelos
+        /// horneados cuyo material original no está en memoria). Puede ser null si aún no se escaneó.</summary>
+        public static Material FallbackLit() { return GetLitTemplate(); }
         /// <summary>Resetea SOLO las referencias de template (se re-capturan solas). NO destruye los materiales
         /// compartidos/cacheados: hacerlo mientras hay estructuras vivas usándolos = TEXTURAS VIOLETAS (material
         /// destruido). La limpieza REAL de esos materiales va aparte (`ClearSharedMaterialCache`), sólo al volver

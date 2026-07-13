@@ -577,6 +577,20 @@ namespace SlimeCorralSpawn.UI
                 });
             }
 
+            // ── Modelos de escena custom (SceneBuilder) dentro de la caja ──
+            foreach (var sm in SceneBuilder.SceneBuilderManager.AllPlaced())
+            {
+                if (!box.Contains(sm.Position)) continue;
+                e.SceneParts.Add(new SaveData.PrefabScenePart
+                {
+                    Zone = sm.Zone, Key = sm.Key,
+                    RelPos = new[] { sm.Position.x - origin.x, sm.Position.y - origin.y, sm.Position.z - origin.z },
+                    Rotation = new[] { sm.Rotation.x, sm.Rotation.y, sm.Rotation.z, sm.Rotation.w },
+                    Scale = sm.Scale
+                });
+                // (los modelos de escena son escenografía gratis → no suman precio)
+            }
+
             e.Price = price;
             e.Size = new[] { box.size.x, box.size.y, box.size.z };
             return e;
@@ -649,6 +663,23 @@ namespace SlimeCorralSpawn.UI
                         bool ok = Placement.RealPlotManager.TrySpawnRealClone(ptype, psize, pos, rot);
                         if (ok) n++;
                     }
+                }
+            }
+
+            // ── Modelos de escena custom (SceneBuilder) ──
+            if (e.SceneParts != null)
+            {
+                foreach (var sp in e.SceneParts)
+                {
+                    if (sp == null || sp.RelPos == null || sp.RelPos.Length < 3) continue;
+                    var info = SceneBuilder.SceneModelLibrary.FindModel(sp.Zone, sp.Key);
+                    if (info == null || !SceneBuilder.SceneModelLibrary.CanSpawn(info)) continue;
+                    Vector3 pos = origin + new Vector3(sp.RelPos[0], sp.RelPos[1], sp.RelPos[2]);
+                    Quaternion rot = (sp.Rotation != null && sp.Rotation.Length >= 4)
+                        ? new Quaternion(sp.Rotation[0], sp.Rotation[1], sp.Rotation[2], sp.Rotation[3])
+                        : Quaternion.identity;
+                    var go = SceneBuilder.SceneBuilderManager.PlaceAndSave(info, pos, rot, sp.Scale <= 0f ? 1f : sp.Scale);
+                    if (go != null) n++;
                 }
             }
 

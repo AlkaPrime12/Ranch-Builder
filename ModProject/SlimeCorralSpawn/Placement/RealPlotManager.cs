@@ -111,6 +111,7 @@ namespace SlimeCorralSpawn.Placement
             string uid = SlimeCorralSpawn.Plots.PlotData.GenerateUniqueId();
             GameObject obj = RealPlotFactory.SpawnRealPlot(uid, pos, rot, id);
             ApplyPlotSizeScale(obj, size);
+            PlotVegetationClear.ClearUnder(obj);   // quitar el pasto/vegetación debajo, en la forma del plot
 
             var pd = new SlimeCorralSpawn.Plots.PlotData();
             pd.UniqueId = uid;
@@ -250,6 +251,7 @@ namespace SlimeCorralSpawn.Placement
                 ? Il2CppLandPlot.Id.EMPTY : ToRealId(pd.PlotType);
             GameObject obj = RealPlotFactory.SpawnRealPlot(pd.UniqueId, pd.Position, pd.Rotation, id);
             ApplyPlotSizeScale(obj, pd.PlotSize);
+            PlotVegetationClear.ClearUnder(obj);   // re-limpiar el pasto/vegetación debajo al recargar
             pd.LinkedObject = obj;
             return obj;
         }
