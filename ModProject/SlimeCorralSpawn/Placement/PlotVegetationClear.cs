@@ -1,58 +1,53 @@
 using System;
 using UnityEngine;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
+using Il2CppDynamicSDF = Il2CppMonomiPark.SlimeRancher.VFX.DynamicSDF;
 
 namespace SlimeCorralSpawn.Placement
 {
-    /// <summary>Al colocar un plot, quita la vegetación/pasto que quede DEBAJO, en la forma (huella) del plot:
-    ///  • vegetación del juego CON collider bajo la huella → se ocultan sus renderers;
-    ///  • vegetación que colocaste vos (SceneBuilder) bajo la huella → se quita del mundo/slot.
-    /// Se re-aplica cada vez que el plot aparece (colocar + recargar), así queda "limpio" de forma persistente.</summary>
+    /// <summary>Al colocar un plot, aplasta el PASTO del suelo debajo, en la forma (huella) del plot — con el MISMO
+    /// sistema que usan los gadgets del juego: el DynamicSDF. El shader del pasto lee ese "campo" (SDF) y aplasta el
+    /// pasto donde hay esferas. Metemos esferas cubriendo la huella. Además quita la vegetación (objetos) que
+    /// colocó el jugador debajo. Se re-aplica cada vez que el plot aparece (colocar + recargar).</summary>
     public static class PlotVegetationClear
     {
-        // Palabras que identifican vegetación/pasto (misma idea que la clasificación de SceneBuilder).
-        private static readonly string[] VegWords =
-        { "grass", "bush", "flower", "fern", "vine", "weed", "leaf", "flora", "plant", "foliage",
-          "moss", "shrub", "sprout", "clover", "reed", "pasto", "cesped", "césped", "lilypad" };
-
-        // No ocultar terreno/estructura/props grandes aunque el nombre coincida por casualidad.
-        private static readonly string[] SkipWords =
-        { "terrain", "ground", "area", "plane", "cliff", "rock", "mtn", "floor", "wall", "SCS_", "SCSPark",
-          "LandPlot", "Plot", "corral", "sector", "zone" };
-
         public static void ClearUnder(GameObject plotGo)
         {
             if (plotGo == null) return;
             try
             {
                 if (!TryGetBounds(plotGo, out Bounds b)) return;
-
-                // Caja de la huella (con algo de alto para atrapar el pasto de arriba). Un poco más chica en XZ.
-                Bounds foot = new Bounds(b.center, new Vector3(b.size.x * 0.98f, Mathf.Max(b.size.y, 4f) + 4f, b.size.z * 0.98f));
-                float maxArea = b.size.x * b.size.z * 1.3f;   // no ocultar mallas MÁS grandes que la huella (terreno)
-
-                // El PASTO de SR2 son tufos como GameObjects SIN collider → hay que buscarlos por renderers.
-                // Recorremos los MeshRenderer activos, y ocultamos los que sean vegetación y caigan en la huella.
-                Il2CppArrayBase<MeshRenderer> rends = null;
-                try { rends = UnityEngine.Object.FindObjectsOfType<MeshRenderer>(); } catch { }
-                if (rends != null)
-                    for (int i = 0; i < rends.Length; i++)
-                    {
-                        var r = rends[i];
-                        if (r == null || !r.enabled) continue;
-                        GameObject go = null; try { go = r.gameObject; } catch { }
-                        if (go == null) continue;
-                        if (!LooksVeg(go)) continue;
-                        Bounds rb; try { rb = r.bounds; } catch { continue; }
-                        if (!foot.Intersects(rb)) continue;                 // fuera de la huella
-                        if (rb.size.x * rb.size.z > maxArea) continue;      // malla grande (terreno) → no tocar
-                        try { r.enabled = false; } catch { }
-                    }
-
-                // Vegetación colocada por el jugador (SceneBuilder) bajo la huella → quitarla (persiste en el slot).
-                try { SceneBuilder.SceneBuilderManager.RemovePlacedVegetationInBox(b); } catch { }
+                FlattenGrassSDF(b);                                                   // pasto del juego (shader) → SDF
+                try { SceneBuilder.SceneBuilderManager.RemovePlacedVegetationInBox(b); } catch { }  // vegetación del jugador
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("PlotVegetationClear.ClearUnder", ex); }
+        }
+
+        /// <summary>Aplana el pasto en la huella metiendo esferas en el/los DynamicSDF (lo mismo que hacen los gadgets).</summary>
+        private static void FlattenGrassSDF(Bounds foot)
+        {
+            Il2CppArrayBase<Il2CppDynamicSDF> sdfs = null;
+            try { sdfs = UnityEngine.Object.FindObjectsOfType<Il2CppDynamicSDF>(); } catch { }
+            if (sdfs == null || sdfs.Length == 0) return;
+
+            const float r = 1.6f;          // radio de cada esfera
+            const float step = 1.6f;       // separación (≈ radio → buena cobertura)
+            const int maxSpheres = 240;    // tope de seguridad
+            float y = foot.center.y - foot.extents.y + 0.3f;   // a ras del piso
+            float minX = foot.center.x - foot.extents.x, maxX = foot.center.x + foot.extents.x;
+            float minZ = foot.center.z - foot.extents.z, maxZ = foot.center.z + foot.extents.z;
+
+            // Elegir el SDF cuya área contiene la huella (si no se puede determinar, se usan todos).
+            for (int si = 0; si < sdfs.Length; si++)
+            {
+                var sdf = sdfs[si]; if (sdf == null) continue;
+                int added = 0;
+                for (float x = minX; x <= maxX + 0.01f && added < maxSpheres; x += step)
+                    for (float z = minZ; z <= maxZ + 0.01f && added < maxSpheres; z += step)
+                    {
+                        try { sdf.AddSphere(new Vector3(x, y, z), r); added++; } catch { }
+                    }
+            }
         }
 
         private static bool TryGetBounds(GameObject go, out Bounds b)
@@ -71,18 +66,5 @@ namespace SlimeCorralSpawn.Placement
             catch { }
             return has;
         }
-
-        private static bool LooksVeg(GameObject go)
-        {
-            string n = null; try { n = go.name; } catch { }
-            if (string.IsNullOrEmpty(n)) return false;
-            string s = n.ToLowerInvariant();
-            for (int i = 0; i < SkipWords.Length; i++)
-                if (s.IndexOf(SkipWords[i], StringComparison.OrdinalIgnoreCase) >= 0) return false;
-            for (int i = 0; i < VegWords.Length; i++)
-                if (s.Contains(VegWords[i])) return true;
-            return false;
-        }
-
     }
 }
