@@ -27,8 +27,8 @@ namespace SlimeCorralSpawn.Placement
         private static void FlattenGrassSDF(Bounds foot)
         {
             Il2CppArrayBase<Il2CppDynamicSDF> sdfs = null;
-            try { sdfs = UnityEngine.Object.FindObjectsOfType<Il2CppDynamicSDF>(); } catch { }
-            if (sdfs == null || sdfs.Length == 0) return;
+            try { sdfs = UnityEngine.Object.FindObjectsOfType<Il2CppDynamicSDF>(); } catch (Exception ex) { ModEntry.LogInfo("[PastoSDF] FindObjectsOfType tiro: " + ex.Message); }
+            if (sdfs == null || sdfs.Length == 0) { ModEntry.LogInfo("[PastoSDF] NO se encontro ningun DynamicSDF en la escena → por eso el pasto no se aplana."); return; }
 
             const float r = 1.6f;          // radio de cada esfera
             const float step = 1.6f;       // separación (≈ radio → buena cobertura)
@@ -37,17 +37,17 @@ namespace SlimeCorralSpawn.Placement
             float minX = foot.center.x - foot.extents.x, maxX = foot.center.x + foot.extents.x;
             float minZ = foot.center.z - foot.extents.z, maxZ = foot.center.z + foot.extents.z;
 
-            // Elegir el SDF cuya área contiene la huella (si no se puede determinar, se usan todos).
+            int totalAdded = 0, threw = 0;
             for (int si = 0; si < sdfs.Length; si++)
             {
                 var sdf = sdfs[si]; if (sdf == null) continue;
-                int added = 0;
-                for (float x = minX; x <= maxX + 0.01f && added < maxSpheres; x += step)
-                    for (float z = minZ; z <= maxZ + 0.01f && added < maxSpheres; z += step)
+                for (float x = minX; x <= maxX + 0.01f && totalAdded < maxSpheres; x += step)
+                    for (float z = minZ; z <= maxZ + 0.01f && totalAdded < maxSpheres; z += step)
                     {
-                        try { sdf.AddSphere(new Vector3(x, y, z), r); added++; } catch { }
+                        try { sdf.AddSphere(new Vector3(x, y, z), r); totalAdded++; } catch { threw++; }
                     }
             }
+            ModEntry.LogInfo($"[PastoSDF] SDFs={sdfs.Length} huella=({foot.center.x:0.0},{foot.center.z:0.0}) size=({foot.size.x:0.0}x{foot.size.z:0.0}) esferas={totalAdded} fallos={threw}");
         }
 
         private static bool TryGetBounds(GameObject go, out Bounds b)

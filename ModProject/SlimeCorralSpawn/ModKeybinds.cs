@@ -7,20 +7,22 @@ namespace SlimeCorralSpawn
         OpenMenu,
         PaintTool,
         RemoveTool,
-        ConfirmEdit
+        ConfirmEdit,
+        DeleteSceneModel
     }
 
     /// <summary>Teclas reconfigurables del mod (PlayerPrefs).</summary>
     public static class ModKeybinds
     {
-        private static readonly ModAction[] All = { ModAction.OpenMenu, ModAction.PaintTool, ModAction.RemoveTool, ModAction.ConfirmEdit };
+        private static readonly ModAction[] All = { ModAction.OpenMenu, ModAction.PaintTool, ModAction.RemoveTool, ModAction.ConfirmEdit, ModAction.DeleteSceneModel };
 
         private static readonly KeyCode[] Defaults =
         {
             KeyCode.F5,
             KeyCode.F7,
             KeyCode.F9,
-            KeyCode.R
+            KeyCode.R,
+            KeyCode.Delete
         };
 
         public static KeyCode Get(ModAction action)
@@ -59,6 +61,7 @@ namespace SlimeCorralSpawn
                 case ModAction.PaintTool: return Loc.T("key_paint");
                 case ModAction.RemoveTool: return Loc.T("key_remove");
                 case ModAction.ConfirmEdit: return Loc.T("key_confirm_edit");
+                case ModAction.DeleteSceneModel: return Loc.T("key_delete_scene");
                 default: return action.ToString();
             }
         }

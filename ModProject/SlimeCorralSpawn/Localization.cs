@@ -107,6 +107,7 @@ namespace SlimeCorralSpawn
             { "key_paint", new[] { "Herramienta de pintura", "Paint tool", "画笔工具", "Кисть", "Outil peinture" } },
             { "key_remove", new[] { "Herramienta de borrar", "Remove tool", "删除工具", "Удаление", "Outil suppression" } },
             { "key_confirm_edit", new[] { "Confirmar edición de gadget", "Confirm gadget edit", "确认小工具编辑", "Подтвердить редактирование", "Confirmer édition gadget" } },
+            { "key_delete_scene", new[] { "Borrar modelo de escena", "Delete scene model", "删除场景模型", "Удалить модель сцены", "Supprimer modèle de scène" } },
             { "gadget_height_hud", new[] {
                 "Gadget ↑/↓ altura ({0}m) · RePág/AvPág fino · Inicio reset",
                 "Gadget ↑/↓ height ({0}m) · PgUp/PgDn fine · Home reset",
@@ -334,6 +335,7 @@ namespace SlimeCorralSpawn
             { "scb_del_yes",    new[]{ "Sí, reiniciar", "Yes, reset", "是，重置", "Да, сбросить", "Oui, réinitialiser" } },
             { "pf_hints_toggle", new[]{ "Mostrar consejos de prefabs", "Show prefab hints", "显示预制件提示", "Показывать подсказки префабов", "Afficher les conseils de préfabriqués" } },
             { "scb_tool_btn",  new[]{ "Herramienta de escena (editar colocados)", "Scene Tool (edit placed)", "场景工具（编辑已放置）", "Инструмент сцены (ред. размещённое)", "Outil de scène (éditer le placé)" } },
+            { "scb_del_tool_btn", new[]{ "✕ Borrar modelos de escena", "✕ Delete scene models", "✕ 删除场景模型", "✕ Удалить", "✕ Supprimer" } },
             // HUD de los editores de escena (colocar / herramienta)
             { "sbt_mode_free",   new[]{ "LIBRE", "FREE", "自由", "СВОБОДНО", "LIBRE" } },
             { "sbt_mode_move",   new[]{ "MOVER", "MOVE", "移动", "ПЕРЕМЕЩ.", "DÉPLACER" } },
@@ -364,6 +366,8 @@ namespace SlimeCorralSpawn
                 "СВОБОДНО: наведите и [Клик] чтобы поставить · колесо = размер",
                 "LIBRE : visez et [Clic] pour placer · molette = taille" } },
             { "sbt_del",   new[]{ " · [Supr] borrar", " · [Del] delete", " · [Del] 删除", " · [Del] удалить", " · [Suppr] supprimer" } },
+            { "sbt_del_mode_title", new[]{ "✕  MODO BORRAR ESCENA", "✕  SCENE DELETE MODE", "✕  场景删除模式", "✕  РЕЖИМ УДАЛЕНИЯ СЦЕНЫ", "✕  MODE SUPPRESSION DE SCÈNE" } },
+            { "sbt_del_mode_hint", new[]{ "Apuntá con la mira y [Click] para borrar · Esc/[Click der] salir", "Aim and [Click] to delete · Esc/[Right click] exit", "瞄准并[点击]删除 · Esc/[右键]退出", "Наведите и [Клик] чтобы удалить · Esc/[ПКМ] выход", "Visez et [Clic] pour supprimer · Esc/[Clic droit] sortir" } },
             { "sbt_drop",  new[]{ " · [Click der] soltar", " · [Right click] drop", " · [右键] 放下", " · [ПКМ] отпустить", " · [Clic droit] lâcher" } },
             { "sbt_exit",  new[]{ " · [Click der] salir", " · [Right click] exit", " · [右键] 退出", " · [ПКМ] выйти", " · [Clic droit] quitter" } },
             { "sbt_sel_hover", new[]{ "HERRAMIENTA DE ESCENA · apuntás a '{0}'", "SCENE TOOL · aiming at '{0}'", "场景工具 · 对准 '{0}'", "ИНСТРУМЕНТ СЦЕНЫ · наведено на '{0}'", "OUTIL DE SCÈNE · visée sur '{0}'" } },

@@ -157,6 +157,9 @@ namespace SlimeCorralSpawn
             try { SceneBuilder.SceneBuilderTool.UpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("SceneBuilderTool.UpdateStatic", ex); }
 
+            try { SceneBuilder.SceneDeleteTool.UpdateStatic(); }
+            catch (Exception ex) { LogErrorOnce("SceneDeleteTool.UpdateStatic", ex); }
+
             try { Placement.FreeDrawTool.UpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("FreeDrawTool.UpdateStatic", ex); }
 
@@ -311,6 +314,9 @@ namespace SlimeCorralSpawn
 
             try { SceneBuilder.SceneBuilderTool.OnGUIStatic(); }
             catch (Exception ex) { LogErrorOnce("SceneBuilderTool.OnGUIStatic", ex); }
+
+            try { SceneBuilder.SceneDeleteTool.OnGUIStatic(); }
+            catch (Exception ex) { LogErrorOnce("SceneDeleteTool.OnGUIStatic", ex); }
 
             try { Placement.FreeDrawTool.OnGUIStatic(); }
             catch (Exception ex) { LogErrorOnce("FreeDrawTool.OnGUIStatic", ex); }

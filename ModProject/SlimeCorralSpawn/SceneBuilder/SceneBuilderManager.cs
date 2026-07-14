@@ -93,48 +93,214 @@ namespace SlimeCorralSpawn.SceneBuilder
         // muchos livianos entran de a varios → aparecen mucho más rápido sin bajar los FPS.
         // Presupuesto ALTO por frame → los colocados aparecen casi al instante (para que los slimes NO se caigan).
         // Los colliders se agregan JUNTO con el modelo (no diferidos) con cocinado rápido, así son sólidos al aparecer.
-        private static float _ctxSince = -1f;   // cuándo quedó listo el rancho (para front-load al entrar)
+        private static float _ctxSince = -1f;
+        private static Vector3 _playerPos;
+        private static float _lastPlayerPosTime;
+        private static bool _prevFrontLoad;
+        private static int _savedBufferSize;
+        private static int _savedTimeSlice;
 
         public static void UpdateRetry()
         {
-            if (_placed.Count == 0) { _ctxSince = -1f; return; }
-            if (!Placement.RealPlotFactory.ContextReady()) { _ctxSince = -1f; return; }
+            if (_placed.Count == 0) { _ctxSince = -1f; if (_prevFrontLoad) RestoreGpuSettings(); return; }
+            if (!Placement.RealPlotFactory.ContextReady()) { _ctxSince = -1f; if (_prevFrontLoad) RestoreGpuSettings(); return; }
             if (_ctxSince < 0f) _ctxSince = Time.realtimeSinceStartup;
 
-            // FRONT-LOAD agresivo: durante los primeros ~6 s tras entrar (o mientras quede mucho por cargar) usamos
-            // un presupuesto GRANDE y NO nos salteamos frames pesados → lo colocado aparece casi al INSTANTE (los
-            // slimes no se caen). Después bajamos a un presupuesto chico y sí respetamos los frames pesados → 0 lag.
-            bool frontLoad = (Time.realtimeSinceStartup - _ctxSince) < 6f;
-            if (!frontLoad && Time.deltaTime > 0.05f) return;   // fuera de la ventana: no sumar si el frame va MUY pesado
-            float budget = frontLoad ? 0.05f : 0.006f;
-            float start = Time.realtimeSinceStartup;
+            int pending = CountPending();
+            if (pending == 0) { if (_prevFrontLoad) RestoreGpuSettings(); return; }   // todo cargado → no más pasadas por frame
+            float elapsed = Time.realtimeSinceStartup - _ctxSince;
 
-            // Los PISOS/SUELOS primero (para pararse encima), luego el resto. Comparten el presupuesto de tiempo.
-            if (SpawnPass(start, budget, floorsOnly: true)) return;
-            SpawnPass(start, budget, floorsOnly: false);
+            // #2 front-load: solo mientras haya pendientes (hasta 6s, se extiende si >30)
+            bool frontLoad = pending > 0 && (elapsed < 6f || pending > 30);
+
+            // Guardar/restaurar settings de GPU al ENTRAR/SALIR del modo front-load
+            if (frontLoad && !_prevFrontLoad)
+            {
+                _prevFrontLoad = true;
+                SceneModelStore.SetFrontLoadMode(true);
+                try { _savedBufferSize = QualitySettings.asyncUploadBufferSize; QualitySettings.asyncUploadBufferSize = 64; } catch { }
+                try { _savedTimeSlice = QualitySettings.asyncUploadTimeSlice; QualitySettings.asyncUploadTimeSlice = 8; } catch { }
+            }
+            else if (!frontLoad && _prevFrontLoad)
+            {
+                RestoreGpuSettings();
+            }
+
+            // #5 deltaTime adaptativo: escala el budget gradualmente en frames pesados
+            float dt = Time.deltaTime;
+            float budget;
+            if (frontLoad)
+            {
+                budget = 0.05f;
+            }
+            else if (dt > 0.05f)
+            {
+                float scale = Mathf.Clamp01(0.050f / dt);
+                budget = 0.006f * scale;
+                if (budget < 0.001f) return;
+            }
+            else
+            {
+                budget = 0.006f;
+            }
+
+            float start = Time.realtimeSinceStartup;
+            UpdatePlayerPos();
+
+            // #3 bake a disco en LOTE antes de spawnear (I/O agrupada)
+            if (pending > 3) BatchEnsureOwnedCopies();
+
+            // FASE 1: pre-cargar TODAS las texturas de TODOS los pendientes de una sola vez (sin límite)
+            if (pending > 0)
+            {
+                var allKeys = GetPendingKeys();
+                if (allKeys.Count > 0)
+                {
+                    SceneModelStore.PreloadTextureFor(allKeys);
+                    if (frontLoad) SceneModelStore.PreloadShadersFor(allKeys);
+                }
+            }
+
+            // Spawnear TODO de una durante front-load, o con budget reducido en normal
+            if (frontLoad)
+            {
+                SpawnPass(start, float.MaxValue, floorsOnly: true, noBudgetDistSq: float.MaxValue);
+                SpawnPass(start, float.MaxValue, floorsOnly: false, noBudgetDistSq: float.MaxValue);
+            }
+            else
+            {
+                // Modo normal: LOTES de 5 por frame (pisos primero) → aparecen de a varios, rápido y sin tirones.
+                if (SpawnPass(start, budget, floorsOnly: true, noBudgetDistSq: 900f, maxCount: 5)) return;
+                SpawnPass(start, budget, floorsOnly: false, noBudgetDistSq: 900f, maxCount: 5);
+            }
         }
 
-        private static bool SpawnPass(float start, float budget, bool floorsOnly)
+        private static void RestoreGpuSettings()
         {
+            _prevFrontLoad = false;
+            SceneModelStore.SetFrontLoadMode(false);
+            try { QualitySettings.asyncUploadBufferSize = _savedBufferSize; } catch { }
+            try { QualitySettings.asyncUploadTimeSlice = _savedTimeSlice; } catch { }
+        }
+
+        private static HashSet<string> GetPendingKeys()
+        {
+            var set = new HashSet<string>();
+            foreach (var kv in _placed)
+                if (kv.Value.LinkedObject == null)
+                    set.Add(kv.Value.Zone + "/" + kv.Value.Key);
+            return set;
+        }
+
+        private static HashSet<string> GetClosePendingKeys(float distSq)
+        {
+            var set = new HashSet<string>();
+            foreach (var kv in _placed)
+            {
+                var p = kv.Value;
+                if (p.LinkedObject != null) continue;
+                if ((p.Position - _playerPos).sqrMagnitude <= distSq)
+                    set.Add(p.Zone + "/" + p.Key);
+            }
+            return set;
+        }
+
+        private static int CountPending()
+        {
+            int c = 0;
+            foreach (var kv in _placed)
+                if (kv.Value.LinkedObject == null) c++;
+            return c;
+        }
+
+        private static void UpdatePlayerPos()
+        {
+            try
+            {
+                if (Time.realtimeSinceStartup - _lastPlayerPosTime > 0.3f)
+                {
+                    _lastPlayerPosTime = Time.realtimeSinceStartup;
+                    var go = GameObject.FindGameObjectWithTag("Player");
+                    if (go != null) _playerPos = go.transform.position;
+                }
+            }
+            catch { }
+        }
+
+        private static void BatchEnsureOwnedCopies()
+        {
+            var seen = new System.Collections.Generic.HashSet<string>();
+            foreach (var kv in _placed)
+            {
+                var p = kv.Value;
+                if (p.LinkedObject != null) continue;
+                if (!seen.Add(p.Zone + "/" + p.Key)) continue;
+                var info = SceneModelLibrary.FindModel(p.Zone, p.Key);
+                if (info != null) try { SceneModelLibrary.EnsureOwnedCopy(info); } catch { }
+            }
+        }
+
+        private static bool SpawnPass(float start, float budget, bool floorsOnly, float noBudgetDistSq = -1f, int maxCount = int.MaxValue)
+        {
+            // #1 recolectar pendientes ordenados por cercanía al jugador
+            var sorted = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<float, PlacedSceneModel>>();
             foreach (var kv in _placed)
             {
                 var p = kv.Value;
                 if (p.LinkedObject != null) continue;
                 var info = SceneModelLibrary.FindModel(p.Zone, p.Key);
-                if (info == null || !SceneModelLibrary.CanSpawn(info)) continue;   // aún no disponible → reintentar
-                if (SceneModelLibrary.IsFloorCategory(info) != floorsOnly) continue;   // esta pasada: pisos o resto
-                SceneModelLibrary.EnsureOwnedCopy(info);   // asegurar el bake a disco (para reinicio/zona descargada)
-                // Con collider YA (cocinado rápido) → sólido al aparecer, los slimes no se caen.
+                if (info == null || !SceneModelLibrary.CanSpawn(info)) continue;
+                if (SceneModelLibrary.IsFloorCategory(info) != floorsOnly) continue;
+                float dist = (p.Position - _playerPos).sqrMagnitude;
+                sorted.Add(new System.Collections.Generic.KeyValuePair<float, PlacedSceneModel>(dist, p));
+            }
+            if (sorted.Count > 1)
+                sorted.Sort((a, b) => a.Key.CompareTo(b.Key));
+
+            int spawned = 0;
+            foreach (var entry in sorted)
+            {
+                var p = entry.Value;
+                var info = SceneModelLibrary.FindModel(p.Zone, p.Key);
                 p.LinkedObject = SceneModelLibrary.Spawn(info, p.Position, p.Rotation, p.Scale, park: true, addColliders: SceneModelLibrary.ShouldCollide(info));
-                // Si se construyó desde DISCO (su zona no está cargada), marcarlo para re-clonarlo desde la instancia
-                // VIVA cuando su zona aparezca → recupera el look exacto (p.ej. rocas de montaña pasto+piedra).
                 if (p.LinkedObject != null)
                 {
+                    TouchMaterials(p.LinkedObject);
                     p.BuiltFromDisk = !SceneModelLibrary.HasLiveSample(p.Zone, p.Key);
-                    if ((Time.realtimeSinceStartup - start) >= budget) return true;   // sin tiempo este frame
+                    if (++spawned >= maxCount) return true;   // lote completo este frame (p.ej. 5 en 5)
+                    float d = entry.Key;
+                    // Sin budget para objetos cercanos (noBudgetDistSq), ni durante front-load
+                    if (noBudgetDistSq > 0f && d <= noBudgetDistSq) continue;
+                    if ((Time.realtimeSinceStartup - start) >= budget) return true;
                 }
             }
             return false;
+        }
+
+        /// <summary>#5: toca los materiales de un GameObject recién spawnedo para forzar que Unity
+        /// resuelva texturas y referencias del shader ya en este frame.</summary>
+        private static void TouchMaterials(GameObject go)
+        {
+            try
+            {
+                var rends = go.GetComponentsInChildren<Renderer>(true);
+                if (rends == null) return;
+                for (int i = 0; i < rends.Length; i++)
+                {
+                    var r = rends[i];
+                    if (r == null) continue;
+                    var mats = r.sharedMaterials;
+                    if (mats == null) continue;
+                    for (int s = 0; s < mats.Length; s++)
+                    {
+                        var m = mats[s];
+                        if (m == null) continue;
+                        try { var _ = m.mainTexture; } catch { }
+                        try { var _ = m.shader; } catch { }
+                    }
+                }
+            }
+            catch { }
         }
 
         // Re-clona desde la instancia VIVA los colocados que se habían construido desde disco, en cuanto su zona
@@ -270,6 +436,15 @@ namespace SlimeCorralSpawn.SceneBuilder
                 if (info != null && !SceneModelLibrary.ShouldCollide(info)) toRemove.Add(p.UniqueId);   // plantas/pasto/agua
             }
             foreach (var uid in toRemove) RemovePlaced(uid);
+        }
+
+        /// <summary>Quita un modelo colocado encontrándolo por su GameObject raíz (para el modo borrar escena).</summary>
+        public static bool RemoveByGameObject(GameObject obj)
+        {
+            if (obj == null) return false;
+            foreach (var kv in _placed)
+                if (kv.Value?.LinkedObject == obj) { RemovePlaced(kv.Key); return true; }
+            return false;
         }
 
         /// <summary>Quita un modelo colocado (destruye el clon del mundo + lo borra del slot). Para "agarrar"/borrar.</summary>

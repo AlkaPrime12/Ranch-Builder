@@ -667,7 +667,7 @@ namespace SlimeCorralSpawn.UI
                 y += 44f;
             }
 
-            foreach (ModAction action in new[] { ModAction.OpenMenu, ModAction.PaintTool, ModAction.RemoveTool, ModAction.ConfirmEdit })
+            foreach (ModAction action in new[] { ModAction.OpenMenu, ModAction.PaintTool, ModAction.RemoveTool, ModAction.ConfirmEdit, ModAction.DeleteSceneModel })
             {
                 string label = ModKeybinds.Label(action);
                 string key = _rebindAction == action ? "..." : ModKeybinds.KeyName(ModKeybinds.Get(action));
@@ -989,6 +989,11 @@ namespace SlimeCorralSpawn.UI
             // Herramienta de escena: agarrar / mover / rotar / borrar lo YA colocado apuntando con la mira.
             if (ClickableBox(new Rect(x, y, w, 28), Loc.T("scb_tool_btn"), new Color(0.34f, 0.26f, 0.46f, 0.96f), labelStyle))
             { SceneBuilder.SceneBuilderTool.StartSceneTool(); CloseMenu(); }
+            y += 32f;
+
+            // Botón modo borrar escena: apuntás y click para borrar modelos colocados.
+            if (ClickableBox(new Rect(x, y, w, 28), Loc.T("scb_del_tool_btn"), new Color(0.50f, 0.16f, 0.16f, 0.95f), labelStyle))
+            { SceneBuilder.SceneDeleteTool.Start(); CloseMenu(); }
             y += 32f;
             if (SceneBuilder.SceneModelStore.Working)
             {

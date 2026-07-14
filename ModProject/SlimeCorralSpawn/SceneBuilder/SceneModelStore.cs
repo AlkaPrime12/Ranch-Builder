@@ -64,6 +64,11 @@ namespace SlimeCorralSpawn.SceneBuilder
         // Caches de reconstrucción (copias PROPIAS).
         private static readonly Dictionary<string, Material> _matCache = new Dictionary<string, Material>();
         private static readonly Dictionary<string, Texture2D> _texCache = new Dictionary<string, Texture2D>();
+        // Modelos cuyos archivos ya se leyeron para pre-cargar texturas → NO re-abrirlos cada frame (evita "mil pasadas").
+        private static readonly HashSet<string> _preloadDoneCks = new HashSet<string>();
+
+        // Modo front-load: carga rápida (sin mipmaps, upgrade más frecuente).
+        internal static bool _frontLoadMode;
 
         // Trabajo en SEGUNDO PLANO (los botones Guardar/Actualizar NO congelan: se procesa por tiempo/frame).
         private struct Job { public int Kind; public SceneModelInfo Info; public GameObject Go; public Material Mat; }
@@ -105,6 +110,98 @@ namespace SlimeCorralSpawn.SceneBuilder
                 if (_manifestDirty && _indexScanned && _work.Count == 0) { _manifestDirty = false; SaveManifest(); }
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("SceneModelStore.Tick", ex); }
+        }
+
+        // ─────────────────── front-load helpers ───────────────────
+        /// <summary>Activa/desactiva modo carga rápida (sin mipmaps, upgrade frecuente).
+        /// Al salir del modo front-load regenera mipmaps de TODAS las texturas cacheadas de una.</summary>
+        public static void SetFrontLoadMode(bool active)
+        {
+            bool was = _frontLoadMode;
+            _frontLoadMode = active;
+            if (was && !active)
+            {
+                // Fase 2: regenerar mipmaps de todas las texturas cacheadas de una sola vez
+                foreach (var kv in _texCache)
+                    if (kv.Value != null) try { kv.Value.Apply(true, true); } catch { }
+            }
+        }
+
+        /// <summary>Pre-carga texturas de disco al _texCache para los modelos dados.
+        /// Cuando Spawn() las pida, LoadTex() devuelve al instante (ya cacheadas).
+        /// maxPerFrame limita cuántas texturas cargar por llamada (para no explotar un frame).</summary>
+        public static void PreloadTextureFor(HashSet<string> pendingKeys, int maxPerFrame = int.MaxValue)
+        {
+            if (pendingKeys == null || pendingKeys.Count == 0) return;
+            var matNames = new HashSet<string>();
+            foreach (var ck in pendingKeys)
+            {
+                if (string.IsNullOrEmpty(ck)) continue;
+                if (_preloadDoneCks.Contains(ck)) continue;   // ya leído antes → no re-abrir su archivo cada frame
+                int i = ck.IndexOf('/'); if (i <= 0) continue;
+                string zone = ck.Substring(0, i), key = ck.Substring(i + 1);
+                if (_bakedModels.Contains(ck))
+                {
+                    string mp = ModelPath(zone, key);
+                    if (File.Exists(mp)) { try { CollectMatNames(mp, matNames); } catch { } _preloadDoneCks.Add(ck); }
+                }
+            }
+            var texKeys = new HashSet<string>();
+            foreach (var mn in matNames)
+            {
+                if (_matCache.ContainsKey(mn)) continue;
+                string matp = MatPath(mn);
+                if (File.Exists(matp)) try { CollectTexKeys(matp, texKeys); } catch { }
+            }
+            int loaded = 0;
+            foreach (var tk in texKeys)
+            {
+                if (_texCache.ContainsKey(tk)) continue;
+                LoadTex(tk);
+                loaded++;
+                if (loaded >= maxPerFrame) break;
+            }
+        }
+
+        /// <summary>Pre-carga shaders de disco: los busca por nombre y los mete en la caché del store.
+        /// El primer render con ese shader compila variantes, pero tener el shader referenciado acelera.</summary>
+        public static void PreloadShadersFor(HashSet<string> pendingKeys)
+        {
+            if (pendingKeys == null || pendingKeys.Count == 0) return;
+            var shaderSet = new HashSet<string>();
+            foreach (var ck in pendingKeys)
+            {
+                if (string.IsNullOrEmpty(ck)) continue;
+                int i = ck.IndexOf('/'); if (i <= 0) continue;
+                string zone = ck.Substring(0, i), key = ck.Substring(i + 1);
+                if (!_bakedModels.Contains(ck)) continue;
+                string mp = ModelPath(zone, key);
+                if (!File.Exists(mp)) continue;
+                var matNames = new HashSet<string>();
+                try { CollectMatNames(mp, matNames); } catch { }
+                foreach (var mn in matNames)
+                {
+                    string matp = MatPath(mn);
+                    if (!File.Exists(matp)) continue;
+                    try
+                    {
+                        using (var fs = File.OpenRead(matp))
+                        using (var br = new BinaryReader(fs))
+                        {
+                            if (br.ReadUInt32() == MatMagic && br.ReadInt32() == MatVersion)
+                            {
+                                string sn = br.ReadString();
+                                if (!string.IsNullOrEmpty(sn)) shaderSet.Add(sn);
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+            foreach (var sn in shaderSet)
+            {
+                FindShaderByName(sn);
+            }
         }
 
         private static void WorkStep()
@@ -181,7 +278,7 @@ namespace SlimeCorralSpawn.SceneBuilder
                 _diskIndex.Clear(); _bakedModels.Clear(); _bakedMats.Clear(); _bakedTex.Clear();
                 foreach (var kv in _matCache) if (kv.Value != null) { try { UnityEngine.Object.Destroy(kv.Value); } catch { } }
                 foreach (var kv in _texCache) if (kv.Value != null) { try { UnityEngine.Object.Destroy(kv.Value); } catch { } }
-                _matCache.Clear(); _texCache.Clear(); _entries.Clear(); _manifestDirty = false;
+                _matCache.Clear(); _texCache.Clear(); _preloadDoneCks.Clear(); _entries.Clear(); _manifestDirty = false;
                 _indexFiles = null; _indexCursor = 0; _indexScanned = true; _indexStarted = true;   // no re-indexar lo borrado
                 try { if (Directory.Exists(Base)) Directory.Delete(Base, true); } catch { }
                 try { Directory.CreateDirectory(ModelsDir); Directory.CreateDirectory(MatsDir); Directory.CreateDirectory(TexDir); } catch { }
@@ -200,7 +297,7 @@ namespace SlimeCorralSpawn.SceneBuilder
                 _work.Clear(); _workTotal = 0; _workDone = 0; _applyRefreshWhenDone = false;
                 foreach (var kv in _matCache) if (kv.Value != null) { try { UnityEngine.Object.Destroy(kv.Value); } catch { } }
                 foreach (var kv in _texCache) if (kv.Value != null) { try { UnityEngine.Object.Destroy(kv.Value); } catch { } }
-                _matCache.Clear(); _texCache.Clear(); _bakedMats.Clear(); _bakedTex.Clear(); _pending.Clear();
+                _matCache.Clear(); _texCache.Clear(); _preloadDoneCks.Clear(); _bakedMats.Clear(); _bakedTex.Clear(); _pending.Clear();
                 try { Directory.CreateDirectory(ModelsDir); Directory.CreateDirectory(MatsDir); Directory.CreateDirectory(TexDir); } catch { }
 
                 // Todas las texturas y materiales fuera (todo pierde textura hasta re-guardar/actualizar).
@@ -305,7 +402,7 @@ namespace SlimeCorralSpawn.SceneBuilder
         public static void BeginTextureRefresh()
         {
             _bakedMats.Clear(); _bakedTex.Clear();
-            _matCache.Clear(); _texCache.Clear();   // futuras reconstrucciones usan las texturas nuevas
+            _matCache.Clear(); _texCache.Clear(); _preloadDoneCks.Clear();   // futuras reconstrucciones usan las texturas nuevas
             // (diagnóstico silencioso: _texDiag/_matDiagLoad quedan en 0 → no ensucia la consola)
         }
 
@@ -1074,11 +1171,12 @@ namespace SlimeCorralSpawn.SceneBuilder
         private static int _upgradeThrottle;
 
         /// <summary>Reintenta re-armar los materiales pendientes con su shader real una vez que éste se carga
-        /// (al entrar a la zona o al terminar de cargar). Presupuestado: corre cada ~3 s y no congela.</summary>
+        /// (al entrar a la zona o al terminar de cargar). Presupuestado: corre cada ~3 s (o ~0.5 s en front-load).</summary>
         private static void UpgradeTick()
         {
             if (_pending.Count == 0) return;
-            if (++_upgradeThrottle < 180) return;   // ~3 s entre intentos
+            int interval = _frontLoadMode ? 30 : 180;   // ~0.5s en front-load, ~3s normal
+            if (++_upgradeThrottle < interval) return;
             _upgradeThrottle = 0;
             List<string> done = null;
             foreach (var kv in _pending)
@@ -1513,12 +1611,8 @@ namespace SlimeCorralSpawn.SceneBuilder
                 var tex = new Texture2D(w, h, TextureFormat.RGBA32, true);
                 tex.hideFlags = HideFlags.HideAndDontSave;
                 try { tex.wrapMode = TextureWrapMode.Repeat; } catch { }
-                int n = w * h;
-                var colsM = new Color32[n];   // llenar en MANEJADO (rápido) y subir de una (sin marshaling por-pixel)
-                for (int i = 0; i < n; i++)
-                { int o = i * 4; colsM[i] = new Color32(raw[o], raw[o + 1], raw[o + 2], raw[o + 3]); }
-                tex.SetPixels32(new Il2CppStructArray<Color32>(colsM));   // NO usa el decodificador PNG roto de Unity
-                tex.Apply(true, false);     // genera mipmaps (calidad a distancia)
+                tex.SetPixelData(new Il2CppStructArray<byte>(raw), 0, 0);
+                tex.Apply(!_frontLoadMode, !_frontLoadMode); // front-load: sin mips + mantener CPU data
                 _texCache[key] = tex;
                 return tex;
             }

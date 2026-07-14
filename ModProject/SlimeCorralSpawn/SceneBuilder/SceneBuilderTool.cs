@@ -163,8 +163,10 @@ namespace SlimeCorralSpawn.SceneBuilder
                 Bounds b = GhostBounds();
                 Vector3 off = b.center - t.position;
                 Vector3 size = b.size;
-                float cx = Mathf.Max(0.25f, size.x * 0.5f);
-                float cz = Mathf.Max(0.25f, size.z * 0.5f);
+                // La celda = TAMAÑO COMPLETO del objeto → los centros quedan a un ancho de distancia y los BORDES
+                // se tocan (encajan sin traspasarse). (Antes era medio tamaño → se solapaban al colocar pegados.)
+                float cx = Mathf.Max(0.25f, size.x);
+                float cz = Mathf.Max(0.25f, size.z);
                 _pos.x = Mathf.Round((_pos.x + off.x) / cx) * cx - off.x;
                 _pos.z = Mathf.Round((_pos.z + off.z) / cz) * cz - off.z;
                 if (_mode == Mode.Move) _frozen = _pos;
