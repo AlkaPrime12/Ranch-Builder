@@ -25,6 +25,7 @@ namespace SlimeCorralSpawn.SceneBuilder
         private static Vector3 _pos;
         private static Vector3 _frozen;
         private static bool _snap = true;
+        private static float _freeYOffset;   // subir/bajar el modelo respecto del piso en modo LIBRE (PageUp/PageDown)
         private static Vector3 _footprint = Vector3.one;
         private static Renderer[] _ghostRenderers;
         private static Vector3 _ghostBaseScale = Vector3.one;
@@ -57,7 +58,7 @@ namespace SlimeCorralSpawn.SceneBuilder
             Cancel();
             _editSelectMode = false;
             _selected = info;
-            _rot = Quaternion.identity; _scale = 1f;
+            _rot = Quaternion.identity; _scale = 1f; _freeYOffset = 0f;
             SetMode(Mode.Free);
             _startTime = Time.time;
         }
@@ -144,6 +145,10 @@ namespace SlimeCorralSpawn.SceneBuilder
             EnsureGhost();
             if (_ghost == null) return;
 
+            // PageUp / PageDown: subir / bajar el modelo respecto del piso (también en modo LIBRE).
+            if (InputHelper.GetKey(KeyCode.PageUp)) _freeYOffset += 4f * Time.deltaTime;
+            if (InputHelper.GetKey(KeyCode.PageDown)) _freeYOffset -= 4f * Time.deltaTime;
+
             // Posición base.
             if (_mode == Mode.Free)
             {
@@ -158,6 +163,7 @@ namespace SlimeCorralSpawn.SceneBuilder
                     _pos = down.point;
                 else
                     _pos = cam.transform.position + cam.transform.forward * 20f;
+                _pos.y += _freeYOffset;   // subir/bajar respecto del piso
             }
             else
             {
@@ -172,38 +178,41 @@ namespace SlimeCorralSpawn.SceneBuilder
             if (_scale > 0f) t.localScale = _ghostBaseScale * _scale;
             t.position = _pos;
 
-            // Snap a grilla: solo en LIBRE (en MOVER se arrastra por eje con el delta del mouse).
+            // Snap MAGNÉTICO a bordes (solo en LIBRE): el modelo SIGUE al cursor normalmente y SOLO se "pega" cuando su
+            // borde queda cerca del borde de un objeto ya colocado (como un imán). Así encajan uno al lado del otro sin
+            // teletransportarse ni saltar (lo que rompía antes). No toca la altura (podés subirlo/bajarlo con PageUp/Down).
             if (_snap && _mode == Mode.Free)
             {
                 Bounds gb = GhostBounds();
                 Vector3 off = gb.center - t.position;   // pivote → centro visual
+                Vector3 gc = gb.center;
 
-                // PREFERIR engancharse al objeto colocado más cercano → quedan pegados BORDE A BORDE (lo que se
-                // espera del modo grilla: uno perfectamente al lado del otro, sin solaparse la mitad).
-                GameObject neigh = SceneBuilderManager.FindNearestPlacedObject(gb.center, gb.extents.magnitude + 8f, _ghost);
+                GameObject neigh = SceneBuilderManager.FindNearestPlacedObject(gc, 60f, _ghost);
                 if (neigh != null && TryWorldBounds(neigh, out Bounds nb))
                 {
-                    Vector3 gc = gb.center;
-                    float dx = gc.x - nb.center.x, dz = gc.z - nb.center.z;
-                    if (Mathf.Abs(dx) >= Mathf.Abs(dz))   // se acerca por el eje X → pegar en X, alinear en Z
+                    const float T = 1.5f;   // qué tan cerca del borde para imantar (unidades)
+                    // ¿están ENFRENTADOS en el eje perpendicular? (si no, no pegar → evita enganches diagonales raros)
+                    bool faceX = Mathf.Abs(gc.z - nb.center.z) <= nb.extents.z + gb.extents.z + T;   // para pegar en X
+                    bool faceZ = Mathf.Abs(gc.x - nb.center.x) <= nb.extents.x + gb.extents.x + T;   // para pegar en Z
+                    // posiciones "borde con borde" en cada eje
+                    float xp = nb.max.x + gb.extents.x, xn = nb.min.x - gb.extents.x;
+                    float zp = nb.max.z + gb.extents.z, zn = nb.min.z - gb.extents.z;
+                    float dX = Mathf.Min(Mathf.Abs(gc.x - xp), Mathf.Abs(gc.x - xn));
+                    float dZ = Mathf.Min(Mathf.Abs(gc.z - zp), Mathf.Abs(gc.z - zn));
+
+                    if (faceX && dX < T && dX <= dZ)          // imantar en X (uno al lado del otro en X)
                     {
-                        gc.x = dx >= 0f ? nb.max.x + gb.extents.x : nb.min.x - gb.extents.x;
-                        gc.z = nb.center.z;
+                        gc.x = (Mathf.Abs(gc.x - xp) < Mathf.Abs(gc.x - xn)) ? xp : xn;
+                        if (Mathf.Abs(gc.z - nb.center.z) < T) gc.z = nb.center.z;   // alinear la fila si está casi alineado
+                        _pos = gc - off;
                     }
-                    else                                  // se acerca por el eje Z → pegar en Z, alinear en X
+                    else if (faceZ && dZ < T)                 // imantar en Z
                     {
-                        gc.z = dz >= 0f ? nb.max.z + gb.extents.z : nb.min.z - gb.extents.z;
-                        gc.x = nb.center.x;
+                        gc.z = (Mathf.Abs(gc.z - zp) < Mathf.Abs(gc.z - zn)) ? zp : zn;
+                        if (Mathf.Abs(gc.x - nb.center.x) < T) gc.x = nb.center.x;
+                        _pos = gc - off;
                     }
-                    _pos = gc - off;
-                }
-                else
-                {
-                    // Sin vecino cerca: grilla al TAMAÑO COMPLETO del objeto (borde a borde con la grilla del mundo).
-                    float cx = Mathf.Max(0.25f, gb.size.x);
-                    float cz = Mathf.Max(0.25f, gb.size.z);
-                    _pos.x = Mathf.Round((_pos.x + off.x) / cx) * cx - off.x;
-                    _pos.z = Mathf.Round((_pos.z + off.z) / cz) * cz - off.z;
+                    // si no está cerca de ningún borde → NO se toca _pos (sigue al cursor, sin saltos)
                 }
                 if (_mode == Mode.Move) _frozen = _pos;
                 t.position = _pos;

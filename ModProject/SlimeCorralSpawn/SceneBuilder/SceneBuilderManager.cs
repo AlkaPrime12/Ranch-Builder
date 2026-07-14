@@ -16,6 +16,7 @@ namespace SlimeCorralSpawn.SceneBuilder
         public float Scale = 1f;
         public GameObject LinkedObject;   // el clon vivo (null hasta que UpdateRetry lo re-crea)
         public bool BuiltFromDisk;        // true si se clonó desde disco (para re-clonarlo desde la instancia viva luego)
+        public float SortKey;             // orden de carga (pisos y cercanos primero); lo calcula RebuildWorkList
     }
 
     /// <summary>
@@ -100,18 +101,32 @@ namespace SlimeCorralSpawn.SceneBuilder
         private static int _savedBufferSize;
         private static int _savedTimeSlice;
 
+        // Cola de trabajo PERSISTENTE: se arma UNA vez (ordenada: pisos y cercanos primero) y se consume de a poco por
+        // frame. Antes se recorría y ORDENABA TODO cada frame (varias pasadas O(N) + 2 sorts + pre-cargar todas las
+        // texturas de una) → eso era lo que laggeaba y demoraba con muchos modelos. Ahora casi todo frame es O(budget).
+        private static readonly System.Collections.Generic.List<PlacedSceneModel> _workList = new System.Collections.Generic.List<PlacedSceneModel>();
+        private static int _workCursor;
+        private static float _lastRebuild = -999f;
+
         public static void UpdateRetry()
         {
-            if (_placed.Count == 0) { _ctxSince = -1f; if (_prevFrontLoad) RestoreGpuSettings(); return; }
+            if (_placed.Count == 0) { _ctxSince = -1f; _workList.Clear(); _workCursor = 0; if (_prevFrontLoad) RestoreGpuSettings(); return; }
             if (!Placement.RealPlotFactory.ContextReady()) { _ctxSince = -1f; if (_prevFrontLoad) RestoreGpuSettings(); return; }
             if (_ctxSince < 0f) _ctxSince = Time.realtimeSinceStartup;
 
-            int pending = CountPending();
-            if (pending == 0) { if (_prevFrontLoad) RestoreGpuSettings(); return; }   // todo cargado → no más pasadas por frame
-            float elapsed = Time.realtimeSinceStartup - _ctxSince;
+            float now = Time.realtimeSinceStartup;
 
-            // #2 front-load: mientras haya pendientes (hasta 8s, se mantiene mientras queden más de 12)
-            bool frontLoad = pending > 0 && (elapsed < 8f || pending > 12);
+            // (Re)armar la cola cuando se AGOTÓ (máx ~5/seg, para no re-escanear todo cada frame si aún no hay nada
+            // spawneable) o cada ~1s (para tomar modelos que recién quedaron listos).
+            bool exhausted = _workCursor >= _workList.Count;
+            if ((exhausted && now - _lastRebuild > 0.2f) || now - _lastRebuild > 1f)
+                RebuildWorkList(now);
+
+            int pending = _workList.Count - _workCursor;
+            if (pending <= 0) { if (_prevFrontLoad) RestoreGpuSettings(); return; }
+
+            float elapsed = now - _ctxSince;
+            bool frontLoad = elapsed < 8f || pending > 12;
 
             // Guardar/restaurar settings de GPU al ENTRAR/SALIR del modo front-load
             if (frontLoad && !_prevFrontLoad)
@@ -121,57 +136,62 @@ namespace SlimeCorralSpawn.SceneBuilder
                 try { _savedBufferSize = QualitySettings.asyncUploadBufferSize; QualitySettings.asyncUploadBufferSize = 64; } catch { }
                 try { _savedTimeSlice = QualitySettings.asyncUploadTimeSlice; QualitySettings.asyncUploadTimeSlice = 8; } catch { }
             }
-            else if (!frontLoad && _prevFrontLoad)
-            {
-                RestoreGpuSettings();
-            }
+            else if (!frontLoad && _prevFrontLoad) RestoreGpuSettings();
 
-            // #5 deltaTime adaptativo: escala el budget gradualmente en frames pesados
+            // Budget adaptativo: en frames pesados se achica → sin tirones.
             float dt = Time.deltaTime;
             float budget;
-            if (frontLoad)
-            {
-                budget = 0.012f;   // generoso pero ACOTADO → mete muchos modelos por frame SIN congelar (12 ms)
-            }
-            else if (dt > 0.05f)
-            {
-                float scale = Mathf.Clamp01(0.050f / dt);
-                budget = 0.006f * scale;
-                if (budget < 0.001f) return;
-            }
-            else
-            {
-                budget = 0.006f;
-            }
+            if (frontLoad) budget = 0.010f;                       // 10 ms/frame → carga rápido sin congelar
+            else if (dt > 0.05f) { float s = Mathf.Clamp01(0.050f / dt); budget = 0.006f * s; if (budget < 0.001f) return; }
+            else budget = 0.006f;
 
-            float start = Time.realtimeSinceStartup;
+            ConsumeWorkList(now, budget, frontLoad ? 1000 : 10);
+        }
+
+        /// <summary>Arma la lista de pendientes lista-para-spawnear, ordenada (pisos primero, luego por cercanía).
+        /// Barato de consumir después. Solo se llama cuando la cola se agota o cada ~1s.</summary>
+        private static void RebuildWorkList(float now)
+        {
+            _lastRebuild = now;
             UpdatePlayerPos();
-
-            // #3 bake a disco en LOTE antes de spawnear (I/O agrupada)
-            if (pending > 3) BatchEnsureOwnedCopies();
-
-            // FASE 1: pre-cargar TODAS las texturas de TODOS los pendientes de una sola vez (sin límite)
-            if (pending > 0)
+            _workList.Clear(); _workCursor = 0;
+            foreach (var kv in _placed)
             {
-                var allKeys = GetPendingKeys();
-                if (allKeys.Count > 0)
+                var p = kv.Value;
+                if (p.LinkedObject != null) continue;
+                var info = SceneModelLibrary.FindModel(p.Zone, p.Key);
+                if (info == null || !SceneModelLibrary.CanSpawn(info)) continue;
+                try { SceneModelLibrary.EnsureOwnedCopy(info); } catch { }   // bake a disco (una vez por reconstrucción)
+                p.SortKey = (SceneModelLibrary.IsFloorCategory(info) ? 0f : 1e9f) + (p.Position - _playerPos).sqrMagnitude;
+                _workList.Add(p);
+            }
+            if (_workList.Count > 1)
+                _workList.Sort((a, b) => a.SortKey.CompareTo(b.SortKey));
+        }
+
+        /// <summary>Spawnea de la cola hasta llenar el budget de tiempo o el tope de cantidad. O(spawneados) por frame.</summary>
+        private static void ConsumeWorkList(float start, float budget, int maxCount)
+        {
+            int spawned = 0;
+            while (_workCursor < _workList.Count)
+            {
+                var p = _workList[_workCursor];
+                _workCursor++;
+                if (p.LinkedObject != null) continue;
+                var info = SceneModelLibrary.FindModel(p.Zone, p.Key);
+                if (info == null || !SceneModelLibrary.CanSpawn(info)) continue;
+                bool floor = SceneModelLibrary.IsFloorCategory(info);
+                bool wantsCol = SceneModelLibrary.ShouldCollide(info);
+                // PISOS: collider YA (los slimes se paran encima). El resto: collider DIFERIDO (cola) → aparecer más rápido.
+                p.LinkedObject = SceneModelLibrary.Spawn(info, p.Position, p.Rotation, p.Scale, park: true, addColliders: floor && wantsCol);
+                if (p.LinkedObject != null)
                 {
-                    SceneModelStore.PreloadTextureFor(allKeys);
-                    if (frontLoad) SceneModelStore.PreloadShadersFor(allKeys);
+                    if (!floor && wantsCol) _colliderQ.Enqueue(p.LinkedObject);
+                    TouchMaterials(p.LinkedObject);
+                    p.BuiltFromDisk = !SceneModelLibrary.HasLiveSample(p.Zone, p.Key);
+                    if (++spawned >= maxCount) return;
+                    if ((Time.realtimeSinceStartup - start) >= budget) return;
                 }
-            }
-
-            // Front-load: llenar los 12 ms/frame (pisos primero, cercanos primero) → carga MUCHO por frame sin freeze.
-            // Normal: lotes de 10/frame. En ambos, los colliders no-piso van diferidos → aparecer es mucho más rápido.
-            if (frontLoad)
-            {
-                if (SpawnPass(start, budget, floorsOnly: true)) return;
-                SpawnPass(start, budget, floorsOnly: false);
-            }
-            else
-            {
-                if (SpawnPass(start, budget, floorsOnly: true, noBudgetDistSq: 900f, maxCount: 10)) return;
-                SpawnPass(start, budget, floorsOnly: false, noBudgetDistSq: 900f, maxCount: 10);
             }
         }
 
@@ -181,36 +201,6 @@ namespace SlimeCorralSpawn.SceneBuilder
             SceneModelStore.SetFrontLoadMode(false);
             try { QualitySettings.asyncUploadBufferSize = _savedBufferSize; } catch { }
             try { QualitySettings.asyncUploadTimeSlice = _savedTimeSlice; } catch { }
-        }
-
-        private static HashSet<string> GetPendingKeys()
-        {
-            var set = new HashSet<string>();
-            foreach (var kv in _placed)
-                if (kv.Value.LinkedObject == null)
-                    set.Add(kv.Value.Zone + "/" + kv.Value.Key);
-            return set;
-        }
-
-        private static HashSet<string> GetClosePendingKeys(float distSq)
-        {
-            var set = new HashSet<string>();
-            foreach (var kv in _placed)
-            {
-                var p = kv.Value;
-                if (p.LinkedObject != null) continue;
-                if ((p.Position - _playerPos).sqrMagnitude <= distSq)
-                    set.Add(p.Zone + "/" + p.Key);
-            }
-            return set;
-        }
-
-        private static int CountPending()
-        {
-            int c = 0;
-            foreach (var kv in _placed)
-                if (kv.Value.LinkedObject == null) c++;
-            return c;
         }
 
         private static void UpdatePlayerPos()
@@ -225,61 +215,6 @@ namespace SlimeCorralSpawn.SceneBuilder
                 }
             }
             catch { }
-        }
-
-        private static void BatchEnsureOwnedCopies()
-        {
-            var seen = new System.Collections.Generic.HashSet<string>();
-            foreach (var kv in _placed)
-            {
-                var p = kv.Value;
-                if (p.LinkedObject != null) continue;
-                if (!seen.Add(p.Zone + "/" + p.Key)) continue;
-                var info = SceneModelLibrary.FindModel(p.Zone, p.Key);
-                if (info != null) try { SceneModelLibrary.EnsureOwnedCopy(info); } catch { }
-            }
-        }
-
-        private static bool SpawnPass(float start, float budget, bool floorsOnly, float noBudgetDistSq = -1f, int maxCount = int.MaxValue)
-        {
-            // #1 recolectar pendientes ordenados por cercanía al jugador
-            var sorted = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<float, PlacedSceneModel>>();
-            foreach (var kv in _placed)
-            {
-                var p = kv.Value;
-                if (p.LinkedObject != null) continue;
-                var info = SceneModelLibrary.FindModel(p.Zone, p.Key);
-                if (info == null || !SceneModelLibrary.CanSpawn(info)) continue;
-                if (SceneModelLibrary.IsFloorCategory(info) != floorsOnly) continue;
-                float dist = (p.Position - _playerPos).sqrMagnitude;
-                sorted.Add(new System.Collections.Generic.KeyValuePair<float, PlacedSceneModel>(dist, p));
-            }
-            if (sorted.Count > 1)
-                sorted.Sort((a, b) => a.Key.CompareTo(b.Key));
-
-            int spawned = 0;
-            foreach (var entry in sorted)
-            {
-                var p = entry.Value;
-                var info = SceneModelLibrary.FindModel(p.Zone, p.Key);
-                bool floor = SceneModelLibrary.IsFloorCategory(info);
-                bool wantsCol = SceneModelLibrary.ShouldCollide(info);
-                // PISOS: collider YA (los slimes se paran encima al instante). El resto (paredes/rocas/props):
-                // collider DIFERIDO por cola → cocinar el MeshCollider es lo más caro, así aparecer es MUCHO más rápido.
-                p.LinkedObject = SceneModelLibrary.Spawn(info, p.Position, p.Rotation, p.Scale, park: true, addColliders: floor && wantsCol);
-                if (p.LinkedObject != null)
-                {
-                    if (!floor && wantsCol) _colliderQ.Enqueue(p.LinkedObject);   // collider después (sin frenar la aparición)
-                    TouchMaterials(p.LinkedObject);
-                    p.BuiltFromDisk = !SceneModelLibrary.HasLiveSample(p.Zone, p.Key);
-                    if (++spawned >= maxCount) return true;   // lote completo este frame
-                    float d = entry.Key;
-                    // Sin budget para objetos cercanos (noBudgetDistSq), ni durante front-load
-                    if (noBudgetDistSq > 0f && d <= noBudgetDistSq) continue;
-                    if ((Time.realtimeSinceStartup - start) >= budget) return true;
-                }
-            }
-            return false;
         }
 
         /// <summary>#5: toca los materiales de un GameObject recién spawnedo para forzar que Unity
