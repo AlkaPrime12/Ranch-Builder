@@ -155,6 +155,7 @@ namespace SlimeCorralSpawn.SceneBuilder
             _lastRebuild = now;
             UpdatePlayerPos();
             _workList.Clear(); _workCursor = 0;
+            var pendKeys = new System.Collections.Generic.HashSet<string>();
             foreach (var kv in _placed)
             {
                 var p = kv.Value;
@@ -164,9 +165,12 @@ namespace SlimeCorralSpawn.SceneBuilder
                 try { SceneModelLibrary.EnsureOwnedCopy(info); } catch { }   // bake a disco (una vez por reconstrucción)
                 p.SortKey = (SceneModelLibrary.IsFloorCategory(info) ? 0f : 1e9f) + (p.Position - _playerPos).sqrMagnitude;
                 _workList.Add(p);
+                pendKeys.Add(p.Zone + "/" + p.Key);
             }
             if (_workList.Count > 1)
                 _workList.Sort((a, b) => a.SortKey.CompareTo(b.SortKey));
+            // Descomprimir sus texturas en SEGUNDO PLANO → cuando se spawneen, ya están listas (subida rápida).
+            try { SceneModelStore.PreloadTextureFor(pendKeys); } catch { }
         }
 
         /// <summary>Spawnea de la cola hasta llenar el budget de tiempo o el tope de cantidad. O(spawneados) por frame.</summary>

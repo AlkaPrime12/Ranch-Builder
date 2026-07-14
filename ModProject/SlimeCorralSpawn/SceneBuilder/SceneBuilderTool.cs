@@ -25,7 +25,7 @@ namespace SlimeCorralSpawn.SceneBuilder
         private static Vector3 _pos;
         private static Vector3 _frozen;
         private static bool _snap = true;
-        private static float _freeYOffset;   // subir/bajar el modelo respecto del piso en modo LIBRE (PageUp/PageDown)
+        private static float _freeYOffset;   // subir/bajar el modelo respecto del piso en modo LIBRE (flechas arriba/abajo)
         private static Vector3 _footprint = Vector3.one;
         private static Renderer[] _ghostRenderers;
         private static Vector3 _ghostBaseScale = Vector3.one;
@@ -145,9 +145,9 @@ namespace SlimeCorralSpawn.SceneBuilder
             EnsureGhost();
             if (_ghost == null) return;
 
-            // PageUp / PageDown: subir / bajar el modelo respecto del piso (también en modo LIBRE).
-            if (InputHelper.GetKey(KeyCode.PageUp)) _freeYOffset += 4f * Time.deltaTime;
-            if (InputHelper.GetKey(KeyCode.PageDown)) _freeYOffset -= 4f * Time.deltaTime;
+            // Flechas ARRIBA / ABAJO: subir / bajar el modelo respecto del piso (también en modo LIBRE).
+            if (InputHelper.GetKey(KeyCode.UpArrow)) _freeYOffset += 4f * Time.deltaTime;
+            if (InputHelper.GetKey(KeyCode.DownArrow)) _freeYOffset -= 4f * Time.deltaTime;
 
             // Posición base.
             if (_mode == Mode.Free)
@@ -167,8 +167,8 @@ namespace SlimeCorralSpawn.SceneBuilder
             }
             else
             {
-                if (_mode == Mode.Move && InputHelper.GetKey(KeyCode.PageUp)) _frozen.y += 2.5f * Time.deltaTime;
-                if (_mode == Mode.Move && InputHelper.GetKey(KeyCode.PageDown)) _frozen.y -= 2.5f * Time.deltaTime;
+                if (_mode == Mode.Move && InputHelper.GetKey(KeyCode.UpArrow)) _frozen.y += 2.5f * Time.deltaTime;
+                if (_mode == Mode.Move && InputHelper.GetKey(KeyCode.DownArrow)) _frozen.y -= 2.5f * Time.deltaTime;
                 _pos = _frozen;
             }
 
@@ -180,7 +180,7 @@ namespace SlimeCorralSpawn.SceneBuilder
 
             // Snap MAGNÉTICO a bordes (solo en LIBRE): el modelo SIGUE al cursor normalmente y SOLO se "pega" cuando su
             // borde queda cerca del borde de un objeto ya colocado (como un imán). Así encajan uno al lado del otro sin
-            // teletransportarse ni saltar (lo que rompía antes). No toca la altura (podés subirlo/bajarlo con PageUp/Down).
+            // teletransportarse ni saltar (lo que rompía antes). No toca la altura (podés subirlo/bajarlo con las flechas).
             if (_snap && _mode == Mode.Free)
             {
                 Bounds gb = GhostBounds();

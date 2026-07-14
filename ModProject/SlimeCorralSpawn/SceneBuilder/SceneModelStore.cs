@@ -67,6 +67,13 @@ namespace SlimeCorralSpawn.SceneBuilder
         // Modelos cuyos archivos ya se leyeron para pre-cargar texturas → NO re-abrirlos cada frame (evita "mil pasadas").
         private static readonly HashSet<string> _preloadDoneCks = new HashSet<string>();
 
+        // Descompresión de texturas EN SEGUNDO PLANO: lo pesado (leer .scstex + gunzip) se hace en hilos; el hilo
+        // principal solo sube a GPU (rápido). _texRaw guarda lo ya descomprimido listo para subir; _texInFlight evita
+        // encolar dos veces la misma. Tope de memoria: no descomprimir más de ~48 por delante (RAM acotada).
+        private struct RawTex { public int w, h; public byte[] data; }
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, RawTex> _texRaw = new System.Collections.Concurrent.ConcurrentDictionary<string, RawTex>();
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _texInFlight = new System.Collections.Concurrent.ConcurrentDictionary<string, byte>();
+
         // Modo front-load: carga rápida (sin mipmaps, upgrade más frecuente).
         internal static bool _frontLoadMode;
 
@@ -153,14 +160,8 @@ namespace SlimeCorralSpawn.SceneBuilder
                 string matp = MatPath(mn);
                 if (File.Exists(matp)) try { CollectTexKeys(matp, texKeys); } catch { }
             }
-            int loaded = 0;
-            foreach (var tk in texKeys)
-            {
-                if (_texCache.ContainsKey(tk)) continue;
-                LoadTex(tk);
-                loaded++;
-                if (loaded >= maxPerFrame) break;
-            }
+            // Descomprimir en SEGUNDO PLANO (no en el hilo principal) → cuando Spawn pida la textura, ya está lista.
+            WarmTexturesAsync(texKeys);
         }
 
         /// <summary>Pre-carga shaders de disco: los busca por nombre y los mete en la caché del store.
@@ -278,7 +279,7 @@ namespace SlimeCorralSpawn.SceneBuilder
                 _diskIndex.Clear(); _bakedModels.Clear(); _bakedMats.Clear(); _bakedTex.Clear();
                 foreach (var kv in _matCache) if (kv.Value != null) { try { UnityEngine.Object.Destroy(kv.Value); } catch { } }
                 foreach (var kv in _texCache) if (kv.Value != null) { try { UnityEngine.Object.Destroy(kv.Value); } catch { } }
-                _matCache.Clear(); _texCache.Clear(); _preloadDoneCks.Clear(); _entries.Clear(); _manifestDirty = false;
+                _matCache.Clear(); _texCache.Clear(); _preloadDoneCks.Clear(); _texRaw.Clear(); _texInFlight.Clear(); _entries.Clear(); _manifestDirty = false;
                 _indexFiles = null; _indexCursor = 0; _indexScanned = true; _indexStarted = true;   // no re-indexar lo borrado
                 try { if (Directory.Exists(Base)) Directory.Delete(Base, true); } catch { }
                 try { Directory.CreateDirectory(ModelsDir); Directory.CreateDirectory(MatsDir); Directory.CreateDirectory(TexDir); } catch { }
@@ -297,7 +298,7 @@ namespace SlimeCorralSpawn.SceneBuilder
                 _work.Clear(); _workTotal = 0; _workDone = 0; _applyRefreshWhenDone = false;
                 foreach (var kv in _matCache) if (kv.Value != null) { try { UnityEngine.Object.Destroy(kv.Value); } catch { } }
                 foreach (var kv in _texCache) if (kv.Value != null) { try { UnityEngine.Object.Destroy(kv.Value); } catch { } }
-                _matCache.Clear(); _texCache.Clear(); _preloadDoneCks.Clear(); _bakedMats.Clear(); _bakedTex.Clear(); _pending.Clear();
+                _matCache.Clear(); _texCache.Clear(); _preloadDoneCks.Clear(); _texRaw.Clear(); _texInFlight.Clear(); _bakedMats.Clear(); _bakedTex.Clear(); _pending.Clear();
                 try { Directory.CreateDirectory(ModelsDir); Directory.CreateDirectory(MatsDir); Directory.CreateDirectory(TexDir); } catch { }
 
                 // Todas las texturas y materiales fuera (todo pierde textura hasta re-guardar/actualizar).
@@ -402,7 +403,7 @@ namespace SlimeCorralSpawn.SceneBuilder
         public static void BeginTextureRefresh()
         {
             _bakedMats.Clear(); _bakedTex.Clear();
-            _matCache.Clear(); _texCache.Clear(); _preloadDoneCks.Clear();   // futuras reconstrucciones usan las texturas nuevas
+            _matCache.Clear(); _texCache.Clear(); _preloadDoneCks.Clear(); _texRaw.Clear(); _texInFlight.Clear();   // futuras reconstrucciones usan las texturas nuevas
             // (diagnóstico silencioso: _texDiag/_matDiagLoad quedan en 0 → no ensucia la consola)
         }
 
@@ -1587,28 +1588,69 @@ namespace SlimeCorralSpawn.SceneBuilder
             return m;
         }
 
+        /// <summary>Lee y descomprime un .scstex a bytes crudos RGBA. SOLO usa File/GZip/byte[] → seguro de llamar
+        /// desde un hilo de fondo (no toca la API de Unity).</summary>
+        private static bool ReadTexRaw(string key, out int w, out int h, out byte[] raw)
+        {
+            w = 0; h = 0; raw = null;
+            try
+            {
+                string p = TexPath(key);
+                if (!File.Exists(p)) return false;
+                using (var fs = File.OpenRead(p))
+                using (var br = new BinaryReader(fs))
+                {
+                    if (br.ReadUInt32() != 0x53545831u) return false;
+                    w = br.ReadInt32(); h = br.ReadInt32();
+                    if (w <= 0 || h <= 0 || w > 4096 || h > 4096) return false;
+                    using (var gz = new System.IO.Compression.GZipStream(fs, System.IO.Compression.CompressionMode.Decompress))
+                    using (var ms = new MemoryStream())
+                    { gz.CopyTo(ms); raw = ms.ToArray(); }
+                }
+                return raw != null && raw.Length >= w * h * 4;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>Lanza en SEGUNDO PLANO la lectura+descompresión de las texturas dadas (lo caro en CPU). Cuando
+        /// LoadTex las pida, ya estarán descomprimidas y solo se suben a GPU → carga mucho más fluida y rápida.</summary>
+        public static void WarmTexturesAsync(HashSet<string> texKeys)
+        {
+            if (texKeys == null) return;
+            foreach (var tk in texKeys)
+            {
+                if (string.IsNullOrEmpty(tk)) continue;
+                if (_texRaw.Count + _texInFlight.Count >= 48) break;   // no adelantar demasiado (RAM acotada)
+                if (_texCache.ContainsKey(tk) || _texRaw.ContainsKey(tk)) continue;
+                if (!_texInFlight.TryAdd(tk, 1)) continue;             // ya en curso
+                string key = tk;
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    try
+                    {
+                        int w, h; byte[] raw;
+                        if (ReadTexRaw(key, out w, out h, out raw))
+                            _texRaw[key] = new RawTex { w = w, h = h, data = raw };
+                    }
+                    catch { }
+                    finally { byte dummy; _texInFlight.TryRemove(key, out dummy); }
+                });
+            }
+        }
+
         private static Texture2D LoadTex(string key)
         {
             if (string.IsNullOrEmpty(key)) return null;
             if (_texCache.TryGetValue(key, out var c) && c != null) return c;
             try
             {
-                string p = TexPath(key);
-                if (!File.Exists(p)) return null;
-                int w, h; byte[] raw;
-                using (var fs = File.OpenRead(p))
-                using (var br = new BinaryReader(fs))
-                {
-                    if (br.ReadUInt32() != 0x53545831u) return null;
-                    w = br.ReadInt32(); h = br.ReadInt32();
-                    if (w <= 0 || h <= 0 || w > 4096 || h > 4096) return null;
-                    using (var gz = new System.IO.Compression.GZipStream(fs, System.IO.Compression.CompressionMode.Decompress))
-                    using (var ms = new MemoryStream())
-                    { gz.CopyTo(ms); raw = ms.ToArray(); }
-                }
+                int w, h; byte[] raw; RawTex pre;
+                if (_texRaw.TryRemove(key, out pre)) { w = pre.w; h = pre.h; raw = pre.data; }   // ya descomprimida en 2do plano
+                else if (!ReadTexRaw(key, out w, out h, out raw)) return null;                   // fallback sincrónico
                 if (raw == null || raw.Length < w * h * 4) return null;
 
-                var tex = new Texture2D(w, h, TextureFormat.RGBA32, true);
+                // Front-load: SIN cadena de mips → menos memoria y subida más rápida (calidad se recupera al re-clonar vivo).
+                var tex = new Texture2D(w, h, TextureFormat.RGBA32, !_frontLoadMode);
                 tex.hideFlags = HideFlags.HideAndDontSave;
                 try { tex.wrapMode = TextureWrapMode.Repeat; } catch { }
                 tex.SetPixelData(new Il2CppStructArray<byte>(raw), 0, 0);
