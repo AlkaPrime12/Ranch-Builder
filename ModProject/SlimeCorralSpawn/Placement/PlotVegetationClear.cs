@@ -17,7 +17,9 @@ namespace SlimeCorralSpawn.Placement
             try
             {
                 if (!TryGetBounds(plotGo, out Bounds b)) return;
-                FlattenGrassSDF(b);                                                   // pasto del juego (shader) → SDF
+                // NOTA: el aplanado de pasto por DynamicSDF quedó DESACTIVADO — causaba crash/traba al comprar un plot
+                // y encima no aplanaba el pasto. Se rehará con datos reales del log. Por ahora solo quitamos la
+                // vegetación (objetos) que colocó el jugador debajo, que es seguro.
                 try { SceneBuilder.SceneBuilderManager.RemovePlacedVegetationInBox(b); } catch { }  // vegetación del jugador
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("PlotVegetationClear.ClearUnder", ex); }

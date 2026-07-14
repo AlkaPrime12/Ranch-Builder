@@ -110,8 +110,8 @@ namespace SlimeCorralSpawn.SceneBuilder
             if (pending == 0) { if (_prevFrontLoad) RestoreGpuSettings(); return; }   // todo cargado → no más pasadas por frame
             float elapsed = Time.realtimeSinceStartup - _ctxSince;
 
-            // #2 front-load: solo mientras haya pendientes (hasta 6s, se extiende si >30)
-            bool frontLoad = pending > 0 && (elapsed < 6f || pending > 30);
+            // #2 front-load: mientras haya pendientes (hasta 8s, se mantiene mientras queden más de 12)
+            bool frontLoad = pending > 0 && (elapsed < 8f || pending > 12);
 
             // Guardar/restaurar settings de GPU al ENTRAR/SALIR del modo front-load
             if (frontLoad && !_prevFrontLoad)
@@ -131,7 +131,7 @@ namespace SlimeCorralSpawn.SceneBuilder
             float budget;
             if (frontLoad)
             {
-                budget = 0.05f;
+                budget = 0.012f;   // generoso pero ACOTADO → mete muchos modelos por frame SIN congelar (12 ms)
             }
             else if (dt > 0.05f)
             {
@@ -161,17 +161,17 @@ namespace SlimeCorralSpawn.SceneBuilder
                 }
             }
 
-            // Spawnear TODO de una durante front-load, o con budget reducido en normal
+            // Front-load: llenar los 12 ms/frame (pisos primero, cercanos primero) → carga MUCHO por frame sin freeze.
+            // Normal: lotes de 10/frame. En ambos, los colliders no-piso van diferidos → aparecer es mucho más rápido.
             if (frontLoad)
             {
-                SpawnPass(start, float.MaxValue, floorsOnly: true, noBudgetDistSq: float.MaxValue);
-                SpawnPass(start, float.MaxValue, floorsOnly: false, noBudgetDistSq: float.MaxValue);
+                if (SpawnPass(start, budget, floorsOnly: true)) return;
+                SpawnPass(start, budget, floorsOnly: false);
             }
             else
             {
-                // Modo normal: LOTES de 5 por frame (pisos primero) → aparecen de a varios, rápido y sin tirones.
-                if (SpawnPass(start, budget, floorsOnly: true, noBudgetDistSq: 900f, maxCount: 5)) return;
-                SpawnPass(start, budget, floorsOnly: false, noBudgetDistSq: 900f, maxCount: 5);
+                if (SpawnPass(start, budget, floorsOnly: true, noBudgetDistSq: 900f, maxCount: 10)) return;
+                SpawnPass(start, budget, floorsOnly: false, noBudgetDistSq: 900f, maxCount: 10);
             }
         }
 
@@ -262,12 +262,17 @@ namespace SlimeCorralSpawn.SceneBuilder
             {
                 var p = entry.Value;
                 var info = SceneModelLibrary.FindModel(p.Zone, p.Key);
-                p.LinkedObject = SceneModelLibrary.Spawn(info, p.Position, p.Rotation, p.Scale, park: true, addColliders: SceneModelLibrary.ShouldCollide(info));
+                bool floor = SceneModelLibrary.IsFloorCategory(info);
+                bool wantsCol = SceneModelLibrary.ShouldCollide(info);
+                // PISOS: collider YA (los slimes se paran encima al instante). El resto (paredes/rocas/props):
+                // collider DIFERIDO por cola → cocinar el MeshCollider es lo más caro, así aparecer es MUCHO más rápido.
+                p.LinkedObject = SceneModelLibrary.Spawn(info, p.Position, p.Rotation, p.Scale, park: true, addColliders: floor && wantsCol);
                 if (p.LinkedObject != null)
                 {
+                    if (!floor && wantsCol) _colliderQ.Enqueue(p.LinkedObject);   // collider después (sin frenar la aparición)
                     TouchMaterials(p.LinkedObject);
                     p.BuiltFromDisk = !SceneModelLibrary.HasLiveSample(p.Zone, p.Key);
-                    if (++spawned >= maxCount) return true;   // lote completo este frame (p.ej. 5 en 5)
+                    if (++spawned >= maxCount) return true;   // lote completo este frame
                     float d = entry.Key;
                     // Sin budget para objetos cercanos (noBudgetDistSq), ni durante front-load
                     if (noBudgetDistSq > 0f && d <= noBudgetDistSq) continue;
@@ -303,11 +308,26 @@ namespace SlimeCorralSpawn.SceneBuilder
             catch { }
         }
 
+        // Cola de colliders DIFERIDOS (no-pisos): se cocinan de a pocos por frame DESPUÉS de que el modelo apareció.
+        private static readonly System.Collections.Generic.Queue<GameObject> _colliderQ = new System.Collections.Generic.Queue<GameObject>();
+
         // Re-clona desde la instancia VIVA los colocados que se habían construido desde disco, en cuanto su zona
         // se carga → el material queda EXACTO (persistencia del look, sin tener que "Actualizar texturas" a mano).
         private static float _liveUpgradeThrottle;
-        public static void ProcessColliderQueue()   // (nombre histórico; ahora hace el re-clonado vivo)
+        public static void ProcessColliderQueue()   // colliders diferidos + re-clonado vivo
         {
+            // 1) Cocinar unos pocos colliders pendientes por frame (salvo en frames pesados) → sin hitch.
+            if (_colliderQ.Count > 0 && Time.deltaTime <= 0.05f)
+            {
+                int colBudget = 4;
+                while (_colliderQ.Count > 0 && colBudget-- > 0)
+                {
+                    var go = _colliderQ.Dequeue();
+                    if (go == null) continue;
+                    try { SceneModelLibrary.AddColliders(go); } catch { }
+                }
+            }
+
             if (_placed.Count == 0) return;
             if (Time.deltaTime > 0.05f) return;
             if ((_liveUpgradeThrottle += Time.deltaTime) < 0.5f) return;   // como mucho ~2 veces/seg
@@ -322,6 +342,21 @@ namespace SlimeCorralSpawn.SceneBuilder
                 p.LinkedObject = null; p.BuiltFromDisk = false;   // UpdateRetry lo re-spawnea desde la instancia viva
                 if (--budget <= 0) return;
             }
+        }
+
+        /// <summary>Devuelve el objeto COLOCADO vivo más cercano a 'pos' dentro de maxDist (para engancharse borde a
+        /// borde con él en el modo grilla). Barato: solo compara posiciones. 'exclude' se ignora (p.ej. el fantasma).</summary>
+        public static GameObject FindNearestPlacedObject(Vector3 pos, float maxDist, GameObject exclude = null)
+        {
+            GameObject best = null; float bestSq = maxDist * maxDist;
+            foreach (var kv in _placed)
+            {
+                var go = kv.Value.LinkedObject;
+                if (go == null || go == exclude) continue;
+                float d = (go.transform.position - pos).sqrMagnitude;
+                if (d < bestSq) { bestSq = d; best = go; }
+            }
+            return best;
         }
 
         public static void ResetLinksForSceneChange()

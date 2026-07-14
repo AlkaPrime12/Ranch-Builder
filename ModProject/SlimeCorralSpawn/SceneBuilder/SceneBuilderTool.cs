@@ -126,8 +126,14 @@ namespace SlimeCorralSpawn.SceneBuilder
 
             if (InputHelper.GetKeyDown(KeyCode.B)) _snap = !_snap;
             if (InputHelper.GetKeyDown(KeyCode.Backspace)) _rot = Quaternion.identity;
+            // Escala GRADUAL: cada muesca cambia ~6% del tamaño actual (multiplicativo → suave en chico y en grande).
+            // Antes era aditivo (+0.5 por muesca) y pegaba saltos enormes (se hacían gigantes o diminutos de golpe).
             float scroll = InputHelper.GetAxis("Mouse ScrollWheel");
-            if (Mathf.Abs(scroll) > 0.001f) _scale = Mathf.Clamp(_scale + scroll * 0.5f, 0.1f, 8f);
+            if (Mathf.Abs(scroll) > 0.001f)
+            {
+                float factor = 1f + Mathf.Sign(scroll) * 0.06f;
+                _scale = Mathf.Clamp(_scale * factor, 0.1f, 8f);
+            }
 
             // Q / E: girar hacia los lados (yaw sobre el eje Y del mundo), en cualquier modo, además del gizmo.
             float qe = 0f;
@@ -142,7 +148,16 @@ namespace SlimeCorralSpawn.SceneBuilder
             if (_mode == Mode.Free)
             {
                 Ray ray = cam.ScreenPointToRay(new Vector3(Screen.width / 2f, Screen.height / 2f, 0f));
-                _pos = Physics.Raycast(ray, out var hit, 200f) ? hit.point : cam.transform.position + cam.transform.forward * 20f;
+                // IGNORAR triggers (volúmenes invisibles de zona/agua) → antes el rayo "chocaba" con ellos y detectaba
+                // mal el suelo/aire. Si el rayo no toca nada sólido (apunta al cielo), sondear el PISO hacia abajo
+                // delante de la cámara en vez de dejar el modelo flotando lejos.
+                if (Physics.Raycast(ray, out var hit, 300f, ~0, QueryTriggerInteraction.Ignore))
+                    _pos = hit.point;
+                else if (Physics.Raycast(cam.transform.position + cam.transform.forward * 22f + Vector3.up * 100f,
+                                         Vector3.down, out var down, 400f, ~0, QueryTriggerInteraction.Ignore))
+                    _pos = down.point;
+                else
+                    _pos = cam.transform.position + cam.transform.forward * 20f;
             }
             else
             {
@@ -160,15 +175,36 @@ namespace SlimeCorralSpawn.SceneBuilder
             // Snap a grilla: solo en LIBRE (en MOVER se arrastra por eje con el delta del mouse).
             if (_snap && _mode == Mode.Free)
             {
-                Bounds b = GhostBounds();
-                Vector3 off = b.center - t.position;
-                Vector3 size = b.size;
-                // La celda = TAMAÑO COMPLETO del objeto → los centros quedan a un ancho de distancia y los BORDES
-                // se tocan (encajan sin traspasarse). (Antes era medio tamaño → se solapaban al colocar pegados.)
-                float cx = Mathf.Max(0.25f, size.x);
-                float cz = Mathf.Max(0.25f, size.z);
-                _pos.x = Mathf.Round((_pos.x + off.x) / cx) * cx - off.x;
-                _pos.z = Mathf.Round((_pos.z + off.z) / cz) * cz - off.z;
+                Bounds gb = GhostBounds();
+                Vector3 off = gb.center - t.position;   // pivote → centro visual
+
+                // PREFERIR engancharse al objeto colocado más cercano → quedan pegados BORDE A BORDE (lo que se
+                // espera del modo grilla: uno perfectamente al lado del otro, sin solaparse la mitad).
+                GameObject neigh = SceneBuilderManager.FindNearestPlacedObject(gb.center, gb.extents.magnitude + 8f, _ghost);
+                if (neigh != null && TryWorldBounds(neigh, out Bounds nb))
+                {
+                    Vector3 gc = gb.center;
+                    float dx = gc.x - nb.center.x, dz = gc.z - nb.center.z;
+                    if (Mathf.Abs(dx) >= Mathf.Abs(dz))   // se acerca por el eje X → pegar en X, alinear en Z
+                    {
+                        gc.x = dx >= 0f ? nb.max.x + gb.extents.x : nb.min.x - gb.extents.x;
+                        gc.z = nb.center.z;
+                    }
+                    else                                  // se acerca por el eje Z → pegar en Z, alinear en X
+                    {
+                        gc.z = dz >= 0f ? nb.max.z + gb.extents.z : nb.min.z - gb.extents.z;
+                        gc.x = nb.center.x;
+                    }
+                    _pos = gc - off;
+                }
+                else
+                {
+                    // Sin vecino cerca: grilla al TAMAÑO COMPLETO del objeto (borde a borde con la grilla del mundo).
+                    float cx = Mathf.Max(0.25f, gb.size.x);
+                    float cz = Mathf.Max(0.25f, gb.size.z);
+                    _pos.x = Mathf.Round((_pos.x + off.x) / cx) * cx - off.x;
+                    _pos.z = Mathf.Round((_pos.z + off.z) / cz) * cz - off.z;
+                }
                 if (_mode == Mode.Move) _frozen = _pos;
                 t.position = _pos;
             }
@@ -309,6 +345,24 @@ namespace SlimeCorralSpawn.SceneBuilder
             }
             catch { }
             return new Bounds(_pos, _footprint);
+        }
+
+        /// <summary>AABB en el mundo de un objeto colocado (para engancharse borde a borde con él).</summary>
+        private static bool TryWorldBounds(GameObject go, out Bounds b)
+        {
+            b = default; bool has = false;
+            try
+            {
+                var rends = go.GetComponentsInChildren<Renderer>(true);
+                if (rends != null)
+                    for (int i = 0; i < rends.Length; i++)
+                    {
+                        var r = rends[i]; if (r == null) continue;
+                        if (!has) { b = r.bounds; has = true; } else b.Encapsulate(r.bounds);
+                    }
+            }
+            catch { }
+            return has;
         }
 
         private static void EnsureGhost()
