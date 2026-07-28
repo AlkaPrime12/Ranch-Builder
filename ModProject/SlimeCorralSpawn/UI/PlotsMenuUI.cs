@@ -201,10 +201,13 @@ namespace SlimeCorralSpawn.UI
             if (IsVisible) SetCameraFrozen(true);
         }
 
+        private static int _stylesThemeVersion = -1;
+
         private static void InitStyles()
         {
-            if (stylesReady) return;
+            if (stylesReady && _stylesThemeVersion == SlimeTheme.Version) return;
             stylesReady = true;
+            _stylesThemeVersion = SlimeTheme.Version;
             try { BuildStyles(); }
             catch (Exception ex)
             {
@@ -230,69 +233,69 @@ namespace SlimeCorralSpawn.UI
             titleStyle.fontSize = 21;
             titleStyle.fontStyle = FontStyle.Bold;
             titleStyle.alignment = TextAnchor.MiddleLeft;
-            titleStyle.normal.textColor = SlimeTheme.TextWhite;
+            titleStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.TextWhite);
 
             subtitleStyle = new GUIStyle();
             subtitleStyle.fontSize = 12;
             subtitleStyle.alignment = TextAnchor.MiddleLeft;
-            subtitleStyle.normal.textColor = SlimeTheme.TextLightPink;
+            subtitleStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.TextLightPink);
 
             headerStyle = new GUIStyle();
             headerStyle.fontSize = 14;
             headerStyle.fontStyle = FontStyle.Bold;
             headerStyle.alignment = TextAnchor.MiddleLeft;
-            headerStyle.normal.textColor = SlimeTheme.GlowCyan;
+            headerStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.GlowCyan);
 
             labelStyle = new GUIStyle();
             labelStyle.fontSize = 13;
-            labelStyle.normal.textColor = SlimeTheme.TextWhite;
+            labelStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.TextWhite);
 
             smallLabelStyle = new GUIStyle();
             smallLabelStyle.fontSize = 11;
-            smallLabelStyle.normal.textColor = SlimeTheme.TextLightPink;
+            smallLabelStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.TextLightPink);
 
             tooltipStyle = new GUIStyle();
             tooltipStyle.fontSize = 11;
-            tooltipStyle.normal.textColor = SlimeTheme.TextLightPink;
+            tooltipStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.TextLightPink);
 
             priceStyle = new GUIStyle();
             priceStyle.fontSize = 14;
             priceStyle.fontStyle = FontStyle.Bold;
             priceStyle.alignment = TextAnchor.MiddleRight;
-            priceStyle.normal.textColor = SlimeTheme.SlimeGreen;
+            priceStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.SlimeGreen);
 
             tabStyle = new GUIStyle();
             tabStyle.fontSize = 12;
             tabStyle.fontStyle = FontStyle.Bold;
             tabStyle.alignment = TextAnchor.MiddleCenter;
-            tabStyle.normal.textColor = SlimeTheme.TextLightPink;
+            tabStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.TextLightPink);
             tabStyle.padding = new RectOffset(8, 8, 6, 6);
 
             tabActiveStyle = new GUIStyle();
             tabActiveStyle.fontSize = 12;
             tabActiveStyle.fontStyle = FontStyle.Bold;
             tabActiveStyle.alignment = TextAnchor.MiddleCenter;
-            tabActiveStyle.normal.textColor = SlimeTheme.TextWhite;
+            tabActiveStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.TextWhite);
             tabActiveStyle.padding = new RectOffset(8, 8, 6, 6);
 
             buyStyle = new GUIStyle();
             buyStyle.fontSize = 16;
             buyStyle.fontStyle = FontStyle.Bold;
             buyStyle.alignment = TextAnchor.MiddleCenter;
-            buyStyle.normal.textColor = SlimeTheme.CreamText;
+            buyStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.CreamText);
 
             bodyWrapStyle = new GUIStyle();
             bodyWrapStyle.fontSize = 14;
             bodyWrapStyle.wordWrap = true;
             bodyWrapStyle.alignment = TextAnchor.UpperLeft;
-            bodyWrapStyle.normal.textColor = SlimeTheme.TextWhite;
+            bodyWrapStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.TextWhite);
 
             cardNameStyle = new GUIStyle();
             cardNameStyle.fontSize = 11;
             cardNameStyle.fontStyle = FontStyle.Bold;
             cardNameStyle.alignment = TextAnchor.MiddleCenter;
             cardNameStyle.clipping = TextClipping.Clip;
-            cardNameStyle.normal.textColor = SlimeTheme.CreamText;
+            cardNameStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.CreamText);
         }
 
         public static void OnGUIStatic()
@@ -392,8 +395,20 @@ namespace SlimeCorralSpawn.UI
                 bool hover = tabRect.Contains(Event.current.mousePosition);
 
                 Color baseCol = active ? SlimeTheme.PrimaryPink : (hover ? SlimeTheme.BackgroundButtonHover : SlimeTheme.BackgroundButton);
-                FillVGradient(tabRect, Color.Lerp(baseCol, Color.white, 0.12f), Color.Lerp(baseCol, Color.black, 0.08f), 6);
-                Fill(new Rect(tabRect.x, tabRect.y, tabRect.width, 1), new Color(1f, 1f, 1f, 0.12f));
+                // La pestaña activa "sube" un poquito (rebote cute); el hover late suave.
+                float lift = active ? 3f : 0f;
+                Rect drawRect = new Rect(tabRect.x, tabRect.y - lift, tabRect.width, tabRect.height + lift);
+                if (active) Fill(new Rect(drawRect.x + 2, drawRect.y + 3, drawRect.width, drawRect.height), new Color(0f, 0f, 0f, 0.22f));
+                FillVGradient(drawRect, Color.Lerp(baseCol, Color.white, hover ? 0.20f : 0.12f), Color.Lerp(baseCol, Color.black, 0.08f), 6);
+                Fill(new Rect(drawRect.x, drawRect.y, drawRect.width, 1), new Color(1f, 1f, 1f, 0.14f));
+                if (active)
+                {
+                    // Gotita de slime cian que "gotea" desde arriba de la pestaña activa (latido suave).
+                    float pulse = 0.5f + 0.5f * Mathf.Sin(Time.realtimeSinceStartup * 3f);
+                    Themes.SlimeDecor.Drop(drawRect.center.x, drawRect.y + 2f, 6f + pulse * 1.5f,
+                        new Color(SlimeTheme.GlowCyan.r, SlimeTheme.GlowCyan.g, SlimeTheme.GlowCyan.b, 0.5f));
+                }
+                tabRect = drawRect;
 
                 bool clicked = false;
                 Event e = Event.current;
@@ -404,7 +419,7 @@ namespace SlimeCorralSpawn.UI
                 }
 
                 Color prev = GUI.color;
-                GUI.color = active ? SlimeTheme.CreamText : SlimeTheme.TextWhite;
+                GUI.color = SlimeTheme.Themed(active ? SlimeTheme.CreamText : SlimeTheme.TextWhite);
                 GUIStyle ts = active ? tabActiveStyle : tabStyle;
                 GUI.Label(tabRect, new GUIContent(labels[i]), ts);
                 GUI.color = prev;
@@ -455,6 +470,12 @@ namespace SlimeCorralSpawn.UI
             { Loc.Cycle(); }
             if (langRect.Contains(Event.current.mousePosition)) tooltipText = Loc.T("cfg_lang_hint");
             y += 56f;
+
+            // Modo oscuro: tiñe TODA la GUI del mod al instante (mismo frame), sin reiniciar.
+            Rect darkRect = new Rect(x, y, w, 36);
+            if (ClickableBox(darkRect, (SlimeTheme.DarkMode ? "[X] " : "[  ] ") + Loc.T("cfg_dark_mode"), SlimeTheme.BackgroundButton, labelStyle))
+                SlimeTheme.ToggleDarkMode();
+            y += 44f;
 
             GUI.Label(new Rect(x, y, w, 22), new GUIContent(Loc.T("cfg_options")), headerStyle);
             y += 30f;
@@ -875,7 +896,7 @@ namespace SlimeCorralSpawn.UI
                 bool active = structCat == CatOrder[i];
                 bool hover = r.Contains(Event.current.mousePosition);
                 Fill(r, active ? SlimeTheme.PrimaryPink : (hover ? SlimeTheme.BackgroundButtonHover : SlimeTheme.BackgroundButton));
-                Color prev = GUI.color; GUI.color = active ? SlimeTheme.CreamText : SlimeTheme.TextWhite;
+                Color prev = GUI.color; GUI.color = SlimeTheme.Themed(active ? SlimeTheme.CreamText : SlimeTheme.TextWhite);
                 GUI.Label(r, new GUIContent(CatName(i)), tabStyle);
                 GUI.color = prev;
                 if (hover && Event.current.type == EventType.MouseDown && Event.current.button == 0)
@@ -951,13 +972,9 @@ namespace SlimeCorralSpawn.UI
             return (string.IsNullOrEmpty(t) || t.StartsWith("scbcat_")) ? cat : t;
         }
 
-        private static string PrettyZone(string zone)
-        {
-            if (string.IsNullOrEmpty(zone)) return zone;
-            string s = zone.StartsWith("zone") ? zone.Substring(4) : zone;
-            s = s.Replace("_", " ");
-            return s.Length == 0 ? zone : s;
-        }
+        // Nombres de zona legibles: compartidos con el Scene Tool vía SceneModelLibrary.PrettyZone
+        // (una sola fuente de verdad para el diccionario español, en vez de dos copias).
+        private static string PrettyZone(string zone) => SceneBuilder.SceneModelLibrary.PrettyZone(zone);
 
         private static void DrawSceneBuilderTab(float x, ref float y, float w)
         {
@@ -991,9 +1008,13 @@ namespace SlimeCorralSpawn.UI
             { SceneBuilder.SceneBuilderTool.StartSceneTool(); CloseMenu(); }
             y += 32f;
 
-            // Botón modo borrar escena: apuntás y click para borrar modelos colocados.
+            // Botón modo borrar escena: apuntás y click para borrar modelos colocados (mismo editor unificado).
             if (ClickableBox(new Rect(x, y, w, 28), Loc.T("scb_del_tool_btn"), new Color(0.50f, 0.16f, 0.16f, 0.95f), labelStyle))
-            { SceneBuilder.SceneDeleteTool.Start(); CloseMenu(); }
+            {
+                SceneBuilder.SceneBuilderTool.StartSceneTool();
+                SceneBuilder.SceneBuilderTool.SetToolMode(SceneBuilder.ToolMode.Delete);
+                CloseMenu();
+            }
             y += 32f;
             if (SceneBuilder.SceneModelStore.Working)
             {
@@ -1664,7 +1685,7 @@ namespace SlimeCorralSpawn.UI
             Fill(tr, new Color(0.18f, 0.24f, 0.35f, 0.97f));               // navy
             Fill(new Rect(tr.x, tr.y, 3, tr.height), SlimeTheme.BackgroundButtonActive); // teal accent
             Color prev = GUI.color;
-            GUI.color = SlimeTheme.CreamText;
+            GUI.color = SlimeTheme.Themed(SlimeTheme.CreamText);
             GUI.Label(new Rect(tr.x + 10, tr.y + 4, tr.width - 16, 22), new GUIContent(tooltipText), tooltipStyle);
             GUI.color = prev;
         }
@@ -1672,7 +1693,7 @@ namespace SlimeCorralSpawn.UI
         private static void Fill(Rect rect, Color color)
         {
             Color prev = GUI.color;
-            GUI.color = color;
+            GUI.color = SlimeTheme.Themed(color);
             GUI.DrawTexture(rect, Texture2D.whiteTexture);
             GUI.color = prev;
         }
@@ -1720,6 +1741,9 @@ namespace SlimeCorralSpawn.UI
             Color bottom = Color.Lerp(Color.Lerp(SlimeTheme.BackgroundDark, Color.black, 0.05f), SlimeTheme.GlowCyan, 0.06f);
             FillVGradient(rect, top, bottom, 28);
 
+            // Manchas de slime decorativas (detrás del contenido, muy sutiles) → look Slime Rancher sin molestar.
+            Themes.SlimeDecor.Corner(rect);
+
             // Borde rosa + realce interior claro arriba (bisel suave).
             Color border = SlimeTheme.PrimaryPink;
             Fill(new Rect(rect.x, rect.y, rect.width, 3), border);
@@ -1740,15 +1764,16 @@ namespace SlimeCorralSpawn.UI
 
         private static Texture2D GradTex(Color top, Color bottom)
         {
-            string key = ColKey(top) + "|" + ColKey(bottom);
+            string key = SlimeTheme.Version + "|" + ColKey(top) + "|" + ColKey(bottom);
             if (_gradCache.TryGetValue(key, out var t) && t != null) return t;
+            Color themedTop = SlimeTheme.Themed(top), themedBottom = SlimeTheme.Themed(bottom);
             const int H = 64;
             t = new Texture2D(1, H, TextureFormat.RGBA32, false);
             t.wrapMode = TextureWrapMode.Clamp;
             t.filterMode = FilterMode.Bilinear;
             t.hideFlags = HideFlags.HideAndDontSave;
             var cols = new Color[H];
-            for (int y = 0; y < H; y++) cols[y] = Color.Lerp(bottom, top, y / (float)(H - 1));   // y=0 abajo, y=H-1 arriba
+            for (int y = 0; y < H; y++) cols[y] = Color.Lerp(themedBottom, themedTop, y / (float)(H - 1));   // y=0 abajo, y=H-1 arriba
             t.SetPixels(cols);
             t.Apply(false, false);
             _gradCache[key] = t;
@@ -1772,6 +1797,9 @@ namespace SlimeCorralSpawn.UI
             FillVGradient(titleRect, SlimeTheme.BackgroundPanel, Color.Lerp(SlimeTheme.BackgroundPanel, SlimeTheme.PrimaryPink, 0.14f), 10);
             Fill(new Rect(titleRect.x, titleRect.y, 6, titleRect.height), SlimeTheme.PrimaryPink);
             Fill(new Rect(titleRect.x, titleRect.yMax - 4, titleRect.width, 4), SlimeTheme.BackgroundButtonActive);
+            // Gotitas de slime decorativas a la derecha del banner (detrás del texto, sutiles).
+            Themes.SlimeDecor.Drop(titleRect.xMax - 34f, titleRect.y + 20f, 16f, new Color(SlimeTheme.PrimaryPink.r, SlimeTheme.PrimaryPink.g, SlimeTheme.PrimaryPink.b, 0.16f));
+            Themes.SlimeDecor.Drop(titleRect.xMax - 60f, titleRect.y + 40f, 9f, new Color(SlimeTheme.GlowCyan.r, SlimeTheme.GlowCyan.g, SlimeTheme.GlowCyan.b, 0.14f));
             // Sheen: una banda de luz suave recorre el banner lentamente (efecto sutil, se siente "vivo").
             float sx = titleRect.x + Mathf.Repeat(Time.realtimeSinceStartup * 45f, titleRect.width + 140f) - 70f;
             for (int i = 0; i < 4; i++)
@@ -1804,11 +1832,13 @@ namespace SlimeCorralSpawn.UI
             return clicked;
         }
 
-        /// <summary>Texto navy sobre fondos claros (crema), crema sobre fondos oscuros (rosa/teal).</summary>
+        /// <summary>Texto navy sobre fondos claros (crema), crema sobre fondos oscuros (rosa/teal). Calcula el
+        /// contraste contra el color YA temateado (lo que realmente se va a pintar), no el original.</summary>
         private static Color AutoText(Color bg)
         {
-            float lum = bg.r * 0.299f + bg.g * 0.587f + bg.b * 0.114f;
-            return lum < 0.55f ? SlimeTheme.CreamText : SlimeTheme.TextWhite;
+            Color themedBg = SlimeTheme.Themed(bg);
+            float lum = themedBg.r * 0.299f + themedBg.g * 0.587f + themedBg.b * 0.114f;
+            return lum < 0.55f ? SlimeTheme.Themed(SlimeTheme.CreamText) : SlimeTheme.Themed(SlimeTheme.TextWhite);
         }
 
         private static bool ClickableBoxSmall(Rect rect, string text, bool active)
@@ -1824,7 +1854,7 @@ namespace SlimeCorralSpawn.UI
             if (e.type == EventType.MouseDown && e.button == 0 && hover) { clicked = true; e.Use(); }
 
             Color prev = GUI.color;
-            GUI.color = active ? SlimeTheme.CreamText : SlimeTheme.TextWhite;
+            GUI.color = SlimeTheme.Themed(active ? SlimeTheme.CreamText : SlimeTheme.TextWhite);
             GUI.Label(rect, new GUIContent(text), smallLabelStyle);
             GUI.color = prev;
             return clicked;

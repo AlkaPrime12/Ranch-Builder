@@ -15,7 +15,7 @@ namespace SlimeCorralSpawn.SceneBuilder
         public Quaternion Rotation;
         public float Scale = 1f;
         public GameObject LinkedObject;   // el clon vivo (null hasta que UpdateRetry lo re-crea)
-        public bool BuiltFromDisk;        // true si se clonó desde disco (para re-clonarlo desde la instancia viva luego)
+        public bool BuiltFromDisk;        // true = es la copia PROPIA de disco (se ve algo flat); pasar al material VIVO cuando su zona cargue
         public float SortKey;             // orden de carga (pisos y cercanos primero); lo calcula RebuildWorkList
     }
 
@@ -33,10 +33,12 @@ namespace SlimeCorralSpawn.SceneBuilder
         public static GameObject PlaceAndSave(SceneModelInfo info, Vector3 pos, Quaternion rot, float scale)
         {
             if (info == null) return null;
-            // Asegurar la copia PROPIA (de disco) ANTES de spawnear → lo colocado usa el material propio, que NO
-            // se rompe al descargar la zona (el material vivo del juego sí se rompe).
+            // Encolar el horneado a disco (para tener la copia PROPIA independiente + colisión). Mientras tanto
+            // spawneamos preferOwned=true: si ya está horneada usa la copia PROPIA (mallas legibles → collider OK
+            // + independiente del original); si no, cae al clon vivo como preview y el swap lo actualiza al terminar.
             try { SceneModelLibrary.EnsureOwnedCopy(info); } catch { }
             var go = SceneModelLibrary.Spawn(info, pos, rot, scale, park: true, addColliders: SceneModelLibrary.ShouldCollide(info));
+            bool ownedDisk = SceneModelLibrary.LastSpawnOwned;
             if (go == null) return null;
 
             var entry = new PlacedSceneModel
@@ -48,6 +50,7 @@ namespace SlimeCorralSpawn.SceneBuilder
                 Rotation = rot,
                 Scale = scale <= 0f ? 1f : scale,
                 LinkedObject = go,
+                BuiltFromDisk = ownedDisk,   // si arrancó de disco (flat), el swap lo pasa al material vivo al cargar la zona
             };
             _placed[entry.UniqueId] = entry;
 
@@ -171,6 +174,9 @@ namespace SlimeCorralSpawn.SceneBuilder
                 _workList.Sort((a, b) => a.SortKey.CompareTo(b.SortKey));
             // Descomprimir sus texturas en SEGUNDO PLANO → cuando se spawneen, ya están listas (subida rápida).
             try { SceneModelStore.PreloadTextureFor(pendKeys); } catch { }
+            // Pre-buscar los SHADERS reales de lo colocado → la reconstrucción los encuentra al toque (menos
+            // fallback Unlit blanco/gris; el material se ve bien antes).
+            try { SceneModelStore.PreloadShadersFor(pendKeys); } catch { }
         }
 
         /// <summary>Spawnea de la cola hasta llenar el budget de tiempo o el tope de cantidad. O(spawneados) por frame.</summary>
@@ -186,13 +192,15 @@ namespace SlimeCorralSpawn.SceneBuilder
                 if (info == null || !SceneModelLibrary.CanSpawn(info)) continue;
                 bool floor = SceneModelLibrary.IsFloorCategory(info);
                 bool wantsCol = SceneModelLibrary.ShouldCollide(info);
-                // PISOS: collider YA (los slimes se paran encima). El resto: collider DIFERIDO (cola) → aparecer más rápido.
+                // Al cargar la partida: material VIVO si su zona está cargada (perfecto), si no la copia de disco.
+                // PISOS: collider YA (los slimes se paran encima). El resto: collider DIFERIDO (cola).
                 p.LinkedObject = SceneModelLibrary.Spawn(info, p.Position, p.Rotation, p.Scale, park: true, addColliders: floor && wantsCol);
+                bool ownedDisk = SceneModelLibrary.LastSpawnOwned;
                 if (p.LinkedObject != null)
                 {
                     if (!floor && wantsCol) _colliderQ.Enqueue(p.LinkedObject);
                     TouchMaterials(p.LinkedObject);
-                    p.BuiltFromDisk = !SceneModelLibrary.HasLiveSample(p.Zone, p.Key);
+                    p.BuiltFromDisk = ownedDisk;   // de disco (flat) → el swap lo pasa al material vivo cuando cargue la zona
                     if (++spawned >= maxCount) return;
                     if ((Time.realtimeSinceStartup - start) >= budget) return;
                 }
@@ -255,10 +263,10 @@ namespace SlimeCorralSpawn.SceneBuilder
         private static float _liveUpgradeThrottle;
         public static void ProcessColliderQueue()   // colliders diferidos + re-clonado vivo
         {
-            // 1) Cocinar unos pocos colliders pendientes por frame (salvo en frames pesados) → sin hitch.
+            // 1) Cocinar colliders pendientes por frame (salvo en frames pesados) → sin hitch.
             if (_colliderQ.Count > 0 && Time.deltaTime <= 0.05f)
             {
-                int colBudget = 4;
+                int colBudget = 8;   // más presupuesto → la colisión llega antes (el usuario reportaba pérdidas)
                 while (_colliderQ.Count > 0 && colBudget-- > 0)
                 {
                     var go = _colliderQ.Dequeue();
@@ -268,18 +276,91 @@ namespace SlimeCorralSpawn.SceneBuilder
             }
 
             if (_placed.Count == 0) return;
+
+            // 1.5) BARRIDO DE SEGURIDAD de colisiones: recorrer de a pocos los colocados sólidos y re-agregar el
+            // collider si por alguna razón se perdió (garantía "ningún modelo pierde colisión al guardar/cargar").
+            EnsureCollidersSweep();
+
             if (Time.deltaTime > 0.05f) return;
-            if ((_liveUpgradeThrottle += Time.deltaTime) < 0.5f) return;   // como mucho ~2 veces/seg
+            if ((_liveUpgradeThrottle += Time.deltaTime) < 0.25f) return;   // ~4 pasadas/seg
             _liveUpgradeThrottle = 0f;
-            int budget = 2;   // pocos por pasada → sin hitch
+            int budget = 3;   // pocos por pasada → sin hitch
+            var toSwap = new System.Collections.Generic.List<PlacedSceneModel>();
             foreach (var kv in _placed)
             {
                 var p = kv.Value;
+                // Lo que arrancó de DISCO (flat) y ahora su zona está CARGADA → pasarlo al material VIVO (perfecto).
                 if (p == null || !p.BuiltFromDisk || p.LinkedObject == null) continue;
-                if (!SceneModelLibrary.HasLiveSample(p.Zone, p.Key)) continue;   // su zona aún no está cargada
-                try { UnityEngine.Object.Destroy(p.LinkedObject); } catch { }
-                p.LinkedObject = null; p.BuiltFromDisk = false;   // UpdateRetry lo re-spawnea desde la instancia viva
-                if (--budget <= 0) return;
+                if (!SceneModelLibrary.HasLiveSample(p.Zone, p.Key)) continue;
+                toSwap.Add(p);
+                if (toSwap.Count >= budget) break;
+            }
+            foreach (var p in toSwap)
+            {
+                var info = SceneModelLibrary.FindModel(p.Zone, p.Key);
+                if (info == null) continue;
+                // UPGRADE a v6: si el archivo de disco es viejo (v5: sin Y original + posiblemente 1 sola parte),
+                // re-hornearlo ahora que hay muestra viva → la próxima vez cross-zone se ve perfecto (todas las
+                // partes + ramp compensado). En 2do plano, presupuestado.
+                try { SceneModelLibrary.EnsureOwnedCopy(info); } catch { }
+                bool wantsCol = SceneModelLibrary.ShouldCollide(info);
+                // SWAP SIN HUECO al material VIVO (perfecto): construir la fresca con collider ANTES de destruir la
+                // vieja → nunca desaparece ni un frame (los slimes encima no se caen).
+                var fresh = SceneModelLibrary.Spawn(info, p.Position, p.Rotation, p.Scale, park: true, addColliders: wantsCol);
+                if (fresh == null || SceneModelLibrary.LastSpawnOwned) { try { if (fresh != null) UnityEngine.Object.Destroy(fresh); } catch { } continue; }  // seguir de disco hasta tener el vivo
+                var old = p.LinkedObject;
+                // DIAG: comparar el VIVO (fresh) contra el RECONSTRUIDO de disco (old) antes de destruir el viejo →
+                // ground truth de qué difiere (por qué el de disco se ve distinto).
+                try { SceneModelLibrary.CompareLiveVsDisk(fresh, old); } catch { }
+                p.LinkedObject = fresh;
+                p.BuiltFromDisk = false;
+                TouchMaterials(fresh);
+                try { if (old != null) UnityEngine.Object.Destroy(old); } catch { }
+            }
+        }
+
+        // ── PRUEBA F7: exagerar el ramp de TODO lo colocado (+40 / volver) para ver a simple vista si el ramp
+        // controla el aspecto. Si al presionar F7 el mundo cambia dramáticamente → el ramp ES la palanca. Si no
+        // cambia nada → el ramp no afecta el síntoma visible y hay que buscar en otro lado.
+        private static bool _extremeRamp;
+        public static void DebugToggleExtremeRamp()
+        {
+            _extremeRamp = !_extremeRamp;
+            float d = _extremeRamp ? 40f : -40f;
+            int n = 0;
+            foreach (var kv in _placed)
+            {
+                var go = kv.Value != null ? kv.Value.LinkedObject : null;
+                if (go == null) continue;
+                try { SceneModelLibrary.ApplyHeightRampOffset(go, d); n++; } catch { }
+            }
+            try { ModEntry.LogInfo($"[RampTest] EXTREMO={_extremeRamp} (deltaY {(d > 0 ? "+" : "")}{d}) aplicado a {n} props colocados → ¿cambió algo a simple vista?"); } catch { }
+        }
+
+        // Barrido incremental de colisiones (cursor por el dict) para no recorrer todo cada frame.
+        private static float _colSweepThrottle;
+        private static readonly System.Collections.Generic.List<string> _colSweepKeys = new System.Collections.Generic.List<string>();
+        private static int _colSweepCursor;
+        private static void EnsureCollidersSweep()
+        {
+            if (Time.deltaTime > 0.05f) return;
+            if ((_colSweepThrottle += Time.deltaTime) < 1f) return;   // ~1 vez/seg
+            _colSweepThrottle = 0f;
+            if (_colSweepCursor >= _colSweepKeys.Count)
+            { _colSweepKeys.Clear(); _colSweepKeys.AddRange(_placed.Keys); _colSweepCursor = 0; }
+            int budget = 6;
+            while (_colSweepCursor < _colSweepKeys.Count && budget-- > 0)
+            {
+                var k = _colSweepKeys[_colSweepCursor++];
+                if (!_placed.TryGetValue(k, out var p) || p == null || p.LinkedObject == null) continue;
+                var info = SceneModelLibrary.FindModel(p.Zone, p.Key);
+                if (info == null || !SceneModelLibrary.ShouldCollide(info)) continue;
+                try
+                {
+                    if (p.LinkedObject.GetComponentInChildren<Collider>(true) == null)
+                        SceneModelLibrary.AddColliders(p.LinkedObject);   // se perdió → re-agregar
+                }
+                catch { }
             }
         }
 

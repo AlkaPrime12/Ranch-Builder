@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Slime Corral Spawn", "1.9.0", "SlimeRancherModder")]
+[assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Custom Ranch Builder", "2.0.0", "AlkaPrime12")]
 [assembly: MelonGame("MonomiPark", "SlimeRancher2")]
 
 namespace SlimeCorralSpawn
@@ -33,9 +33,14 @@ namespace SlimeCorralSpawn
         private static string _activeSlot;
         private static float _nextSlotCheck;
 
+        // Marca de build: si NO ves esta línea EXACTA en el log, estás corriendo un DLL VIEJO (el juego estaba
+        // abierto al copiar). Cambia el texto cada build importante para poder confirmar cuál está cargado.
+        public const string BuildTag = "UPGRADE-V6.3 · v5→v6 + re-spawn auto confirmado (disco = clon exacto del vivo); CMP sin spam";
+
         public override void OnInitializeMelon()
         {
             Instance = this;
+            try { LoggerInstance.Msg("======== [SCS] " + BuildTag + " ========"); } catch { }
 
             try { Themes.UITextures.Initialize(); }
             catch (Exception ex) { LogErrorOnce("UITextures.Initialize", ex); }
@@ -129,7 +134,7 @@ namespace SlimeCorralSpawn
                 catch (Exception ex) { LogErrorOnce("SceneForceLoader.Tick", ex); }
 
                 // Miniaturas: 1 render por frame, solo cuando el menú está abierto (lo pide DrawSceneBuilderTab).
-                try { if (UI.PlotsMenuUI.IsVisible) SceneBuilder.SceneThumbnailRenderer.Tick(); }
+                try { if (UI.PlotsMenuUI.IsVisible || SceneBuilder.SceneBuilderTool.ToolOpen) SceneBuilder.SceneThumbnailRenderer.Tick(); }
                 catch (Exception ex) { LogErrorOnce("SceneThumbnailRenderer.Tick", ex); }
             }
 
@@ -154,11 +159,16 @@ namespace SlimeCorralSpawn
             try { Placement.PrefabTool.UpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("PrefabTool.UpdateStatic", ex); }
 
+            try { SceneBuilder.SceneBuilderTool.CheckGlobalHotkey(); }
+            catch (Exception ex) { LogErrorOnce("SceneBuilderTool.CheckGlobalHotkey", ex); }
+
+            // PRUEBA DIAGNÓSTICA F7: exagera el ramp (+40) de todo lo colocado y lo vuelve. Sirve para ver a simple
+            // vista si el ramp controla el aspecto de los props (montañas/mounds/corales) o si es un callejón.
+            try { if (InputHelper.GetKeyDown(KeyCode.F7)) SceneBuilder.SceneBuilderManager.DebugToggleExtremeRamp(); }
+            catch (Exception ex) { LogErrorOnce("DebugToggleExtremeRamp", ex); }
+
             try { SceneBuilder.SceneBuilderTool.UpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("SceneBuilderTool.UpdateStatic", ex); }
-
-            try { SceneBuilder.SceneDeleteTool.UpdateStatic(); }
-            catch (Exception ex) { LogErrorOnce("SceneDeleteTool.UpdateStatic", ex); }
 
             try { Placement.FreeDrawTool.UpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("FreeDrawTool.UpdateStatic", ex); }
@@ -315,8 +325,8 @@ namespace SlimeCorralSpawn
             try { SceneBuilder.SceneBuilderTool.OnGUIStatic(); }
             catch (Exception ex) { LogErrorOnce("SceneBuilderTool.OnGUIStatic", ex); }
 
-            try { SceneBuilder.SceneDeleteTool.OnGUIStatic(); }
-            catch (Exception ex) { LogErrorOnce("SceneDeleteTool.OnGUIStatic", ex); }
+            try { SceneBuilder.SceneToolGUI.OnGUIStatic(); }
+            catch (Exception ex) { LogErrorOnce("SceneToolGUI.OnGUIStatic", ex); }
 
             try { Placement.FreeDrawTool.OnGUIStatic(); }
             catch (Exception ex) { LogErrorOnce("FreeDrawTool.OnGUIStatic", ex); }

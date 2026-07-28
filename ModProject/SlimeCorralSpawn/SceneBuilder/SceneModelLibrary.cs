@@ -18,6 +18,9 @@ namespace SlimeCorralSpawn.SceneBuilder
         public Transform Sample;    // una instancia viva (fuente para clonar/preview en fases 2-3)
         public string SamplePath;   // ruta de la muestra (debug)
         public bool ParkQueued;     // ya está en la cola de auto-parking (evita re-encolar)
+        // Partes HERMANAS que forman UN mismo prop (árbol = tronco + hojas separados sin padre común). Si tiene
+        // >1, SourceFor arma un objeto sintético que las junta → se clona/hornea el prop ENTERO, no partido.
+        public System.Collections.Generic.List<Transform> Parts;
     }
 
     /// <summary>
@@ -68,16 +71,112 @@ namespace SlimeCorralSpawn.SceneBuilder
             if (_aggZones.Count > 0 && Time.realtimeSinceStartup - _aggBuilt < 0.5f) return;   // throttle
             _aggDirty = false; _aggBuilt = Time.realtimeSinceStartup;
             _agg.Clear();
-            foreach (var m in _catalog.Values)
+            // Agrupamos por ZONA REAL del juego (Ember Valley, etc.), no por la raíz interna (zoneGorge_Area1,
+            // gully-01…). Dentro de un grupo+categoría deduplicamos por Key (el mismo prop aparece en varias
+            // sub-zonas): nos quedamos con la instancia con Sample VIVO (mejor fuente) o la de mayor Count.
+            // Trabajamos sobre una COPIA de _catalog.Values (ToArray) por si el escaneo agrega mientras iteramos.
+            SceneModelInfo[] snapshot;
+            try { snapshot = new List<SceneModelInfo>(_catalog.Values).ToArray(); }
+            catch { _aggDirty = true; return; }   // catálogo mutando → reintentar el próximo frame
+            foreach (var m in snapshot)
             {
-                if (m == null) continue;
-                if (!_agg.TryGetValue(m.Zone, out var cats))
-                { cats = new SortedDictionary<string, List<SceneModelInfo>>(StringComparer.OrdinalIgnoreCase); _agg[m.Zone] = cats; }
+                if (m == null || string.IsNullOrEmpty(m.Zone) || string.IsNullOrEmpty(m.Category)) continue;
+                string groupId = ZoneGroupId(m.Zone);
+                if (string.IsNullOrEmpty(groupId)) continue;
+                if (!_agg.TryGetValue(groupId, out var cats))
+                { cats = new SortedDictionary<string, List<SceneModelInfo>>(StringComparer.OrdinalIgnoreCase); _agg[groupId] = cats; }
                 if (!cats.TryGetValue(m.Category, out var list)) { list = new List<SceneModelInfo>(); cats[m.Category] = list; }
                 list.Add(m);
             }
-            foreach (var cats in _agg.Values) foreach (var l in cats.Values) l.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
-            _aggZones = new List<string>(_agg.Keys);
+            // Dedup + sort de cada lista SIN modificar el diccionario mientras se itera (antes reasignaba
+            // cats[kv.Key] durante el foreach → "Collection was modified"). Mutamos la List existente en su lugar.
+            foreach (var cats in _agg.Values)
+                foreach (var list in cats.Values)
+                {
+                    var deduped = DedupeByKey(list);
+                    deduped.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
+                    list.Clear();
+                    list.AddRange(deduped);
+                }
+            // Ordenar los grupos con el orden "canónico" del juego (base primero, etc.), no alfabético.
+            var keys = new List<string>(_agg.Keys);
+            keys.Sort((a, b) => ZoneRank(a).CompareTo(ZoneRank(b)));
+            _aggZones = keys;
+        }
+
+        /// <summary>Deduplica una lista de modelos por Key (mismo prop en varias sub-zonas): prefiere el que
+        /// tiene Sample VIVO (clon perfecto), luego el de mayor Count.</summary>
+        private static List<SceneModelInfo> DedupeByKey(List<SceneModelInfo> list)
+        {
+            var best = new Dictionary<string, SceneModelInfo>(StringComparer.Ordinal);
+            foreach (var m in list)
+            {
+                if (m == null || string.IsNullOrEmpty(m.Key)) continue;
+                if (!best.TryGetValue(m.Key, out var cur)) { best[m.Key] = m; continue; }
+                bool mAlive = Alive(m.Sample), curAlive = Alive(cur.Sample);
+                if (mAlive && !curAlive) { best[m.Key] = m; continue; }
+                if (mAlive == curAlive && m.Count > cur.Count) best[m.Key] = m;
+            }
+            return new List<SceneModelInfo>(best.Values);
+        }
+
+        // ─────────────────── ZONAS REALES del juego (unifican sub-zonas internas) ───────────────────
+        // SR2 divide cada bioma en muchas raíces internas (zoneGorge_Area1..5, gully / gully-01…, sanctuary…).
+        // El jugador NO piensa en esas raíces: piensa en "Ember Valley". Agrupamos todo por su bioma real.
+        // El id es estable (no cambia con el idioma) → sirve de clave del agregado y de lo que persiste el
+        // selector; el nombre visible (ZoneDisplay) sí se traduce.
+        private static readonly (string id, string[] keys)[] ZoneMap =
+        {
+            ("conservatory", new[]{ "gully", "conservat", "hobsonranch", "playerranch", "ranch" }),
+            ("fields",       new[]{ "fields", "rainbow" }),
+            ("ember",        new[]{ "gorge", "ember" }),
+            ("starlight",    new[]{ "starlight", "strand", "beach", "coast" }),
+            ("bluffs",       new[]{ "bluffs", "powderfall", "powder", "tundra", "snow", "frost" }),
+            ("labyrinth",    new[]{ "labyrinth", "grey", "gray", "maze" }),
+            ("dreamland",    new[]{ "dreamland", "dream", "sanctuary", "nimble", "slumber" }),
+        };
+
+        /// <summary>Id estable de la zona real a la que pertenece una raíz interna. Idempotente: si le pasás un
+        /// id ya agrupado ("ember") devuelve el mismo. Fallback: la propia raíz interna (zonas no mapeadas).</summary>
+        public static string ZoneGroupId(string zone)
+        {
+            if (string.IsNullOrEmpty(zone)) return "other";
+            string z = zone.ToLowerInvariant();
+            foreach (var (id, keys) in ZoneMap)
+                foreach (var k in keys)
+                    if (z.Contains(k)) return id;
+            return zone;   // zona no reconocida → su propio grupo (se muestra prettificada)
+        }
+
+        private static int ZoneRank(string groupId)
+        {
+            for (int i = 0; i < ZoneMap.Length; i++) if (ZoneMap[i].id == groupId) return i;
+            return 100;   // desconocidas al final
+        }
+
+        /// <summary>Nombre visible (traducido) de una zona real. Los ids desconocidos se muestran prettificados.</summary>
+        public static string ZoneDisplay(string groupId)
+        {
+            switch (groupId)
+            {
+                case "conservatory": return Loc.T("zone_conservatory");
+                case "fields":       return Loc.T("zone_fields");
+                case "ember":        return Loc.T("zone_ember");
+                case "starlight":    return Loc.T("zone_starlight");
+                case "bluffs":       return Loc.T("zone_bluffs");
+                case "labyrinth":    return Loc.T("zone_labyrinth");
+                case "dreamland":    return Loc.T("zone_dreamland");
+                default:             return PrettyInternal(groupId);
+            }
+        }
+
+        private static string PrettyInternal(string zone)
+        {
+            if (string.IsNullOrEmpty(zone)) return zone;
+            string s = zone.StartsWith("zone", StringComparison.OrdinalIgnoreCase) ? zone.Substring(4) : zone;
+            s = s.Replace("_", " ").Trim();
+            if (s.IndexOf("Transition", StringComparison.OrdinalIgnoreCase) >= 0) return Loc.T("zone_transitions");
+            return s.Length == 0 ? zone : s;
         }
 
         public static List<string> GetZones()
@@ -89,12 +188,14 @@ namespace SlimeCorralSpawn.SceneBuilder
         public static List<string> GetCategories(string zone)
         {
             RebuildAggIfNeeded();
+            if (string.IsNullOrEmpty(zone)) return new List<string>();
             return _agg.TryGetValue(zone, out var cats) ? new List<string>(cats.Keys) : new List<string>();
         }
 
         public static List<SceneModelInfo> GetModels(string zone, string category)
         {
             RebuildAggIfNeeded();
+            if (string.IsNullOrEmpty(zone) || string.IsNullOrEmpty(category)) return new List<SceneModelInfo>();
             if (_agg.TryGetValue(zone, out var cats) && cats.TryGetValue(category, out var list))
                 return new List<SceneModelInfo>(list);   // ya ordenada en RebuildAggIfNeeded
             return new List<SceneModelInfo>();
@@ -104,6 +205,7 @@ namespace SlimeCorralSpawn.SceneBuilder
         public static int CountInZone(string zone)
         {
             RebuildAggIfNeeded();
+            if (string.IsNullOrEmpty(zone)) return 0;
             int n = 0;
             if (_agg.TryGetValue(zone, out var cats)) foreach (var l in cats.Values) n += l.Count;
             return n;
@@ -113,6 +215,7 @@ namespace SlimeCorralSpawn.SceneBuilder
         public static int CountInZoneCategory(string zone, string category)
         {
             RebuildAggIfNeeded();
+            if (string.IsNullOrEmpty(zone) || string.IsNullOrEmpty(category)) return 0;
             return (_agg.TryGetValue(zone, out var cats) && cats.TryGetValue(category, out var l)) ? l.Count : 0;
         }
 
@@ -124,6 +227,11 @@ namespace SlimeCorralSpawn.SceneBuilder
             foreach (var z in _aggZones) { int n = CountInZone(z); if (n > bestN) { bestN = n; best = z; } }
             return best;
         }
+
+        /// <summary>Nombre de zona legible para mostrar. Acepta un id de grupo (lo que devuelve GetZones) o una
+        /// raíz interna legacy; ambos terminan en el mismo nombre de zona real traducido. Compartido por el menú
+        /// principal (F5) y el editor de escena (Scene Tool).</summary>
+        public static string PrettyZone(string zone) => ZoneDisplay(ZoneGroupId(zone));
 
         public static SceneModelInfo FindModel(string zone, string key)
         {
@@ -181,6 +289,10 @@ namespace SlimeCorralSpawn.SceneBuilder
             catch (Exception ex) { ModEntry.LogErrorOnce("SceneModelLibrary.EnsureParked", ex); }
         }
 
+        /// <summary>Red de seguridad llamada por SceneModelStore cuando un modelo encolado para hornear resultó NO
+        /// horneable (malla no legible): parkea una copia viva para que sobreviva a salir de la zona esta sesión.</summary>
+        public static void EnsureParkedFallback(SceneModelInfo info) => EnsureParked(info);
+
         // ─────────────────── hooks para persistencia en disco (SceneModelStore) ───────────────────
         /// <summary>Raíz inactiva DontDestroyOnLoad donde el store reconstruye los modelos horneados.</summary>
         public static Transform StagingRoot() => Staging();
@@ -232,8 +344,13 @@ namespace SlimeCorralSpawn.SceneBuilder
                 // Solo lo CARGADO ahora (Sample VIVO). Se encola para hornear EN SEGUNDO PLANO (sin freeze).
                 foreach (var info in _catalog.Values)
                 {
-                    if (info == null || !Alive(info.Sample)) continue;   // sample colgado (zona descargada) → NO hornear basura
-                    SceneModelStore.QueueBake(info, info.Sample.gameObject);
+                    if (info == null) continue;
+                    var src = BakeSource(info);   // props multi-parte: hornea el grupo entero
+                    if (src == null) continue;    // sample colgado (zona descargada) → NO hornear basura
+                    // force = re-hornear también los que ya están en disco pero en formato VIEJO (v5→v6): así este
+                    // botón ACTUALIZA toda la zona cargada a v6 (todas las partes + Y original) de una.
+                    bool outdated = SceneModelStore.HasBaked(info.Zone, info.Key) && !SceneModelStore.IsBakedCurrent(info.Zone, info.Key);
+                    SceneModelStore.QueueBake(info, src, force: outdated);
                     n++;
                 }
             }
@@ -310,6 +427,15 @@ namespace SlimeCorralSpawn.SceneBuilder
         /// demanda: desde la instancia viva (zona cargada) o desde disco con la textura nueva.
         /// Si <paramref name="onlyKeys"/> es null borra TODAS; si no, solo las de esas claves "zona/key"
         /// (para "Actualizar texturas": no tocar las copias de zonas que no se re-capturaron).</summary>
+        /// <summary>Invalida (destruye + saca del cache) las copias reconstruidas de disco de esas claves "zona/key"
+        /// → la próxima vez que se spawneen se RECONSTRUYEN del archivo FRESCO (v6, con todas las partes). Lo llama el
+        /// store tras subir un modelo a v6, para que lo YA colocado se rehaga completo sin recargar.</summary>
+        public static void InvalidateParked(HashSet<string> keys)
+        {
+            if (keys == null || keys.Count == 0) return;
+            ClearParkedCopies(keys);
+        }
+
         private static void ClearParkedCopies(HashSet<string> onlyKeys = null)
         {
             try
@@ -342,16 +468,23 @@ namespace SlimeCorralSpawn.SceneBuilder
             catch { return false; }
         }
 
-        /// <summary>Fuente para clonar. PREFIERE la INSTANCIA VIVA del juego cuando la zona está cargada → el clon
-        /// comparte el material REAL con su shader real → se ve PERFECTO (es el clon directo que funcionaba de una).
-        /// Solo cuando NO hay instancia viva (zona descargada / reinicio) usa la copia PROPIA de disco (clon de
-        /// material con el shader real reconstruido).</summary>
-        private static GameObject SourceFor(SceneModelInfo info)
+        /// <summary>True si el ÚLTIMO Spawn usó una copia PROPIA (independiente del original, mallas legibles →
+        /// colisión confiable) o el clon VIVO (preview, comparte material del juego).</summary>
+        public static bool LastSpawnOwned { get; private set; }
+
+        /// <summary>Y de MUNDO original de la fuente del último SourceFor (posición natural del prop en el juego).
+        /// Se usa para compensar el ramp por-altura de los shaders Triplanar de SR2 (colorean por Y absoluta):
+        /// al colocar el prop a otra altura, desplazamos los umbrales del ramp por (yColocado - LastSourceOrigY)
+        /// para que conserve su banda de color (piedra abajo / pasto arriba) en vez de salir "todo pasto".</summary>
+        public static float LastSourceOrigY { get; private set; }
+        public static bool LastSourceOrigYValid { get; private set; }
+
+        /// <summary>La copia PROPIA (parkeada / reconstruida de disco): mallas propias legibles + material+texturas
+        /// propias → independiente del original y con MeshCollider funcional. null si el modelo no está horneado.</summary>
+        private static GameObject OwnedCopy(SceneModelInfo info)
         {
-            if (info == null) return null;
-            if (Alive(info.Sample)) return info.Sample.gameObject;   // material REAL del juego (perfecto)
             string ck = ParkKey(info);
-            if (_parked.TryGetValue(ck, out var owned) && owned != null) return owned;
+            if (_parked.TryGetValue(ck, out var o) && o != null) return o;
             if (SceneModelStore.HasBaked(info.Zone, info.Key))
             {
                 var r = SceneModelStore.ReconstructNow(info.Zone, info.Key);
@@ -360,18 +493,125 @@ namespace SlimeCorralSpawn.SceneBuilder
             return null;
         }
 
+        /// <summary>Fuente para clonar. SIEMPRE prioriza la INSTANCIA VIVA del juego cuando la zona está cargada →
+        /// el clon comparte el material REAL con su shader real → se ve PERFECTO (no flat/apagado). Solo cuando NO
+        /// hay instancia viva (zona descargada / reinicio) usa la copia PROPIA de disco. (El param preferOwned se
+        /// mantiene por firma pero ya NO fuerza la copia propia: reconstruirla se veía flat.)</summary>
+        // Props MULTI-PARTE armados en vivo (tronco+hojas juntados en un padre sintético). Cache por "zona/key".
+        private static readonly Dictionary<string, GameObject> _grouped = new Dictionary<string, GameObject>();
+
+        private static int _srcDiag = 0;    // (diag de fuente apagado: ya confirmamos que lo colocado es DISCO)
+        private static void SrcDiag(SceneModelInfo info, string src)
+        {
+            if (_srcDiag <= 0) return;
+            _srcDiag--;
+            try { ModEntry.LogInfo($"[SrcDiag] {info.Zone}/{info.Key} → {src}  (parts={(info.Parts != null ? info.Parts.Count : 0)})"); } catch { }
+        }
+
+        private static GameObject SourceFor(SceneModelInfo info, bool preferOwned)
+        {
+            LastSpawnOwned = false;
+            LastSourceOrigYValid = false;
+            LastSourceOrigY = 0f;
+            if (info == null) return null;
+            // Multi-parte con partes VIVAS → armar el prop ENTERO (todas las partes juntas) → material real perfecto.
+            if (info.Parts != null && info.Parts.Count > 1)
+            {
+                var g = GroupedLive(info);
+                if (g != null)
+                {
+                    // Ancla del grupo = Y de mundo de la parte usada como ancla (posición natural del prop).
+                    Transform anch = Alive(info.Sample) ? info.Sample : null;
+                    if (anch == null) foreach (var p in info.Parts) if (Alive(p)) { anch = p; break; }
+                    if (anch != null) { try { LastSourceOrigY = anch.position.y; LastSourceOrigYValid = true; } catch { } }
+                    SrcDiag(info, "GRUPO-VIVO (perfecto)"); return g;
+                }
+            }
+            if (Alive(info.Sample))
+            {
+                try { LastSourceOrigY = info.Sample.position.y; LastSourceOrigYValid = true; } catch { }
+                SrcDiag(info, "SAMPLE-VIVO (perfecto)"); return info.Sample.gameObject;
+            }
+            var owned = OwnedCopy(info);
+            if (owned != null)
+            {
+                LastSpawnOwned = true;
+                // Fuente de disco: la Y original quedó guardada en el .scsm v6.
+                if (SceneModelStore.TryGetOrigY(info.Zone, info.Key, out float dy)) { LastSourceOrigY = dy; LastSourceOrigYValid = true; }
+                SrcDiag(info, "DISCO (aproximado)"); return owned;
+            }
+            SrcDiag(info, "NULL (no se pudo)");
+            return null;
+        }
+
+        /// <summary>Arma (o reusa) un padre sintético con TODAS las partes vivas del prop, en su arreglo relativo
+        /// original → clonar/hornear ESTO da el árbol ENTERO (tronco+hojas), no partido. null si no hay ≥2 vivas.</summary>
+        private static GameObject GroupedLive(SceneModelInfo info)
+        {
+            string ck = ParkKey(info);
+            if (_grouped.TryGetValue(ck, out var ex) && ex != null)
+            {
+                // ¿sigue con sus partes vivas? (si la zona se descargó, los hijos murieron → reconstruir).
+                bool okChild = false;
+                try { okChild = ex.transform.childCount > 0 && ex.transform.GetChild(0) != null && ex.transform.GetChild(0).gameObject != null; } catch { }
+                if (okChild) return ex;
+                try { UnityEngine.Object.Destroy(ex); } catch { }
+                _grouped.Remove(ck);
+            }
+            // Contar partes vivas.
+            int aliveCount = 0; foreach (var p in info.Parts) if (Alive(p)) aliveCount++;
+            if (aliveCount < 2) return null;   // sin suficientes vivas → que SourceFor use Sample/disco
+            try
+            {
+                Transform anchor = Alive(info.Sample) ? info.Sample : null;
+                if (anchor == null) foreach (var p in info.Parts) if (Alive(p)) { anchor = p; break; }
+                if (anchor == null) return null;
+
+                var parent = new GameObject("SCSGroup_" + info.Key);
+                parent.SetActive(false);
+                parent.transform.SetParent(Staging(), false);
+                parent.transform.position = anchor.position;
+                parent.transform.rotation = anchor.rotation;
+                foreach (var p in info.Parts)
+                {
+                    if (!Alive(p)) continue;
+                    var clone = UnityEngine.Object.Instantiate(p.gameObject, parent.transform);
+                    // Preservar la pose MUNDO de cada parte (bajo el parent en el ancla) → arreglo relativo intacto.
+                    clone.transform.position = p.position;
+                    clone.transform.rotation = p.rotation;
+                    try { clone.transform.localScale = p.lossyScale; } catch { }
+                }
+                UnityEngine.Object.DontDestroyOnLoad(parent);
+                _grouped[ck] = parent;
+                return parent;
+            }
+            catch (Exception ex2) { ModEntry.LogErrorOnce("SceneModelLibrary.GroupedLive:" + info.Key, ex2); return null; }
+        }
+
+        /// <summary>Fuente para HORNEAR: el prop entero (grupo) si es multi-parte, o el Sample vivo. null si nada vivo.</summary>
+        private static GameObject BakeSource(SceneModelInfo info)
+        {
+            if (info == null) return null;
+            if (info.Parts != null && info.Parts.Count > 1) { var g = GroupedLive(info); if (g != null) return g; }
+            return Alive(info.Sample) ? info.Sample.gameObject : null;
+        }
+
         /// <summary>Garantiza que el modelo esté HORNEADO a disco (para reinicio/zona descargada). En vivo NO hace
         /// falta reconstruir: SourceFor usa la instancia viva directamente (material real). Solo asegura el bake.</summary>
         public static void EnsureOwnedCopy(SceneModelInfo info)
         {
             if (info == null) return;
-            if (!SceneModelStore.HasBaked(info.Zone, info.Key) && Alive(info.Sample))
+            // Re-horneamos si NO está horneado O si está en un formato VIEJO (v5): los v5 no tienen la Y original
+            // (ramp sin compensar) y muchos se hornearon como una sola pieza antes del agrupado multi-parte (les
+            // falta un renderer). Con muestra viva presente, re-hornear a v6 los deja perfectos para uso cross-zone.
+            bool baked = SceneModelStore.HasBaked(info.Zone, info.Key);
+            if (!SceneModelStore.IsBakedCurrent(info.Zone, info.Key))
             {
-                try { SceneModelStore.BakeToDiskOnly(info, info.Sample.gameObject); } catch { }
-                // Si NO se pudo hornear (malla no legible → antes quedaba invisible/"no spawnea", p.ej. vallas y
-                // algunas estructuras), parkeamos una copia persistente desde la instancia VIVA. Así se coloca y
-                // persiste EN LA SESIÓN aunque salgas de la zona. (Cross-sesión sigue necesitando re-visitar la zona.)
-                if (!SceneModelStore.HasBaked(info.Zone, info.Key)) EnsureParked(info);
+                // Encola el horneado en 2do plano. Para props MULTI-PARTE horneamos el GRUPO entero (tronco+hojas),
+                // no solo el Sample → la copia de disco tiene el árbol completo. force = re-hornear si el archivo es
+                // de una versión vieja (v5) aunque ya "exista" (upgrade automático a v6 al visitar la zona).
+                var src = BakeSource(info);
+                if (src != null) try { SceneModelStore.QueueBake(info, src, force: baked); } catch { }
             }
         }
 
@@ -421,12 +661,12 @@ namespace SlimeCorralSpawn.SceneBuilder
         /// park=false para miniaturas. addColliders=true para lo COLOCADO de verdad (para que sea sólido:
         /// muchos suelos/props del juego no traen collider propio → hay que agregarles MeshCollider).</summary>
         public static GameObject Spawn(SceneModelInfo info, Vector3 pos, Quaternion rot, float scale,
-                                       bool park = true, bool addColliders = false)
+                                       bool park = true, bool addColliders = false, bool preferOwned = false)
         {
             try
             {
                 if (info == null) return null;
-                var src = SourceFor(info);
+                var src = SourceFor(info, preferOwned);
                 if (src == null) return null;
 
                 // Instanciar BAJO la raíz inactiva → el clon nace inactivo → sus scripts no corren Awake.
@@ -441,6 +681,12 @@ namespace SlimeCorralSpawn.SceneBuilder
                 if (scale > 0f && Mathf.Abs(scale - 1f) > 0.001f)
                     t.localScale = t.localScale * scale;
                 clone.name = "SCS_" + info.Key;
+
+                // Compensación del RAMP por altura: los shaders Triplanar de SR2 colorean por Y ABSOLUTA de mundo
+                // (piedra abajo → pasto arriba). Al colocar el prop a otra altura, desplazamos los umbrales del ramp
+                // por (yColocado - yOriginal) para que conserve su banda de color en vez de salir "todo pasto".
+                if (LastSourceOrigYValid) ApplyHeightRampOffset(clone, pos.y - LastSourceOrigY);
+
                 clone.SetActive(true);                // recién ahora se vuelve visible (sin lógica)
                 return clone;
             }
@@ -461,18 +707,218 @@ namespace SlimeCorralSpawn.SceneBuilder
                     var mesh = mf.sharedMesh;
                     if (mesh == null) continue;
                     if (mf.GetComponent<Collider>() != null) continue;   // ya tiene alguno
+
+                    // MeshCollider necesita una malla LEGIBLE. Muchas mallas del juego NO lo son (compartidas con
+                    // el clon vivo) → en ese caso caemos a un BoxCollider desde los bounds → SIEMPRE hay colisión.
+                    bool readable = false;
+                    try { readable = mesh.isReadable; } catch { }
+                    if (readable)
+                    {
+                        try
+                        {
+                            var mc = mf.gameObject.AddComponent<MeshCollider>();
+                            try { mc.cookingOptions = MeshColliderCookingOptions.UseFastMidphase; } catch { }
+                            mc.sharedMesh = mesh;   // cóncavo (estático): suelos/paredes/props
+                            continue;
+                        }
+                        catch { }
+                    }
+                    // Fallback: BoxCollider ajustado a los bounds locales de la malla (colisión aproximada pero
+                    // SÓLIDA, sin depender de que la malla sea legible).
                     try
                     {
-                        var mc = mf.gameObject.AddComponent<MeshCollider>();
-                        // Cocinado RÁPIDO: sin limpieza/soldadura de vértices (lo LENTO del cook). Para escenografía
-                        // estática alcanza y hace que colocar/cargar estructuras no lagee.
-                        try { mc.cookingOptions = MeshColliderCookingOptions.UseFastMidphase; } catch { }
-                        mc.sharedMesh = mesh;        // cóncavo (estático): sirve para suelos/paredes/props
+                        var bc = mf.gameObject.AddComponent<BoxCollider>();
+                        Bounds lb = mesh.bounds;   // bounds locales (no requieren malla legible)
+                        bc.center = lb.center;
+                        bc.size = lb.size;
                     }
                     catch { }
                 }
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("SceneModelLibrary.AddColliders", ex); }
+        }
+
+        // ── Compensación de ramp por altura (shaders Triplanar de SR2) ──────────────────────────────────────────
+        // Estos shaders (SR/AMP/Paintlight/Triplanar/...) colorean cada fragmento según su Y ABSOLUTA de mundo, con
+        // umbrales de "banda": debajo de _RampLower* va un color (piedra/tierra), arriba de _RampUpper* otro (pasto),
+        // e interpolan en el medio. Si colocás el prop a distinta altura que su posición original, todo cae en otra
+        // banda → una montaña arriba se ve "todo pasto", un coral hundido se ve apagado. Solución: desplazar esos
+        // umbrales por deltaY (= yColocado - yOriginal).
+        //
+        // IMPORTANTE (HDRP): NO se puede usar MaterialPropertyBlock — los shaders compatibles con el SRP Batcher
+        // (todos los de SR2) leen estas props del CBUFFER UnityPerMaterial e IGNORAN los overrides por-renderer del
+        // MPB (el SetPropertyBlock "funciona" sin excepción pero el shader nunca lo lee → se veía IGUAL). Hay que
+        // escribir la INSTANCIA del material directamente. Usamos renderer.materials → Unity instancia una copia
+        // ÚNICA por-renderer (se desengancha del material compartido del juego → no afecta al original ni a otras
+        // instancias colocadas a otra altura) → el SetFloat entra al CBUFFER y el shader SÍ lo lee.
+        private static readonly string[] _rampFloatProps =
+        { "_RampUpperStart", "_RampUpperStop", "_RampLowerStart", "_RampLowerStop" };
+        private static readonly string[] _rampVecProps =
+        { "_TopRampUpperLower" };
+
+        /// <summary>Desplaza los umbrales de altura del ramp de cada material Triplanar por deltaY (mundo), para que
+        /// el prop conserve su banda de color al colocarse a otra altura. No-op si deltaY≈0 o no hay props de ramp.</summary>
+        private static int _rampDiag = 8;   // DIAG: confirmar que la compensación de altura corre (primeras 8 veces)
+        internal static void ApplyHeightRampOffset(GameObject go, float deltaY)
+        {
+            if (go == null || Mathf.Abs(deltaY) < 0.05f) return;
+            try
+            {
+                int applied = 0; float sample0 = 0f, sample1 = 0f; bool sampled = false;
+                var rends = go.GetComponentsInChildren<Renderer>(true);
+                if (rends == null) return;
+                foreach (var r in rends)
+                {
+                    if (r == null) continue;
+
+                    // ¿Alguno de los materiales de este renderer usa el ramp? Chequeamos sobre sharedMaterials para NO
+                    // instanciar (renderer.materials) si no hace falta.
+                    Material[] shared = null;
+                    try { shared = r.sharedMaterials; } catch { }
+                    if (shared == null || shared.Length == 0) continue;
+                    bool needs = false;
+                    for (int i = 0; i < shared.Length && !needs; i++)
+                    {
+                        var sm = shared[i]; if (sm == null) continue;
+                        foreach (var pn in _rampFloatProps) { try { if (sm.HasProperty(pn)) { needs = true; break; } } catch { } }
+                    }
+                    if (!needs) continue;
+
+                    // Instanciar copias únicas de este renderer y escribir el CBUFFER directamente.
+                    Material[] mats = null;
+                    try { mats = r.materials; } catch { }
+                    if (mats == null || mats.Length == 0) continue;
+
+                    for (int i = 0; i < mats.Length; i++)
+                    {
+                        var m = mats[i];
+                        if (m == null) continue;
+                        bool any = false;
+
+                        foreach (var pn in _rampFloatProps)
+                        {
+                            bool has = false; try { has = m.HasProperty(pn); } catch { }
+                            if (!has) continue;
+                            float v; try { v = m.GetFloat(pn); } catch { continue; }
+                            float nv = v + deltaY;
+                            try { m.SetFloat(pn, nv); any = true; } catch { }
+                            if (!sampled) { sample0 = v; sample1 = nv; sampled = true; }
+                        }
+                        foreach (var pn in _rampVecProps)
+                        {
+                            bool has = false; try { has = m.HasProperty(pn); } catch { }
+                            if (!has) continue;
+                            Vector4 v; try { v = m.GetVector(pn); } catch { continue; }
+                            // x/y = umbrales upper/lower (los que sí son alturas); z/w = ancho/suavizado → intactos.
+                            v.x += deltaY; v.y += deltaY;
+                            try { m.SetVector(pn, v); any = true; } catch { }
+                        }
+                        if (any) applied++;
+                    }
+                    try { r.materials = mats; } catch { }
+                }
+                if (applied > 0 && _rampDiag > 0)
+                {
+                    _rampDiag--;
+                    try { ModEntry.LogInfo($"[Ramp] '{go.name}' deltaY={deltaY:0.0} → {applied} submesh(es); _RampUpperStart {sample0:0.0}→{sample1:0.0} (escrito en material)"); } catch { }
+                }
+            }
+            catch (Exception ex) { ModEntry.LogErrorOnce("SceneModelLibrary.ApplyHeightRampOffset", ex); }
+        }
+
+        // ── DIAG: comparar VIVO real vs RECONSTRUIDO de disco (mismo modelo, misma pose) ────────────────────────
+        // Se llama en el swap disco→vivo (ambos coexisten un instante). Vuelca las diferencias CONCRETAS para saber
+        // por qué el reconstruido se ve distinto: shader, valores de props del ramp/top, keywords, lightmap, vertex
+        // colors, conteos de renderer/submesh. Ground truth en vez de adivinar.
+        private static int _cmpDiag = 14;
+        private static readonly HashSet<string> _cmpDone = new HashSet<string>();   // compara cada modelo UNA sola vez (sin spam)
+        private static readonly string[] _cmpFloatProps =
+        { "_RampUpperStart", "_RampUpperStop", "_RampLowerStart", "_RampLowerStop", "_TopCoverage", "_ToporBottom", "_EnableVertexColorMasking", "_VertBaseHeightBlend" };
+        internal static void CompareLiveVsDisk(GameObject live, GameObject disk)
+        {
+            if (_cmpDiag <= 0 || live == null || disk == null) return;
+            try
+            {
+                // Dedupe por nombre de modelo: no repetir la misma comparación (varias instancias del mismo prop).
+                string cmpKey = null; try { cmpKey = live.name; } catch { }
+                if (cmpKey != null) { if (_cmpDone.Contains(cmpKey)) return; _cmpDone.Add(cmpKey); }
+                var lr = FirstTriRenderer(live); var dr = FirstTriRenderer(disk);
+                if (lr == null || dr == null) { ModEntry.LogInfo($"[CMP] '{live.name}': no se hallo renderer triplanar (live={(lr!=null)} disk={(dr!=null)}) → probablemente el problema es OTRO renderer"); _cmpDiag--; return; }
+                _cmpDiag--;
+
+                int lRends = 0, dRends = 0;
+                try { lRends = live.GetComponentsInChildren<Renderer>(true).Length; } catch { }
+                try { dRends = disk.GetComponentsInChildren<Renderer>(true).Length; } catch { }
+
+                Material lm = null, dm = null;
+                try { lm = lr.sharedMaterial; } catch { }
+                try { dm = dr.sharedMaterial; } catch { }
+                string ls = "?", ds = "?";
+                try { if (lm != null && lm.shader != null) ls = lm.shader.name; } catch { }
+                try { if (dm != null && dm.shader != null) ds = dm.shader.name; } catch { }
+
+                ModEntry.LogInfo($"[CMP] === '{live.name}' VIVO vs DISCO ===  renderers live={lRends} disk={dRends}  lightmapIdx live={lr.lightmapIndex} disk={dr.lightmapIndex}");
+                ModEntry.LogInfo($"[CMP] shader live='{ls}'  disk='{ds}'  {(ls==ds ? "IGUAL" : "¡DISTINTO!")}");
+
+                // Props numéricas clave (base/top blend + ramp).
+                if (lm != null && dm != null)
+                    foreach (var pn in _cmpFloatProps)
+                    {
+                        float lv = float.NaN, dv = float.NaN;
+                        try { if (lm.HasProperty(pn)) lv = lm.GetFloat(pn); } catch { }
+                        try { if (dm.HasProperty(pn)) dv = dm.GetFloat(pn); } catch { }
+                        // Ambos NaN = la propiedad no existe en este shader → NO es diferencia (falso positivo).
+                        bool bothMissing = float.IsNaN(lv) && float.IsNaN(dv);
+                        string flag = (bothMissing || Mathf.Approximately(lv, dv)) ? "" : "  <-- DISTINTO";
+                        if (bothMissing) continue;   // ni lo logueamos: no aporta
+                        ModEntry.LogInfo($"[CMP]   {pn}: live={lv:0.###} disk={dv:0.###}{flag}");
+                    }
+
+                // Keywords activas (el blend de terreno se prende por keyword).
+                try
+                {
+                    var lk = lm != null ? string.Join("|", lm.shaderKeywords) : "";
+                    var dk = dm != null ? string.Join("|", dm.shaderKeywords) : "";
+                    ModEntry.LogInfo($"[CMP]   keywords live=[{lk}]");
+                    ModEntry.LogInfo($"[CMP]   keywords disk=[{dk}]  {(lk==dk?"IGUAL":"¡DISTINTO!")}");
+                }
+                catch { }
+
+                // Vertex colors + conteo de vértices del primer mesh.
+                try
+                {
+                    var lmf = lr.GetComponent<MeshFilter>(); var dmf = dr.GetComponent<MeshFilter>();
+                    Mesh lme = lmf != null ? lmf.sharedMesh : null; Mesh dme = dmf != null ? dmf.sharedMesh : null;
+                    int lvc = 0, dvc = 0; bool lhc = false, dhc = false;
+                    if (lme != null) { try { lvc = lme.vertexCount; } catch { } try { lhc = lme.colors32 != null && lme.colors32.Length > 0; } catch { } }
+                    if (dme != null) { try { dvc = dme.vertexCount; } catch { } try { dhc = dme.colors32 != null && dme.colors32.Length > 0; } catch { } }
+                    ModEntry.LogInfo($"[CMP]   mesh verts live={lvc} disk={dvc}   vertexColors live={lhc} disk={dhc}  {(lhc==dhc?"":"<-- DISTINTO (blend por color de vértice)")}");
+                }
+                catch { }
+            }
+            catch (Exception ex) { ModEntry.LogErrorOnce("SceneModelLibrary.CompareLiveVsDisk", ex); }
+        }
+
+        /// <summary>Primer Renderer cuyo material use un shader Triplanar (el que colorea el terreno) — para comparar
+        /// manzanas con manzanas entre vivo y disco.</summary>
+        private static Renderer FirstTriRenderer(GameObject go)
+        {
+            try
+            {
+                var rends = go.GetComponentsInChildren<Renderer>(true);
+                if (rends == null) return null;
+                foreach (var r in rends)
+                {
+                    if (r == null) continue;
+                    Material m = null; try { m = r.sharedMaterial; } catch { }
+                    string sn = null; try { if (m != null && m.shader != null) sn = m.shader.name; } catch { }
+                    if (sn != null && sn.IndexOf("Triplanar", StringComparison.OrdinalIgnoreCase) >= 0) return r;
+                }
+                // Si ninguno es triplanar, devolver el primero con material (para comparar igual).
+                foreach (var r in rends) { if (r != null) { try { if (r.sharedMaterial != null) return r; } catch { } } }
+            }
+            catch { }
+            return null;
         }
 
         /// <summary>Quita TODA la lógica de juego del clon (MonoBehaviours: region members, colliders de
@@ -481,6 +927,23 @@ namespace SlimeCorralSpawn.SceneBuilder
         {
             try
             {
+                // FORZAR LOD0 en los LODGroups: sin esto el crossfade dithering pinta un patrón de PUNTOS/CÍRCULOS
+                // y a veces muestra DOS LODs superpuestos (se veía en las miniaturas). Con ForceLOD(0) el prop
+                // queda siempre en máximo detalle, sin transiciones ni dithering.
+                try
+                {
+                    var lods = clone.GetComponentsInChildren<LODGroup>(true);
+                    if (lods != null)
+                        foreach (var lg in lods)
+                        {
+                            if (lg == null) continue;
+                            try { lg.fadeMode = LODFadeMode.None; } catch { }
+                            try { lg.animateCrossFading = false; } catch { }
+                            try { lg.ForceLOD(0); } catch { }
+                        }
+                }
+                catch { }
+
                 var behaviours = clone.GetComponentsInChildren<MonoBehaviour>(true);
                 if (behaviours != null)
                     foreach (var b in behaviours)
@@ -491,6 +954,11 @@ namespace SlimeCorralSpawn.SceneBuilder
                         try { string tn = b.GetIl2CppType().Name; if (tn == "HDAdditionalLightData") continue; } catch { }
                         try { UnityEngine.Object.Destroy(b); } catch { }
                     }
+                // Asegurar que las luces clonadas queden habilitadas (por si venían apagadas en el prefab).
+                var lights = clone.GetComponentsInChildren<Light>(true);
+                if (lights != null)
+                    foreach (var L in lights)
+                    { if (L == null) continue; try { L.enabled = true; } catch { } }
             }
             catch { }
         }
@@ -614,14 +1082,146 @@ namespace SlimeCorralSpawn.SceneBuilder
                 return;
             }
 
-            // Contenedor (Sector, Main Nav, Rocks, Solid Filler, cell…): descender a los hijos.
+            // 3º: PROP MULTI-PARTE compacto (árbol = tronco + hojas como hijos separados SIN LODGroup común,
+            // rocas roca+pasto, etc.). Si este contenedor tiene POCAS mallas (no es un Sector/celda con cientos)
+            // y nombre propio → lo capturamos ENTERO como UNA unidad (antes se partía en tronco/hojas sueltos).
+            if (!IsGenericContainer(nodeName) && !IsNoise(nodeName))
+            {
+                int meshCount = 0; long verts = 0;
+                try
+                {
+                    var mrs = t.GetComponentsInChildren<MeshRenderer>(false);   // solo activas
+                    meshCount = mrs != null ? mrs.Length : 0;
+                }
+                catch { }
+                if (meshCount >= 1 && meshCount <= 14)
+                {
+                    try
+                    {
+                        var mfs = t.GetComponentsInChildren<MeshFilter>(false);
+                        if (mfs != null) for (int i = 0; i < mfs.Length && verts < 120000; i++)
+                        { var mm = mfs[i] != null ? mfs[i].sharedMesh : null; if (mm != null) { try { verts += mm.vertexCount; } catch { } } }
+                    }
+                    catch { }
+                    if (verts > 0 && verts < 120000)   // no capturar chunks gigantes de terreno como "prop"
+                    {
+                        var info = Record(t, nodeName, node.Zone);
+                        if (park && info != null) EnsureParked(info);
+                        return;
+                    }
+                }
+            }
+
+            // Contenedor (Sector, Main Nav, Rocks, Solid Filler, cell…): separar hijos-MALLA directos (posibles
+            // partes de un prop) de sub-contenedores. Las mallas hermanas se AGRUPAN por solapamiento espacial
+            // (tronco+hojas de un árbol se tocan → 1 prop; rocas separadas no se tocan → props distintos). Los
+            // sub-contenedores se encolan para seguir bajando.
             int n = 0;
             try { n = t.childCount; } catch { return; }
+            List<Transform> meshKids = null;
             for (int i = 0; i < n; i++)
             {
                 Transform c = null;
                 try { c = t.GetChild(i); } catch { }
-                if (c != null) q.Enqueue(new Node { T = c, Zone = node.Zone });
+                if (c == null) continue;
+                string cn = null; try { cn = c.name; } catch { }
+                if (string.IsNullOrEmpty(cn) || IsPrunedSubtree(cn)) continue;
+                bool cLod = false, cMesh = false;
+                try { cLod = c.GetComponent<LODGroup>() != null; } catch { }
+                try { cMesh = c.GetComponent<MeshRenderer>() != null; } catch { }
+                // Malla directa hermana (sin LODGroup, no ruido) → candidata a agrupar.
+                if (cMesh && !cLod && !IsNoise(cn)) (meshKids ??= new List<Transform>()).Add(c);
+                else q.Enqueue(new Node { T = c, Zone = node.Zone });   // LODGroup o sub-contenedor → seguir
+            }
+            if (meshKids != null) ClusterSiblings(meshKids, node.Zone, park);
+        }
+
+        /// <summary>Agrupa mallas HERMANAS que se solapan espacialmente (partes de un mismo prop, ej. tronco+hojas)
+        /// y las registra como UNA unidad multi-parte. Las que no se solapan con nadie quedan como props sueltos.</summary>
+        private static void ClusterSiblings(List<Transform> parts, string zone, bool park)
+        {
+            int count = parts.Count;
+            // Si hay MUCHÍSIMAS (Sector lleno) NO agrupamos (O(n²) caro y raramente son partes de un prop): 1 c/u.
+            if (count > 40)
+            {
+                foreach (var p in parts)
+                { string pn = null; try { pn = p.name; } catch { } if (!string.IsNullOrEmpty(pn)) { var inf = Record(p, pn, zone); if (park && inf != null) EnsureParked(inf); } }
+                return;
+            }
+            var bounds = new Bounds[count];
+            var has = new bool[count];
+            for (int i = 0; i < count; i++) has[i] = TryWorldRenderBounds(parts[i], out bounds[i]);
+            var used = new bool[count];
+            for (int i = 0; i < count; i++)
+            {
+                if (used[i]) continue;
+                used[i] = true;
+                var cluster = new List<Transform> { parts[i] };
+                if (has[i])
+                {
+                    // Agregar hermanas cuya caja se solape con CUALQUIERA ya en el cluster (partes pegadas del prop).
+                    bool grew = true;
+                    while (grew)
+                    {
+                        grew = false;
+                        for (int j = 0; j < count; j++)
+                        {
+                            if (used[j] || !has[j]) continue;
+                            for (int k = 0; k < cluster.Count; k++)
+                            {
+                                int ci = parts.IndexOf(cluster[k]);
+                                if (ci >= 0 && has[ci] && bounds[ci].Intersects(bounds[j]))
+                                { used[j] = true; cluster.Add(parts[j]); grew = true; break; }
+                            }
+                        }
+                    }
+                }
+                RecordCluster(cluster, zone, park);
+            }
+        }
+
+        private static bool TryWorldRenderBounds(Transform t, out Bounds b)
+        {
+            b = default; bool ok = false;
+            try
+            {
+                var rends = t.GetComponentsInChildren<Renderer>(true);
+                if (rends != null)
+                    for (int i = 0; i < rends.Length; i++)
+                    { var r = rends[i]; if (r == null) continue; if (!ok) { b = r.bounds; ok = true; } else b.Encapsulate(r.bounds); }
+            }
+            catch { }
+            return ok;
+        }
+
+        /// <summary>Registra un cluster: 1 sola parte → prop normal; varias → prop multi-parte (Sample = la 1ª,
+        /// Parts = todas). El nombre del prop usa la parte con más vértices (suele ser el cuerpo, ej. el tronco).</summary>
+        private static void RecordCluster(List<Transform> cluster, string zone, bool park)
+        {
+            if (cluster == null || cluster.Count == 0) return;
+            if (cluster.Count == 1)
+            {
+                string nm = null; try { nm = cluster[0].name; } catch { }
+                if (string.IsNullOrEmpty(nm)) return;
+                var inf1 = Record(cluster[0], nm, zone);
+                if (park && inf1 != null) EnsureParked(inf1);
+                return;
+            }
+            // Elegir la parte "principal" (más vértices) para el nombre.
+            Transform main = cluster[0]; long bestV = -1;
+            foreach (var p in cluster)
+            {
+                long v = 0; try { var mf = p.GetComponentInChildren<MeshFilter>(true); if (mf != null && mf.sharedMesh != null) v = mf.sharedMesh.vertexCount; } catch { }
+                if (v > bestV) { bestV = v; main = p; }
+            }
+            string mainName = null; try { mainName = main.name; } catch { }
+            if (string.IsNullOrEmpty(mainName)) return;
+            var info = Record(main, mainName, zone);
+            if (info != null)
+            {
+                info.Parts = new List<Transform>(cluster);   // todas las partes → SourceFor arma el prop entero
+                info.Sample = main;
+                if (park) EnsureParked(info);
             }
         }
 
@@ -765,6 +1365,31 @@ namespace SlimeCorralSpawn.SceneBuilder
                    s.Contains("particle") || s.Contains("decal") || s.Contains("blocker") ||
                    s.Contains("_fakerig") || s.Contains("wingarm") || s.Contains("arm_l") ||
                    s.Contains("arm_r") || s.Contains("bone_") || s.Contains("fx ");
+        }
+
+        // Nombres de CONTENEDORES estructurales (sectores/celdas/agrupadores) → hay que DESCENDER a sus hijos,
+        // NO capturarlos como un prop. (Los props multi-parte tipo árbol NO están acá → se agrupan como unidad.)
+        private static readonly string[] ContainerTokens =
+        {
+            "sector", "cell", "main nav", "solid filler", "environment", "detail", "details",
+            "container", "geometry", "meshes", "static", "streaming", "chunk", "region", "grid",
+            "group", "root", "scene", "world", "level", "zone", "area", "biome", "content",
+            "props", "rocks", "trees", "vegetation", "structures", "foliage", "decor", "clutter",
+        };
+
+        /// <summary>True si el nombre es un contenedor estructural (agrupa muchos props) → descender, no capturar.</summary>
+        private static bool IsGenericContainer(string name)
+        {
+            string s = name.ToLowerInvariant().Trim();
+            for (int i = 0; i < ContainerTokens.Length; i++)
+            {
+                var tok = ContainerTokens[i];
+                // Coincidencia como palabra "estructural": el nombre ES el token, o empieza/termina con él como
+                // agrupador (ej. "Rocks", "Sector_3", "Trees Group"). Evita marcar props como "rockFields04".
+                if (s == tok) return true;
+                if (s.StartsWith(tok + " ") || s.StartsWith(tok + "_") || s.EndsWith(" " + tok) || s.EndsWith("_" + tok)) return true;
+            }
+            return false;
         }
 
         /// <summary>Categoría por palabra clave. Orden = específico → general (el orden importa MUCHO).</summary>

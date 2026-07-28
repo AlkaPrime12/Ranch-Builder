@@ -25,8 +25,8 @@ namespace SlimeCorralSpawn.SceneBuilder
         private static readonly bool Enabled = true;
 
         private const uint Magic = 0x53434D32;   // "SCM2" (formato con materiales/texturas propias)
-        private const int Version = 4;           // v4: + LUCES (tipo/color/rango/ángulo/intensidad). v3 se sigue leyendo.
-        private static bool VersionOk(int v) => v == 3 || v == 4;
+        private const int Version = 6;           // v6: + Y ORIGINAL del mundo (para compensar el ramp de altura de los shaders SR/AMP). v5:+IsFlat, v4:+luces.
+        private static bool VersionOk(int v) => v == 3 || v == 4 || v == 5 || v == 6;
         private const uint MatMagic = 0x53434D54;   // "SCMT" (clon completo de material)
         private const int MatVersion = 2;
         private const int MaxVertsPerModel = 250000;   // no hornear terrenos gigantes
@@ -43,6 +43,12 @@ namespace SlimeCorralSpawn.SceneBuilder
         private static readonly HashSet<string> _bakedModels = new HashSet<string>();
         private static readonly HashSet<string> _bakedMats = new HashSet<string>();
         private static readonly HashSet<string> _bakedTex = new HashSet<string>();
+        private static readonly HashSet<string> _queuedModels = new HashSet<string>();   // evita encolar el mismo bake 2 veces
+        private static readonly HashSet<string> _rebakedKeys = new HashSet<string>();    // modelos recién subidos a v6 → re-spawnear lo colocado
+        // Y ORIGINAL del mundo por modelo (v6): los shaders SR/AMP colorean por altura absoluta → al colocar el
+        // modelo a otra altura hay que desplazar los umbrales del ramp por (Y colocada − Y original).
+        private static readonly Dictionary<string, float> _origY = new Dictionary<string, float>();
+        public static bool TryGetOrigY(string zone, string key, out float y) => _origY.TryGetValue(zone + "/" + key, out y);
 
         // Índice de lo que hay en disco: ckey "zona/key" → ruta del archivo. Se llena leyendo SOLO las cabeceras
         // (rápido, presupuestado). La MALLA se reconstruye BAJO DEMANDA (al spawnear), NO todo al arrancar →
@@ -78,7 +84,7 @@ namespace SlimeCorralSpawn.SceneBuilder
         internal static bool _frontLoadMode;
 
         // Trabajo en SEGUNDO PLANO (los botones Guardar/Actualizar NO congelan: se procesa por tiempo/frame).
-        private struct Job { public int Kind; public SceneModelInfo Info; public GameObject Go; public Material Mat; }
+        private struct Job { public int Kind; public SceneModelInfo Info; public GameObject Go; public Material Mat; public bool Force; }
         private static readonly Queue<Job> _work = new Queue<Job>();
         private static int _workTotal, _workDone;
         private static bool _applyRefreshWhenDone;
@@ -216,10 +222,27 @@ namespace SlimeCorralSpawn.SceneBuilder
                 _workDone++;
                 try
                 {
-                    if (j.Kind == 0)   // hornear modelo a disco
-                    {
-                        if (j.Info != null && j.Go != null && !_bakedModels.Contains(j.Info.Zone + "/" + j.Info.Key))
-                            BakeOne(j.Info, j.Go);
+                    if (j.Kind == 0)   // hornear modelo a disco (en 2do plano: la colocación ya se vio instantánea
+                    {                   // con el material real vivo; esto solo la hace persistir sin trabar el frame)
+                        if (j.Info != null)
+                        {
+                            string ckey0 = j.Info.Zone + "/" + j.Info.Key;
+                            _queuedModels.Remove(ckey0);
+                            // force → re-hornear aunque figure horneado: quitarlo de _bakedModels para que BakeOne no
+                            // corte por el guard y re-evalúe la versión del archivo (v5 → reescribe a v6).
+                            if (j.Force) _bakedModels.Remove(ckey0);
+                            if (j.Go != null && !_bakedModels.Contains(ckey0))
+                            {
+                                BakeOne(j.Info, j.Go);
+                                // Malla no horneable (no legible): al menos dejar una copia parkeada en memoria
+                                // para que sobreviva a que el jugador salga de la zona esta sesión.
+                                if (!HasBaked(j.Info.Zone, j.Info.Key))
+                                    try { SceneModelLibrary.EnsureParkedFallback(j.Info); } catch { }
+                                // Si fue un UPGRADE forzado (v5→v6) y quedó al día → marcar para re-spawnear los props
+                                // YA colocados de este modelo (ahora con TODAS las partes + Y original), sin recargar.
+                                else if (j.Force && IsBakedCurrent(j.Info.Zone, j.Info.Key)) _rebakedKeys.Add(ckey0);
+                            }
+                        }
                     }
                     else if (j.Kind == 1)   // re-capturar material (forzado)
                     {
@@ -235,14 +258,30 @@ namespace SlimeCorralSpawn.SceneBuilder
                 ModEntry.LogInfo($"[Store] Trabajo terminado: {_workDone} ítems (en disco {_diskIndex.Count}).");
                 _workTotal = 0; _workDone = 0;
                 if (_applyRefreshWhenDone) { _applyRefreshWhenDone = false; try { SceneModelLibrary.ApplyTextureRefresh(); } catch { } }
+                // Re-spawnear lo YA colocado que se acaba de actualizar a v6 (todas las partes + Y original) → se ve
+                // completo sin recargar. RespawnMatching solo pone LinkedObject=null; el re-spawn budgeteado lo rehace.
+                if (_rebakedKeys.Count > 0)
+                {
+                    var keys = new HashSet<string>(_rebakedKeys);
+                    try { ModEntry.LogInfo($"[Store] Upgrade v6: re-spawneando {keys.Count} modelo(s) colocados con todas sus partes."); } catch { }
+                    // 1) tirar la copia reconstruida vieja (v5, incompleta) del cache → se rehace del v6 fresco.
+                    try { SceneModelLibrary.InvalidateParked(keys); } catch { }
+                    // 2) re-spawnear los props colocados de esos modelos (LinkedObject=null → re-spawn budgeteado).
+                    try { SceneBuilderManager.RespawnMatching(keys); } catch { }
+                    _rebakedKeys.Clear();
+                }
             }
         }
 
-        public static void QueueBake(SceneModelInfo info, GameObject go)
+        public static void QueueBake(SceneModelInfo info, GameObject go, bool force = false)
         {
             if (!Enabled || info == null || go == null) return;
-            if (_bakedModels.Contains(info.Zone + "/" + info.Key)) return;
-            _work.Enqueue(new Job { Kind = 0, Info = info, Go = go });
+            string ckey = info.Zone + "/" + info.Key;
+            // force = re-hornear un archivo VIEJO (v5→v6) aunque _bakedModels lo tenga (el manifiesto lo marca como
+            // "horneado" al cargar, pero puede ser de una versión vieja incompleta). Sin force, no re-hornear.
+            if (!force && _bakedModels.Contains(ckey)) return;
+            if (!_queuedModels.Add(ckey)) return;   // ya en cola → no duplicar
+            _work.Enqueue(new Job { Kind = 0, Info = info, Go = go, Force = force });
             _workTotal++;
         }
 
@@ -346,6 +385,16 @@ namespace SlimeCorralSpawn.SceneBuilder
         public static bool HasBaked(string zone, string key)
             => !string.IsNullOrEmpty(zone) && !string.IsNullOrEmpty(key) && _diskIndex.ContainsKey(zone + "/" + key);
 
+        /// <summary>True si el modelo está horneado a disco Y con el formato ACTUAL (Version). Los archivos viejos
+        /// (v5: sin Y original + hornear multi-parte incompleto) devuelven false → hay que re-hornearlos cuando haya
+        /// muestra viva. Lee solo la cabecera del archivo (barato).</summary>
+        public static bool IsBakedCurrent(string zone, string key)
+        {
+            if (!HasBaked(zone, key)) return false;
+            try { return IsCurrentFile(ModelPath(zone, key), Magic, Version); }
+            catch { return false; }
+        }
+
         /// <summary>COLOCAR: hornea el modelo a disco (si falta) y reconstruye una copia PROPIA que reemplaza la
         /// compartida → persiste al reiniciar Y sobrevive descargar la zona en esta sesión. Devuelve la copia propia.</summary>
         public static GameObject EnsureBakedNow(SceneModelInfo info, GameObject source)
@@ -363,15 +412,6 @@ namespace SlimeCorralSpawn.SceneBuilder
                 return owned;
             }
             catch { return null; }
-        }
-
-        /// <summary>GUARDAR ZONA (botón): solo escribe a disco, sin reconstruir (sería un freeze enorme con
-        /// cientos de modelos). Se reconstruirán bajo demanda cuando se usen / al reiniciar.</summary>
-        public static void BakeToDiskOnly(SceneModelInfo info, GameObject source)
-        {
-            if (!Enabled || info == null || source == null) return;
-            if (_bakedModels.Contains(info.Zone + "/" + info.Key)) return;
-            try { BakeOne(info, source); } catch { }
         }
 
         /// <summary>ACTUALIZAR TEXTURAS (botón): re-captura y sobrescribe en disco los materiales/texturas del
@@ -548,9 +588,12 @@ namespace SlimeCorralSpawn.SceneBuilder
             using (var fs = File.OpenRead(scsmPath))
             using (var br = new BinaryReader(fs))
             {
-                if (br.ReadUInt32() != Magic || !VersionOk(br.ReadInt32())) return;
+                uint mg = br.ReadUInt32(); int cv = br.ReadInt32();
+                if (mg != Magic || !VersionOk(cv)) return;
                 br.ReadString(); br.ReadString(); br.ReadString();   // zone, key, category
                 br.ReadSingle(); br.ReadSingle(); br.ReadSingle();    // escala raíz
+                if (cv >= 5) br.ReadBoolean();                        // v5: isFlat
+                if (cv >= 6) br.ReadSingle();                         // v6: Y original
                 if (br.ReadByte() == 0) return;                        // hasGeom
                 int parts = br.ReadInt32();
                 for (int p = 0; p < parts; p++)
@@ -638,6 +681,8 @@ namespace SlimeCorralSpawn.SceneBuilder
                 SceneModelLibrary.SeedFromDisk(zone, key, category);
 
                 float sx = br.ReadSingle(), sy = br.ReadSingle(), sz = br.ReadSingle();
+                bool isFlat = ver >= 5 && br.ReadBoolean();   // v5: prop plano/billboard
+                if (ver >= 6) { try { _origY[zone + "/" + key] = br.ReadSingle(); } catch { } }   // v6: Y original del mundo
                 bool hasGeom = br.ReadByte() != 0;
 
                 var root = new GameObject("SCSPark_" + key);
@@ -649,7 +694,7 @@ namespace SlimeCorralSpawn.SceneBuilder
                 if (hasGeom)
                 {
                     int partCount = br.ReadInt32();
-                    for (int p = 0; p < partCount; p++) ReadPart(br, root.transform);
+                    for (int p = 0; p < partCount; p++) ReadPart(br, root.transform, isFlat);
                 }
                 if (ver >= 4) ReadLights(br, root.transform);   // luces (v4)
 
@@ -658,7 +703,18 @@ namespace SlimeCorralSpawn.SceneBuilder
             }
         }
 
-        /// <summary>Reconstruye las luces horneadas (v4): recrea Light + HDAdditionalLightData → las zonas lejanas
+        /// <summary>Intensidad HDRP por defecto según el tipo (cuando no se capturó la del original).</summary>
+        private static float DefaultLightIntensity(LightType t)
+        {
+            switch (t)
+            {
+                case LightType.Directional: return 3f;       // lux bajos (una direccional fuerte lava la escena)
+                case LightType.Spot: return 1500f;           // lumen
+                default: return 1200f;                       // point/area: lumen
+            }
+        }
+
+        /// <summary>Reconstruye las luces horneadas (v4+): recrea Light + HDAdditionalLightData → las zonas lejanas
         /// conservan su luz (antes solo se horneaban mallas → las luces se perdían).</summary>
         private static void ReadLights(BinaryReader br, Transform root)
         {
@@ -678,19 +734,26 @@ namespace SlimeCorralSpawn.SceneBuilder
                     lgo.transform.localRotation = rot;
                     var L = lgo.AddComponent<Light>();
                     try { L.type = (LightType)type; } catch { }
-                    L.color = col; L.range = range; L.spotAngle = spot; L.intensity = inten;
+                    L.color = col; L.range = range; L.spotAngle = spot;
+                    L.enabled = true;
                     try
                     {
                         var hd = lgo.AddComponent<UnityEngine.Rendering.HighDefinition.HDAdditionalLightData>();
-                        if (hdI > 0f) hd.intensity = hdI;
+                        // Intensidad HDRP (la que realmente usa el pipeline). Si no se capturó, default sensato por tipo.
+                        float unitI = hdI > 0f ? hdI : DefaultLightIntensity((LightType)type);
+                        try { hd.intensity = unitI; } catch { }
+                        try { hd.SetIntensity(unitI); } catch { }
+                        try { hd.affectDiffuse = true; hd.affectSpecular = true; } catch { }
                     }
                     catch { }
+                    // Fallback clásico (por si el HDRP data no toma): también seteamos Light.intensity.
+                    L.intensity = inten > 0f ? inten : 2f;
                 }
                 catch { }
             }
         }
 
-        private static void ReadPart(BinaryReader br, Transform root)
+        private static void ReadPart(BinaryReader br, Transform root, bool billboard)
         {
             Vector3 pos = new Vector3(br.ReadSingle(), br.ReadSingle(), br.ReadSingle());
             Quaternion rot = new Quaternion(br.ReadSingle(), br.ReadSingle(), br.ReadSingle(), br.ReadSingle());
@@ -737,11 +800,12 @@ namespace SlimeCorralSpawn.SceneBuilder
                 for (int i = 0; i < tc; i++) trisM[i] = br.ReadInt32();
                 mesh.SetTriangles(new Il2CppStructArray<int>(trisM), s);
                 string matName = br.ReadString();
-                mats[s] = ResolveMaterial(matName);
+                mats[s] = ResolveMaterial(matName, billboard);
             }
 
             if (normalsM == null) { try { mesh.RecalculateNormals(); } catch { } }
             try { mesh.RecalculateBounds(); } catch { }
+            try { mesh.RecalculateTangents(); } catch { }   // si no, los normal maps de HDRP/Lit salen mal en lo reconstruido
             mesh.hideFlags = HideFlags.HideAndDontSave;
 
             var go = new GameObject("part");
@@ -751,6 +815,30 @@ namespace SlimeCorralSpawn.SceneBuilder
             go.transform.localScale = scale;
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             go.AddComponent<MeshRenderer>().sharedMaterials = mats;
+        }
+
+        /// <summary>True si el objeto es un prop PLANO/BILLBOARD (tarjeta con textura recortada: pasto, hojas,
+        /// carteles) — su dimensión más chica es mucho menor que las otras dos, en CUALQUIER eje (generaliza el
+        /// viejo chequeo "solo Y" de las miniaturas, que no detectaba tarjetas paradas verticalmente).</summary>
+        private static bool IsFlatBillboard(GameObject go)
+        {
+            try
+            {
+                Bounds b = default; bool has = false;
+                var rends = go.GetComponentsInChildren<Renderer>(true);
+                if (rends != null)
+                    for (int i = 0; i < rends.Length; i++)
+                    {
+                        var r = rends[i]; if (r == null) continue;
+                        if (!has) { b = r.bounds; has = true; } else b.Encapsulate(r.bounds);
+                    }
+                if (!has) return false;
+                Vector3 ext = b.extents;
+                float minE = Mathf.Min(ext.x, Mathf.Min(ext.y, ext.z));
+                float maxE = Mathf.Max(ext.x, Mathf.Max(ext.y, ext.z));
+                return maxE > 0.01f && minE < 0.12f * maxE;
+            }
+            catch { return false; }
         }
 
         // ─────────────────────────── horneado (bake) ───────────────────────────
@@ -779,6 +867,10 @@ namespace SlimeCorralSpawn.SceneBuilder
                     bw.Write(info.Zone ?? ""); bw.Write(info.Key ?? ""); bw.Write(info.Category ?? "");
                     Vector3 rs = root.localScale;
                     bw.Write(rs.x); bw.Write(rs.y); bw.Write(rs.z);
+                    bw.Write(IsFlatBillboard(go));   // v5: prop plano/billboard (tarjeta con textura recortada)
+                    float origY0 = 0f; try { origY0 = root.position.y; } catch { }   // v6: Y original en el mundo
+                    bw.Write(origY0);
+                    _origY[ckey] = origY0;
 
                     var parts = new List<MeshFilter>();
                     long totalVerts = 0;
@@ -807,7 +899,8 @@ namespace SlimeCorralSpawn.SceneBuilder
                             ms.SetLength(0); ms.Position = 0;
                             bw.Write(Magic); bw.Write(Version);
                             bw.Write(info.Zone ?? ""); bw.Write(info.Key ?? ""); bw.Write(info.Category ?? "");
-                            bw.Write(rs.x); bw.Write(rs.y); bw.Write(rs.z); bw.Write((byte)0);
+                            bw.Write(rs.x); bw.Write(rs.y); bw.Write(rs.z);
+                            bw.Write(false); bw.Write(origY0); bw.Write((byte)0);
                         }
                     }
 
@@ -953,6 +1046,9 @@ namespace SlimeCorralSpawn.SceneBuilder
             string name;
             try { name = CleanMatName(mat.name); } catch { return ""; }
             if (string.IsNullOrEmpty(name)) return "";
+            // NOTA: la clave del material es SOLO el nombre limpio (como la versión que guardaba bien las
+            // texturas). NO agregar sufijos por textura: el .scsm guarda este nombre y si al re-hornear SOLO
+            // materiales ("Actualizar texturas") el nombre cambiara, el modelo no encontraría su .scmat → Unlit.
             if (_bakedMats.Contains(name)) return name;   // dedup (por sesión / por run de refresh)
             _bakedMats.Add(name);
             try
@@ -1038,15 +1134,19 @@ namespace SlimeCorralSpawn.SceneBuilder
                     texEntries.Add((pn, tk, tsc, toff));
                 }
 
-                // Foto del aspecto (SOLO como fallback por si el shader no está disponible al reconstruir).
+                // Foto del aspecto: fallback si el shader NO se encuentra al reconstruir (p. ej. sesión nueva con
+                // la zona sin visitar). SIEMPRE la capturamos → así esos modelos muestran su COLOR real y no salen
+                // BLANCOS. La exposición ya converge tras el 1er material → suele ser 1 render por material.
                 string lookKey = "";
-                var look = CaptureMaterialLook(mat, 256);
-                if (look != null)
                 {
-                    var avg = Average(look);
-                    bool bad = (avg.r < 8 && avg.g < 8 && avg.b < 8) || (avg.r > 250 && avg.g > 250 && avg.b > 250);
-                    if (!bad) { lookKey = "look_" + name; if (!SaveTexRaw(lookKey, look)) lookKey = ""; }
-                    try { UnityEngine.Object.Destroy(look); } catch { }
+                    var look = CaptureMaterialLook(mat, 256);
+                    if (look != null)
+                    {
+                        var avg = Average(look);
+                        bool bad = (avg.r < 8 && avg.g < 8 && avg.b < 8) || (avg.r > 250 && avg.g > 250 && avg.b > 250);
+                        if (!bad) { lookKey = "look_" + name; if (!SaveTexRaw(lookKey, look)) lookKey = ""; }
+                        try { UnityEngine.Object.Destroy(look); } catch { }
+                    }
                 }
 
                 if (_texDiag > 0)
@@ -1176,7 +1276,7 @@ namespace SlimeCorralSpawn.SceneBuilder
         private static void UpgradeTick()
         {
             if (_pending.Count == 0) return;
-            int interval = _frontLoadMode ? 30 : 180;   // ~0.5s en front-load, ~3s normal
+            int interval = _frontLoadMode ? 12 : 60;   // ~0.2s en front-load, ~1s normal (antes 3s → el usuario lo pidió más rápido)
             if (++_upgradeThrottle < interval) return;
             _upgradeThrottle = 0;
             List<string> done = null;
@@ -1269,6 +1369,10 @@ namespace SlimeCorralSpawn.SceneBuilder
                 if (!force && File.Exists(TexPath(key))) return key;
                 var readable = CaptureTexture(tex);
                 if (readable == null) return "";
+                // NOTA: NO rechazamos "normal maps" acá. En el CLON COMPLETO cada textura va a SU propiedad del
+                // shader (incluidos normal/mask/control) → los materiales multi-textura (montañas roca+pasto por
+                // vertex color) NECESITAN todas sus texturas. Rechazarlas rompía el blend. El azul del fallback
+                // Unlit se maneja aparte (en NewOwnedMaterial: si el color/look es muy azul-saturado usa gris).
                 bool ok = SaveTexRaw(key, readable);
                 try { UnityEngine.Object.Destroy(readable); } catch { }
                 if (!ok) return "";
@@ -1278,6 +1382,34 @@ namespace SlimeCorralSpawn.SceneBuilder
         }
 
         private static string SafeSize(Texture t) { try { return t.width + "x" + t.height; } catch { return "0"; } }
+
+        /// <summary>Heurística: ¿la textura capturada parece un NORMAL MAP? (azul/violáceo uniforme: R y G en la
+        /// zona media ~128 y B alto, con poca variación de tono). Sirve para no guardar un mapa de normales como
+        /// albedo (los modelos salían AZULES). Conservadora: solo rechaza casos claros.</summary>
+        private static bool LooksLikeNormalMap(Texture2D tex)
+        {
+            try
+            {
+                var px = tex.GetPixels32();
+                if (px == null || px.Length == 0) return false;
+                long r = 0, g = 0, b = 0; int step = Mathf.Max(1, px.Length / 800), cnt = 0;
+                int blueish = 0;
+                for (int i = 0; i < px.Length; i += step)
+                {
+                    var p = px[i];
+                    r += p.r; g += p.g; b += p.b; cnt++;
+                    // píxel "de normal map": B claramente por encima de R y G, y R/G en la banda media.
+                    if (p.b > 150 && p.b > p.r + 25 && p.b > p.g + 25 && p.r > 70 && p.r < 200 && p.g > 70 && p.g < 200) blueish++;
+                }
+                if (cnt == 0) return false;
+                float ar = r / (float)cnt, ag = g / (float)cnt, ab = b / (float)cnt;
+                float blueFrac = blueish / (float)cnt;
+                // Promedio tipo normal-map (R≈G, ambos medios, B alto) O la mayoría de píxeles son "de normal map".
+                bool avgNormal = ab > 150 && ab > ar + 20 && ab > ag + 20 && ar > 90 && ar < 190 && ag > 90 && ag < 190 && Mathf.Abs(ar - ag) < 40;
+                return avgNormal || blueFrac > 0.6f;
+            }
+            catch { return false; }
+        }
 
         // Rig de captura de textura por CÁMARA (el Graphics.Blit NO funciona en este HDRP; el render de cámara SÍ,
         // igual que el de las miniaturas). Una cámara ortográfica mira un quad Unlit con la textura → RT → ReadPixels.
@@ -1337,11 +1469,62 @@ namespace SlimeCorralSpawn.SceneBuilder
             _texQuad.transform.localPosition = Vector3.zero;
             _texQuad.transform.localRotation = Quaternion.identity;    // el quad encara -Z → visible desde la cámara en -Z
             try { UnityEngine.Object.Destroy(_texQuad.GetComponent<Collider>()); } catch { }
-            var sh = UnlitShader();
-            _texQuadMat = new Material(sh);
+            // HDRP/Unlit OPACO — EXACTAMENTE como la versión que capturaba bien las texturas (v1.5.0). NO tocar
+            // esto con modo transparente: eso rompía la captura de TODAS las texturas. El alfa real de los props
+            // planos se resuelve por el material billboard de runtime (subconjunto) + el re-clonado vivo, no acá.
+            _texQuadMat = new Material(UnlitShader());
             _texQuadMat.hideFlags = HideFlags.HideAndDontSave;
             try { _texQuad.GetComponent<MeshRenderer>().sharedMaterial = _texQuadMat; } catch { }
             _texQuad.layer = TexCaptureLayer;
+        }
+
+        /// <summary>Configura un HDRP/Unlit para dibujar con alfa (transparente + opcional doble cara), tocando
+        /// las propiedades/keywords de HDRP de forma best-effort (todo en try → si el shader no las tiene, queda
+        /// como estaba, sin romperse). Usado por la captura de alfa y por el material billboard de fallback.</summary>
+        private static void MakeUnlitTransparent(Material m, bool doubleSided)
+        {
+            if (m == null) return;
+            try { m.SetFloat("_SurfaceType", 1f); } catch { }        // 1 = Transparent
+            try { m.SetFloat("_BlendMode", 0f); } catch { }          // 0 = Alpha
+            try { m.SetFloat("_DstBlend", 10f); m.SetFloat("_SrcBlend", 1f); m.SetFloat("_ZWrite", 0f); } catch { }
+            try { m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); } catch { }
+            try { m.EnableKeyword("_BLENDMODE_ALPHA"); } catch { }
+            try { m.SetFloat("_AlphaCutoffEnable", 1f); m.SetFloat("_AlphaCutoff", 0.35f); m.EnableKeyword("_ALPHATEST_ON"); } catch { }
+            try { m.renderQueue = 3000; } catch { }
+            if (doubleSided)
+            {
+                try { m.SetFloat("_DoubleSidedEnable", 1f); } catch { }
+                try { m.SetFloat("_CullMode", 0f); m.SetFloat("_CullModeForward", 0f); } catch { }
+                try { m.EnableKeyword("_DOUBLESIDED_ON"); } catch { }
+                try { m.doubleSidedGI = true; } catch { }
+            }
+        }
+
+        /// <summary>Deshace el premultiply-por-alfa que deja el blend de Sprites/Default contra el fondo
+        /// transparente (RGB quedó multiplicado por alfa) → recupera el RGBA recto de la textura fuente, con su
+        /// transparencia real intacta (sin esto, los píxeles semitransparentes/transparentes de props planos con
+        /// recorte —pasto, hojas, carteles— quedaban oscurecidos o directamente invisibles al mal-interpretarse).</summary>
+        private static void UnPremultiply(Texture2D tex)
+        {
+            try
+            {
+                var px = tex.GetPixels32();
+                for (int i = 0; i < px.Length; i++)
+                {
+                    var p = px[i];
+                    int a = p.a;
+                    if (a > 0 && a < 255)
+                    {
+                        p.r = (byte)Mathf.Clamp(p.r * 255 / a, 0, 255);
+                        p.g = (byte)Mathf.Clamp(p.g * 255 / a, 0, 255);
+                        p.b = (byte)Mathf.Clamp(p.b * 255 / a, 0, 255);
+                        px[i] = p;
+                    }
+                }
+                tex.SetPixels32(px);
+                tex.Apply();
+            }
+            catch { }
         }
 
         /// <summary>Captura los píxeles de una textura (aunque no sea readable) renderizándola con una cámara
@@ -1420,7 +1603,9 @@ namespace SlimeCorralSpawn.SceneBuilder
                 // negra) según la intensidad de la luz. Probamos intensidades hasta lograr una foto con detalle.
                 // _lookLux arranca en la última que funcionó → tras el 1er material converge (1 render por mat).
                 float[] tries = { _lookLux, _lookLux / 8f, _lookLux / 64f, _lookLux * 8f };
-                for (int a = 0; a < tries.Length; a++)
+                Color32[] bestPixels = null; float bestBadness = float.MaxValue, bestLux = _lookLux;
+                bool clean = false;
+                for (int a = 0; a < tries.Length && !clean; a++)
                 {
                     try { if (_texLightHD != null) _texLightHD.intensity = tries[a]; } catch { }
                     if (_texLight != null) _texLight.enabled = true;
@@ -1432,8 +1617,15 @@ namespace SlimeCorralSpawn.SceneBuilder
                     var avg = Average(tex);
                     bool blown = avg.r > 245 && avg.g > 245 && avg.b > 245;   // quemada a blanco
                     bool black = avg.r < 10 && avg.g < 10 && avg.b < 10;      // sin luz / no dibujó
-                    if (!blown && !black) { _lookLux = tries[a]; break; }
+                    if (!blown && !black) { _lookLux = tries[a]; clean = true; break; }
+                    // Ninguno "limpio" todavía: recordar el MENOS quemado/negro por si ningún intento cae en rango
+                    // (antes se guardaba el último intento sin más, casi siempre el más quemado de los 4).
+                    float badness = Mathf.Max(0f, avg.r - 245) + Mathf.Max(0f, 10 - avg.r)
+                                  + Mathf.Max(0f, avg.g - 245) + Mathf.Max(0f, 10 - avg.g)
+                                  + Mathf.Max(0f, avg.b - 245) + Mathf.Max(0f, 10 - avg.b);
+                    if (badness < bestBadness) { bestBadness = badness; bestPixels = tex.GetPixels32(); bestLux = tries[a]; }
                 }
+                if (!clean && bestPixels != null) { tex.SetPixels32(bestPixels); tex.Apply(); _lookLux = bestLux; }
                 _texCam.targetTexture = null;
                 return tex;
             }
@@ -1492,14 +1684,18 @@ namespace SlimeCorralSpawn.SceneBuilder
         }
 
         // Diagnóstico de reconstrucción (silencioso por defecto: 0 = no loguea; subir para depurar).
-        private static int _matDiagLoad = 0;
+        private static int _matDiagLoad = 3;    // DIAG: loguear reconstrucciones de material (shader real vs Unlit)
+        private static int _triDiag = 0;        // DIAG: volcar props completas de los primeros materiales Triplanar (ya extraído → apagado)
 
         /// <summary>Reconstruye el material desde disco. Formato nuevo = CLON con el shader REAL del juego
         /// (+ texturas propias) → se ve idéntico al original. Fallback = Unlit + foto del aspecto.</summary>
-        private static Material ResolveMaterial(string name)
+        private static Material ResolveMaterial(string name, bool billboard = false)
         {
-            if (string.IsNullOrEmpty(name)) return NewOwnedMaterial(Color.white, null);
-            if (_matCache.TryGetValue(name, out var cached) && cached != null) return cached;
+            if (string.IsNullOrEmpty(name)) return NewOwnedMaterial(Color.white, null, billboard);
+            // Los props planos/billboard necesitan un material de fallback distinto (doble cara + alfa real) →
+            // cachear aparte para no pisar la versión "normal" del mismo nombre de material.
+            string cacheKey = billboard ? name + "bb" : name;
+            if (_matCache.TryGetValue(cacheKey, out var cached) && cached != null) return cached;
 
             Material m = null;
             try
@@ -1552,14 +1748,29 @@ namespace SlimeCorralSpawn.SceneBuilder
                                 ApplyCloneData(m, renderQueue, keywords, floats, colors, vectors, texEntries, out int texOk);
                                 if (_matDiagLoad > 0)
                                 { _matDiagLoad--; ModEntry.LogInfo($"[Store] rebuild mat '{name}': CLON shader='{shaderName}' OK tex={texOk}/{texEntries.Count}"); }
+                                // DIAG QUIRÚRGICO: volcar TODAS las props + keywords del PRIMER material Triplanar
+                                // (para ver qué controla el look world-space: umbral de altura, offset, toggle…).
+                                if (_triDiag > 0 && shaderName != null && shaderName.IndexOf("Triplanar", StringComparison.OrdinalIgnoreCase) >= 0)
+                                {
+                                    _triDiag--;
+                                    try
+                                    {
+                                        ModEntry.LogInfo($"[TriDiag] === '{name}' shader='{shaderName}' ===");
+                                        ModEntry.LogInfo($"[TriDiag] keywords: {string.Join(" | ", keywords)}");
+                                        foreach (var f in floats) ModEntry.LogInfo($"[TriDiag] float {f.Key} = {f.Value}");
+                                        foreach (var v in vectors) ModEntry.LogInfo($"[TriDiag] vector {v.Key} = {v.Value}");
+                                        foreach (var c in colors) ModEntry.LogInfo($"[TriDiag] color {c.Key} = {c.Value}");
+                                    }
+                                    catch { }
+                                }
                             }
                             else
                             {
                                 // Shader aún NO cargado (zona lejana / arranque temprano) → Unlit + foto del aspecto
                                 // como puente, PERO lo dejamos pendiente: cuando el shader real aparezca (al entrar a
                                 // la zona o al terminar de cargar), UpgradeTick lo re-arma EN EL MISMO material → color 100%.
-                                m = NewOwnedMaterial(Color.white, LoadTex(lookKey));
-                                _pending[name] = new PendingMat
+                                m = NewOwnedMaterial(Color.white, LoadTex(lookKey), billboard);
+                                _pending[cacheKey] = new PendingMat
                                 {
                                     Mat = m, ShaderName = shaderName, RenderQueue = renderQueue,
                                     Keywords = keywords, Floats = floats, Colors = colors, Vectors = vectors, Texs = texEntries
@@ -1574,7 +1785,7 @@ namespace SlimeCorralSpawn.SceneBuilder
                             fs.Position = 0;
                             var color = new Color(br.ReadSingle(), br.ReadSingle(), br.ReadSingle(), br.ReadSingle());
                             string texKey = br.ReadString();
-                            m = NewOwnedMaterial(color, LoadTex(texKey));
+                            m = NewOwnedMaterial(color, LoadTex(texKey), billboard);
                             if (_matDiagLoad > 0)
                             { _matDiagLoad--; ModEntry.LogInfo($"[Store] rebuild mat '{name}': formato viejo → Unlit (re-guardá la zona)"); }
                         }
@@ -1583,8 +1794,8 @@ namespace SlimeCorralSpawn.SceneBuilder
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("SceneModelStore.ResolveMaterial:" + name, ex); }
 
-            if (m == null) m = NewOwnedMaterial(Color.white, null);
-            _matCache[name] = m;
+            if (m == null) m = NewOwnedMaterial(Color.white, null, billboard);
+            _matCache[cacheKey] = m;
             return m;
         }
 
@@ -1675,16 +1886,38 @@ namespace SlimeCorralSpawn.SceneBuilder
         private static void SetTexSafe(Material m, string p, Texture t) { try { if (m.HasProperty(p)) m.SetTexture(p, t); } catch { } }
 
         /// <summary>Material PROPIO Unlit con la textura horneada. Unlit → la textura SIEMPRE se ve (sin depender
-        /// del setup de iluminación HDRP que dejaba todo negro). Si no hay textura, usa el color (no negro).</summary>
-        private static Material NewOwnedMaterial(Color color, Texture2D albedo)
+        /// del setup de iluminación HDRP que dejaba todo negro). Si no hay textura, usa el color (no negro).
+        /// billboard=true → HDRP/Unlit en modo transparente + DOBLE CARA para que la parte "invisible" de la
+        /// textura (pasto/hojas/carteles en tarjeta) no se vea como un cartel sólido y no desaparezca de atrás.
+        /// NUNCA devuelve null (eso pintaría MAGENTA en el mundo): último recurso, un material Unlit gris.</summary>
+        private static Material NewOwnedMaterial(Color color, Texture2D albedo, bool billboard = false)
         {
             Material m = null;
             try
             {
-                var sh = UnlitShader();
+                Shader sh = UnlitShader();
+                if (sh == null) sh = Shader.Find("Sprites/Default") ?? Shader.Find("Hidden/Internal-Colored");
                 if (sh == null) return null;
                 m = new Material(sh);
                 m.hideFlags = HideFlags.HideAndDontSave;
+
+                if (billboard)
+                {
+                    // Tarjeta con recorte: transparente + doble cara. Tinte blanco (la transparencia viene de la
+                    // textura). Si no hay textura, cae al camino normal de abajo con color.
+                    if (albedo != null)
+                    {
+                        MakeUnlitTransparent(m, true);
+                        try { m.color = Color.white; } catch { }
+                        try { m.mainTexture = albedo; } catch { }
+                        SetTexSafe(m, "_UnlitColorMap", albedo);
+                        SetTexSafe(m, "_BaseColorMap", albedo);
+                        SetTexSafe(m, "_MainTex", albedo);
+                        SetColorSafe(m, "_UnlitColor", Color.white);
+                        SetColorSafe(m, "_BaseColor", Color.white);
+                        return m;
+                    }
+                }
 
                 Color c = color; c.a = 1f;
                 // Sin textura y color casi negro → gris visible (evita props negros por color base oscuro).

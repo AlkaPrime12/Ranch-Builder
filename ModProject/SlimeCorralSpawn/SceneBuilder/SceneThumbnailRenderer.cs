@@ -21,7 +21,6 @@ namespace SlimeCorralSpawn.SceneBuilder
         private static readonly Vector3 Stage = new Vector3(0f, 6000f, 0f);
 
         // Throttle: no renderizar en CADA frame (ReadPixels es un stall GPU→CPU caro). Cada N frames.
-        private static int _frameGate;
 
         private static string Dir => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
@@ -63,16 +62,19 @@ namespace SlimeCorralSpawn.SceneBuilder
             return null;
         }
 
-        /// <summary>Procesar como mucho 1 render cada 3 frames (ReadPixels es caro). Solo con el menú abierto.</summary>
+        /// <summary>Renderiza hasta 2 miniaturas por frame (ReadPixels es caro pero llena mucho más rápido el
+        /// catálogo). Solo con el menú F5 o el Scene Tool abiertos.</summary>
         public static void Tick()
         {
             if (_queue.Count == 0) return;
-            if (++_frameGate < 2) return;   // ~1 miniatura cada 2 frames → llena rápido pero suave
-            _frameGate = 0;
-            var m = _queue.Dequeue();
-            _queued.Remove(KeyOf(m));
-            try { RenderOne(m); }
-            catch (Exception ex) { _failed.Add(KeyOf(m)); ModEntry.LogErrorOnce("Thumb.RenderOne:" + m?.Key, ex); }
+            int budget = 2;
+            while (_queue.Count > 0 && budget-- > 0)
+            {
+                var m = _queue.Dequeue();
+                _queued.Remove(KeyOf(m));
+                try { RenderOne(m); }
+                catch (Exception ex) { _failed.Add(KeyOf(m)); ModEntry.LogErrorOnce("Thumb.RenderOne:" + m?.Key, ex); }
+            }
         }
 
         public static bool HasWork => _queue.Count > 0;
@@ -167,17 +169,23 @@ namespace SlimeCorralSpawn.SceneBuilder
                 _cam.targetTexture = null;
                 RenderTexture.ReleaseTemporary(rt);
 
-                // ¿Salió (casi) vacía? El modelo pudo estar sin materiales listos → reintentar un par de veces.
-                if (IsMostlyEmpty(tex))
+                // ¿Salió (casi) vacía o CORRUPTA (magenta = shader roto)? El modelo pudo no tener materiales listos
+                // → reintentar unas veces sin cachear la mala. Una miniatura corrupta NO se guarda a disco (así se
+                // regenera la próxima vez que la fuente esté bien, en vez de quedar pegada rota).
+                if (IsMostlyEmpty(tex) || IsCorrupt(tex))
                 {
                     _attempts.TryGetValue(key, out int at);
-                    if (at < 3)
+                    if (at < 4)
                     {
                         _attempts[key] = at + 1;
                         try { UnityEngine.Object.Destroy(tex); } catch { }
                         if (_queued.Add(key)) _queue.Enqueue(m);   // reintentar más tarde
                         return;
                     }
+                    // Se agotaron los reintentos → la mostramos igual (mejor algo que nada) pero NO la persistimos
+                    // a disco corrupta (para que un futuro intento la regenere).
+                    _cache[key] = tex;
+                    return;
                 }
 
                 _cache[key] = tex;
@@ -256,6 +264,35 @@ namespace SlimeCorralSpawn.SceneBuilder
                 coverage = op / (float)Mathf.Max(1, n);
                 luma = op > 0 ? sum / (float)op : 0f;
                 return true;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>True si la miniatura está CORRUPTA: mayormente MAGENTA (shader roto en HDRP) o un único color
+        /// plano sin ningún detalle (material no resuelto). Solo detecta casos claros (para no descartar buenas).</summary>
+        private static bool IsCorrupt(Texture2D tex)
+        {
+            try
+            {
+                var px = tex.GetPixels32();
+                if (px == null || px.Length == 0) return true;
+                int op = 0, magenta = 0;
+                long sr = 0, sg = 0, sb = 0;
+                // varianza aprox: acumular min/max por canal sobre los opacos
+                int rmin = 255, rmax = 0, gmin = 255, gmax = 0, bmin = 255, bmax = 0;
+                for (int i = 0; i < px.Length; i += 5)
+                {
+                    var p = px[i]; if (p.a <= 20) continue;
+                    op++; sr += p.r; sg += p.g; sb += p.b;
+                    if (p.r > 180 && p.b > 180 && p.g < 120) magenta++;   // magenta = R y B altos, G bajo
+                    if (p.r < rmin) rmin = p.r; if (p.r > rmax) rmax = p.r;
+                    if (p.g < gmin) gmin = p.g; if (p.g > gmax) gmax = p.g;
+                    if (p.b < bmin) bmin = p.b; if (p.b > bmax) bmax = p.b;
+                }
+                if (op < 8) return false;   // casi vacía → lo maneja IsMostlyEmpty
+                if (magenta / (float)op > 0.5f) return true;   // shader roto
+                int spread = (rmax - rmin) + (gmax - gmin) + (bmax - bmin);
+                return spread < 12;   // un solo color plano sin detalle → material no resuelto
             }
             catch { return false; }
         }
@@ -339,6 +376,14 @@ namespace SlimeCorralSpawn.SceneBuilder
                 for (int i = 0; i < n; i++) { int o = i * 4; colsM[i] = new Color32(raw[o], raw[o + 1], raw[o + 2], raw[o + 3]); }
                 tex.SetPixels32(new Il2CppStructArray<Color32>(colsM));
                 tex.Apply();
+                // Si la miniatura guardada quedó corrupta (magenta/plana de una versión vieja), la descartamos y
+                // borramos el archivo → se regenera con la fuente actual.
+                if (IsCorrupt(tex))
+                {
+                    try { UnityEngine.Object.Destroy(tex); } catch { }
+                    try { File.Delete(path); } catch { }
+                    return null;
+                }
                 return tex;
             }
             catch { return null; }
