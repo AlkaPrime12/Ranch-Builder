@@ -702,6 +702,33 @@ namespace SlimeCorralSpawn.SceneBuilder
 
         /// <summary>Busca en la escena una instancia VIVA del modelo por su clave (cuando el Sample murió por un
         /// re-stream de la zona). Presupuestado: solo mira los renderers activos, y cachea el resultado en Sample.</summary>
+        /// <summary>True si el objeto vive en la zona pedida. La escena de Unity a la que pertenece el
+        /// GameObject es la zona real; si no se puede leer, subimos por el árbol buscando la raíz "zone*".</summary>
+        private static bool SameZone(GameObject go, string zoneWanted)
+        {
+            if (string.IsNullOrEmpty(zoneWanted)) return true;
+            try
+            {
+                var sc = go.scene;
+                if (sc.IsValid() && !string.IsNullOrEmpty(sc.name))
+                    return string.Equals(ZoneGroupId(sc.name), zoneWanted, StringComparison.OrdinalIgnoreCase);
+            }
+            catch { }
+            try
+            {
+                var t = go.transform;
+                while (t != null)
+                {
+                    string n = t.name;
+                    if (!string.IsNullOrEmpty(n) && n.StartsWith("zone", StringComparison.OrdinalIgnoreCase))
+                        return string.Equals(ZoneGroupId(n), zoneWanted, StringComparison.OrdinalIgnoreCase);
+                    t = t.parent;
+                }
+            }
+            catch { }
+            return false;   // sin poder confirmar la zona, NO lo usamos: es lo que rompía los colores
+        }
+
         private static MeshRenderer[] _rendCache;
         private static float _rendCacheAt = -999f;
 
@@ -724,6 +751,7 @@ namespace SlimeCorralSpawn.SceneBuilder
                 var rends = _rendCache;
                 if (rends == null) return null;
                 string sig = BaseSignature(key);
+                string zoneWanted = ZoneGroupId(zone);
                 GameObject porFirma = null;   // coincidencia aproximada: solo si no hay una exacta
                 for (int i = 0; i < rends.Length; i++)
                 {
@@ -737,9 +765,17 @@ namespace SlimeCorralSpawn.SceneBuilder
                     var lodT = go.transform;
                     try { var lg = go.GetComponentInParent<LODGroup>(); if (lg != null) lodT = lg.transform; } catch { }
 
+                    // ★ LA ZONA IMPORTA ★
+                    // Este método ignoraba el parámetro `zone` y buscaba SOLO por nombre. Con el fallback por
+                    // firma (que quita los dígitos finales) un `fieldsGrass01` de una zona AZUL terminaba
+                    // agarrando el `fieldsGrass03` VIVO de la zona donde está el jugador → el modelo se
+                    // reconstruía con el material de la zona equivocada (pasto verde en vez de azul).
+                    // Ahora solo valen instancias de la MISMA zona.
+                    if (!SameZone(go, zoneWanted)) continue;
+
                     if (string.Equals(bk, key, StringComparison.OrdinalIgnoreCase)) return lodT.gameObject;
-                    // 2ª oportunidad: misma FIRMA base (mismo prop, otra variante numérica). Tras el dedupe del
-                    // catálogo, la clave guardada puede no ser la de la instancia que quedó viva en la escena.
+                    // 2ª oportunidad: misma FIRMA base (mismo prop, otra variante numérica) — pero también
+                    // restringida a la misma zona por el filtro de arriba.
                     if (porFirma == null && string.Equals(BaseSignature(bk), sig, StringComparison.OrdinalIgnoreCase))
                         porFirma = lodT.gameObject;
                 }
@@ -878,6 +914,34 @@ namespace SlimeCorralSpawn.SceneBuilder
         /// gameplay, animadores-script) dejando solo lo visual (MeshFilter/MeshRenderer/LODGroup) + colliders.</summary>
         private static void StripLogic(GameObject clone)
         {
+            // ★ QUE NUNCA SE MUEVAN ★
+            // Los props del juego pueden traer Rigidbody / Joint. Al clonarlos, la FÍSICA se hacía cargo de
+            // ellos: caían, se hundían un poco en el suelo o los empujaba un slime, y al recargar aparecían
+            // corridos respecto de donde los dejaste. Un modelo de decoración no necesita física: se le quita
+            // el cuerpo rígido (o, si por algo no se puede, se lo deja cinemático y congelado).
+            try
+            {
+                var joints = clone.GetComponentsInChildren<Joint>(true);
+                if (joints != null) foreach (var j in joints) if (j != null) UnityEngine.Object.DestroyImmediate(j);
+            }
+            catch { }
+            try
+            {
+                var bodies = clone.GetComponentsInChildren<Rigidbody>(true);
+                if (bodies != null)
+                    foreach (var rb in bodies)
+                    {
+                        if (rb == null) continue;
+                        try { UnityEngine.Object.DestroyImmediate(rb); }
+                        catch
+                        {
+                            try { rb.isKinematic = true; rb.detectCollisions = true; rb.constraints = RigidbodyConstraints.FreezeAll; }
+                            catch { }
+                        }
+                    }
+            }
+            catch { }
+
             try
             {
                 // FORZAR LOD0: sin esto el LODGroup deja VISIBLES DOS niveles de detalle a la vez (crossfade
@@ -913,6 +977,11 @@ namespace SlimeCorralSpawn.SceneBuilder
 
         // ─────────────────────────── UPDATE (presupuestado) ───────────────────────────
         /// <summary>Llamar desde ModEntry.OnUpdate SOLO cuando ranchReady. Avanza el escaneo un poco por frame.</summary>
+        // Retroceso del escaneo: 25 s mientras siga descubriendo modelos, hasta 180 s cuando ya no aparece nada.
+        private static int _idleScans;
+        private static int _catalogBefore;
+        private static float ScanInterval() => Mathf.Min(180f, 25f + _idleScans * 25f);
+
         public static void Tick()
         {
             try
@@ -927,8 +996,9 @@ namespace SlimeCorralSpawn.SceneBuilder
                         // Arranca un pase nuevo cada tanto (o cuando MarkDirty puso _nextScanStart=0).
                         if (Time.realtimeSinceStartup >= _nextScanStart)
                         {
+                            _catalogBefore = _catalog.Count;
                             BeginScan();
-                            if (!_scanActive) _nextScanStart = Time.realtimeSinceStartup + 25f;
+                            if (!_scanActive) _nextScanStart = Time.realtimeSinceStartup + ScanInterval();
                         }
                     }
                     if (_scanActive)
@@ -939,9 +1009,13 @@ namespace SlimeCorralSpawn.SceneBuilder
 
                         if (_queue.Count == 0)
                         {
-                            // Pase completo → esperar antes del próximo (captura zonas que se streamearon después).
+                            // Pase completo. Si NO apareció nada nuevo, el catálogo ya está estable y no tiene
+                            // sentido volver a recorrer todo el árbol de la escena cada 25 s: se espacia cada vez
+                            // más (hasta 3 minutos). Cualquier zona que se streamee después llama a MarkDirty(),
+                            // que resetea el retroceso y vuelve a escanear enseguida.
                             _scanActive = false;
-                            _nextScanStart = Time.realtimeSinceStartup + 25f;
+                            if (_catalog.Count > _catalogBefore) _idleScans = 0; else _idleScans++;
+                            _nextScanStart = Time.realtimeSinceStartup + ScanInterval();
                         }
                     }
                 }

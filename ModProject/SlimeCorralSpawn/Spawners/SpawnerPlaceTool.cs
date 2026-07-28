@@ -98,10 +98,19 @@ namespace SlimeCorralSpawn.Spawners
         private const float EditRange = 9f;
 
         /// <summary>Corre SIEMPRE (no solo colocando): busca el spawner cercano y abre su edición con E.</summary>
+        private static float _nearbyNext;
+
         internal static void UpdateNearby()
         {
+            if (Active || SpawnerMenuUI.IsOpen || !SpawnerManager.ShowMarkers) { NearbyEditable = null; return; }
+
+            // La BÚSQUEDA del más cercano se hace 5 veces por segundo, no por frame: recorre todos los spawners
+            // y no cambia nada perceptible entre frames. La TECLA sí se lee siempre (si no, se perdería).
+            if (InputHelper.GetKeyDown(KeyCode.E) && NearbyEditable != null)
+            { SpawnerMenuUI.OpenEdit(NearbyEditable); return; }
+            if (Time.realtimeSinceStartup < _nearbyNext) return;
+            _nearbyNext = Time.realtimeSinceStartup + 0.2f;
             NearbyEditable = null;
-            if (Active || SpawnerMenuUI.IsOpen || !SpawnerManager.ShowMarkers) return;
 
             var cam = Camera.main;
             if (cam == null) return;
@@ -116,8 +125,6 @@ namespace SlimeCorralSpawn.Spawners
                 if (d < best) { best = d; NearbyEditable = s; }
             }
 
-            if (NearbyEditable != null && InputHelper.GetKeyDown(KeyCode.E))
-                SpawnerMenuUI.OpenEdit(NearbyEditable);
         }
 
         internal static void Update()
