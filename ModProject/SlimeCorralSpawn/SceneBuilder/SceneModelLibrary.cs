@@ -777,6 +777,11 @@ namespace SlimeCorralSpawn.SceneBuilder
         {
             if (info == null) return false;
             if (Alive(info.Sample)) return true;
+            // Si ya falló hace poco, decimos que NO se puede: así RebuildWorkList ni lo mete en la cola y deja
+            // de quemar presupuesto de carga en modelos que sabemos rotos. (Antes se reintentaban en CADA pasada
+            // y eran justo los que hacían que la carga tardara el doble.)
+            try { if (_failedUntil.TryGetValue(ParkKey(info), out float u) && Time.realtimeSinceStartup < u) return false; }
+            catch { }
             if (_parked.TryGetValue(ParkKey(info), out var p) && p != null) return true;
             return SceneModelStore.HasBaked(info.Zone, info.Key);
         }

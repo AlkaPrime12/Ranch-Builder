@@ -684,10 +684,31 @@ namespace SlimeCorralSpawn.SceneBuilder
         public static GameObject ReconstructNow(string zone, string key)
         {
             if (!Enabled) return null;
-            if (!_diskIndex.TryGetValue(zone + "/" + key, out var path)) return null;
-            if (!MaterialReady()) return null;
-            try { return BuildFromFile(path); }
-            catch (Exception ex) { ModEntry.LogErrorOnce("SceneModelStore.ReconstructNow:" + key, ex); return null; }
+            if (!_diskIndex.TryGetValue(zone + "/" + key, out var path))
+            { ReconDiag(key, "no está en el índice de disco"); return null; }
+            if (!File.Exists(path)) { ReconDiag(key, "el archivo .scsm no existe: " + path); return null; }
+            if (!MaterialReady()) { ReconDiag(key, "el material base del mod todavía no está listo"); return null; }
+            try
+            {
+                var go = BuildFromFile(path);
+                if (go == null) ReconDiag(key, "BuildFromFile devolvió null (cabecera/versión/geometría vacía)");
+                return go;
+            }
+            catch (Exception ex)
+            {
+                ReconDiag(key, "excepción: " + ex.GetType().Name + " " + ex.Message);
+                ModEntry.LogErrorOnce("SceneModelStore.ReconstructNow:" + key, ex);
+                return null;
+            }
+        }
+
+        // Por qué falló la reconstrucción de un modelo. Una línea por modelo: es lo que faltaba para saber si
+        // el problema es el archivo, la versión, el material o la geometría.
+        private static readonly HashSet<string> _reconReported = new HashSet<string>();
+        private static void ReconDiag(string key, string motivo)
+        {
+            try { if (_reconReported.Add(key)) ModEntry.LogInfo($"[Recon] '{key}' NO reconstruye → {motivo}"); }
+            catch { }
         }
 
         private static GameObject BuildFromFile(string path)

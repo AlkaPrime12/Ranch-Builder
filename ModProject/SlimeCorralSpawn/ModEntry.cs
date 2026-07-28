@@ -37,7 +37,7 @@ namespace SlimeCorralSpawn
 
         // Marca de build: si NO ves esta línea EXACTA en el log, estás corriendo un DLL VIEJO (el juego estaba
         // abierto al copiar). Cambia el texto cada build importante para poder confirmar cuál está cargado.
-        public const string BuildTag = "Custom Ranch Builder 2.0.1 · Editar spawner con E al acercarte + sin atajos F7/F9 + carga sin trabajo repetido";
+        public const string BuildTag = "Custom Ranch Builder 2.0.1 · Marcadores no se enciman con el menu + modelos rotos fuera de la cola de carga";
 
         public override void OnInitializeMelon()
         {

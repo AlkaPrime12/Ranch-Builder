@@ -216,7 +216,9 @@ namespace SlimeCorralSpawn.Spawners
         internal static void OnGUI()
         {
             // Spawners YA colocados: solo si el jugador activó "spawners visibles".
-            if (SpawnerManager.ShowMarkers && Event.current.type == EventType.Repaint)
+            // Con el menú de spawners abierto NO se dibujan los marcadores del mundo: se encimaban con el
+            // diálogo (círculos y tarjetas cruzando por encima de la grilla de slimes).
+            if (SpawnerManager.ShowMarkers && !SpawnerMenuUI.IsOpen && Event.current.type == EventType.Repaint)
             {
                 EnsureStyles();
                 var c0 = Camera.main;

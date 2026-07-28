@@ -289,7 +289,7 @@ namespace SlimeCorralSpawn.UI
             }
             float y = menuRect.yMax - 20f;
             GUI.Label(new Rect(menuRect.x + 12f, y, 140f, 16f), new GUIContent("Made by ALKA."), _sigStyle);
-            GUI.Label(new Rect(menuRect.x + 12f + 90f, y, 70f, 16f), new GUIContent("Ver 2.0"), _sigVer);
+            GUI.Label(new Rect(menuRect.x + 12f + 90f, y, 80f, 16f), new GUIContent("Ver 2.0.1"), _sigVer);
         }
         private static int _sigVersion = -1;
 
