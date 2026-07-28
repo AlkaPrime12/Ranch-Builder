@@ -43,7 +43,7 @@ namespace SlimeCorralSpawn.Placement
         private static void Reset()
         {
             _state = St.Off; _pending = null; _placing = null; _nameDraft = "";
-            try { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; } catch { }
+            UI.CursorGuard.Lock();   // no bloquea fuera de la partida (si no, el menú principal queda sin cursor)
         }
 
         // ─────────────────────────── UPDATE ───────────────────────────
@@ -54,7 +54,7 @@ namespace SlimeCorralSpawn.Placement
 
             Camera cam = ModEntry.GetMainCamera();
             if (cam == null) return;
-            try { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; } catch { }
+            UI.CursorGuard.Lock();   // no bloquea fuera de la partida (si no, el menú principal queda sin cursor)
 
             Ray ray = cam.ScreenPointToRay(new Vector3(Screen.width / 2f, Screen.height / 2f, 0f));
             Vector3 ground = Physics.Raycast(ray, out var hit, 120f) ? hit.point : cam.transform.position + cam.transform.forward * 20f;

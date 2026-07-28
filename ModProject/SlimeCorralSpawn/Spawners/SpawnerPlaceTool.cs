@@ -29,12 +29,12 @@ namespace SlimeCorralSpawn.Spawners
             try
             {
                 var want = free ? CursorLockMode.None : CursorLockMode.Locked;
-                if (Cursor.lockState != want) { Cursor.lockState = want; Cursor.visible = free; }
+                if (Cursor.lockState != want) UI.CursorGuard.Set(free);
             }
             catch { }
         }
 
-        private static GUIStyle _hud, _hudSmall, _lblStyle, _largoStyle;
+        private static GUIStyle _hud, _hudSmall, _lblStyle, _largoStyle, _hdrStyle, _editStyle;
         private static bool _styles;
         private static int _styleVersion = -1;
 
@@ -66,7 +66,7 @@ namespace SlimeCorralSpawn.Spawners
         public static void Cancel()
         {
             Active = false; _draft = null; _cursorFree = false;
-            try { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; } catch { }
+            UI.CursorGuard.Lock();   // no bloquea fuera de la partida (si no, el menú principal queda sin cursor)
         }
 
         private static void EnsureStyles()
@@ -79,13 +79,46 @@ namespace SlimeCorralSpawn.Spawners
             _hudSmall.normal.textColor = SlimeTheme.Themed(SlimeTheme.TextLightPink);
             // Los carteles flotantes van SIEMPRE sobre fondo oscuro translúcido (sobre el mundo 3D), así que su
             // color no depende del tema: claro siempre.
+            // Sobre el panel crema del mod: texto navy y el Largo en violeta del tema (antes: claro sobre negro).
             _lblStyle = new GUIStyle { fontSize = 12, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
-            _lblStyle.normal.textColor = new Color(0.93f, 0.98f, 0.94f);
+            _lblStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.TextWhite);
             _largoStyle = new GUIStyle { fontSize = 12, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
-            _largoStyle.normal.textColor = new Color(0.80f, 0.62f, 1f);
+            _largoStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.AccentPurple);
+            _hdrStyle = new GUIStyle { fontSize = 13, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
+            _hdrStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.GlowCyan);
+            _editStyle = new GUIStyle { fontSize = 12, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
+            _editStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.GlowCyan);
         }
 
         // ─────────────────────────────── update ───────────────────────────────
+
+        /// <summary>Spawner colocado más cercano al jugador dentro del alcance de edición (o null).
+        /// Solo cuenta con los marcadores visibles: si no los ves, no hay nada que editar en pantalla.</summary>
+        public static PlacedSpawner NearbyEditable { get; private set; }
+        private const float EditRange = 9f;
+
+        /// <summary>Corre SIEMPRE (no solo colocando): busca el spawner cercano y abre su edición con E.</summary>
+        internal static void UpdateNearby()
+        {
+            NearbyEditable = null;
+            if (Active || SpawnerMenuUI.IsOpen || !SpawnerManager.ShowMarkers) return;
+
+            var cam = Camera.main;
+            if (cam == null) return;
+            Vector3 eye = cam.transform.position;
+
+            float best = EditRange * EditRange;
+            var all = SpawnerManager.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                var s = all[i]; if (s == null) continue;
+                float d = (s.Pos - eye).sqrMagnitude;
+                if (d < best) { best = d; NearbyEditable = s; }
+            }
+
+            if (NearbyEditable != null && InputHelper.GetKeyDown(KeyCode.E))
+                SpawnerMenuUI.OpenEdit(NearbyEditable);
+        }
 
         internal static void Update()
         {
@@ -249,8 +282,18 @@ namespace SlimeCorralSpawn.Spawners
             Vector3 c = pos;
             float _r = radius;
 
+            // Si el centro está DETRÁS de la cámara, la proyección de los puntos del círculo se dispara a
+            // coordenadas absurdas y salen trazos cruzando la pantalla. Mejor no dibujar nada.
+            Vector3 cs = cam.WorldToScreenPoint(c);
+            if (cs.z <= 0.5f) return;
+
             // Círculo del radio, proyectado punto a punto (funciona en cualquier terreno).
-            const int seg = 40;
+            // Anillo de DOBLE TRAZO: un halo suave debajo y el núcleo brillante encima. Con un solo trazo de
+            // 2 px se veía como una línea suelta sobre el mundo; así queda como un elemento de interfaz.
+            // Además gira despacio, lo que lo distingue de la geometría del juego de un vistazo.
+            const int seg = 72;
+            float spin = Time.realtimeSinceStartup * 18f * Mathf.Deg2Rad;
+            Color halo = new Color(green.r, green.g, green.b, green.a * 0.28f);
             Vector3 prev = Vector3.zero; bool prevOk = false;
             for (int i = 0; i <= seg; i++)
             {
@@ -258,22 +301,47 @@ namespace SlimeCorralSpawn.Spawners
                 Vector3 w = c + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * _r;
                 Vector3 sp = cam.WorldToScreenPoint(w);
                 bool ok = sp.z > 0f;
-                if (ok && prevOk) Line(prev, sp, green, 2f);
+                if (ok && prevOk)
+                {
+                    Line(prev, sp, halo, 7f);                    // halo
+                    // Núcleo por tramos. El hueco se decide por el índice del SEGMENTO (espacio de mundo), no
+                    // por el ángulo proyectado: así los tramos miden siempre lo mismo y no se ven cortes
+                    // irregulares según desde dónde mires.
+                    int slot = (int)Mathf.Repeat(i + spin * 8f, seg) / 6;
+                    if (slot % 2 == 0) Line(prev, sp, green, 2.5f);
+                }
                 prev = sp; prevOk = ok;
+            }
+
+            // Marcas cardinales: 4 tics gruesos en los ejes, para leer la orientación sin la flecha.
+            for (int q = 0; q < 4; q++)
+            {
+                float a = q * Mathf.PI * 0.5f;
+                Vector3 dirQ = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                Vector3 i0 = cam.WorldToScreenPoint(c + dirQ * (_r * 0.88f));
+                Vector3 i1 = cam.WorldToScreenPoint(c + dirQ * (_r * 1.12f));
+                if (i0.z > 0f && i1.z > 0f) Line(i0, i1, green, 3f);
             }
 
             // Poste central + CUADRADO en la base: es el "ghost" del spawner (que no tiene malla propia).
             Vector3 baseS = cam.WorldToScreenPoint(c);
             Vector3 topS = cam.WorldToScreenPoint(c + Vector3.up * 2f);
-            if (baseS.z > 0f && topS.z > 0f) Line(baseS, topS, green, 4f);
+            if (baseS.z > 0f && topS.z > 0f)
+            {
+                Line(baseS, topS, halo, 8f);
+                Line(baseS, topS, green, 3f);
+            }
             if (baseS.z > 0f)
             {
+                // Rombo en la base (no un cuadrado recto: se confunde menos con la geometría del mundo) con
+                // halo detrás y un punto central brillante.
                 float bx = baseS.x, by = Screen.height - baseS.y;
-                UIKit.Fill(new Rect(bx - 9f, by - 9f, 18f, 18f), new Color(green.r, green.g, green.b, 0.35f * alpha));
-                UIKit.Fill(new Rect(bx - 10f, by - 10f, 20f, 2f), green);
-                UIKit.Fill(new Rect(bx - 10f, by + 8f, 20f, 2f), green);
-                UIKit.Fill(new Rect(bx - 10f, by - 10f, 2f, 20f), green);
-                UIKit.Fill(new Rect(bx + 8f, by - 10f, 2f, 20f), green);
+                for (int i = 0; i < 9; i++)
+                {
+                    float f = i / 8f, w = 22f * (1f - Mathf.Abs(f - 0.5f) * 2f);
+                    UIKit.Fill(new Rect(bx - w * 0.5f, by - 11f + i * 2.5f, w, 2.5f), halo);
+                }
+                UIKit.Fill(new Rect(bx - 3f, by - 3f, 6f, 6f), green);
             }
             DiagOnce(baseS, c);
 
@@ -342,13 +410,19 @@ namespace SlimeCorralSpawn.Spawners
             Vector3 head = cam.WorldToScreenPoint(s.Pos + Vector3.up * 2.4f);
             if (head.z <= 0f) return;
 
+            // ¿Es el spawner al que te acercaste? Entonces la tarjeta lleva la pista de edición.
+            bool editable = ReferenceEquals(s, NearbyEditable);
+
+            // Igual que las filas del menú F5: ICONO vanilla + nombre, no una lista de guiones.
+            var ents = _tmpEnts; ents.Clear();
             var lines = _tmpLines; lines.Clear();
             for (int i = 0; i < s.Ids.Count && i < 6; i++)
             {
                 var e = SpawnerCatalog.Find(s.Ids[i]);
-                lines.Add("— " + (e != null ? e.Display : s.Ids[i]));
+                ents.Add(e);
+                lines.Add(e != null ? e.Display : s.Ids[i]);
             }
-            if (s.Ids.Count > 6) lines.Add("— +" + (s.Ids.Count - 6));
+            if (s.Ids.Count > 6) { ents.Add(null); lines.Add("+" + (s.Ids.Count - 6) + " más"); }
 
             string largo = null;
             if (!string.IsNullOrEmpty(s.LargoWith))
@@ -360,37 +434,94 @@ namespace SlimeCorralSpawn.Spawners
             // Medir para que la tarjeta abrace el texto (nada de anchos fijos que cortan nombres).
             float wMax = 90f;
             for (int i = 0; i < lines.Count; i++) wMax = Mathf.Max(wMax, _lblStyle.CalcSize(new GUIContent(lines[i])).x);
+            wMax = Mathf.Max(wMax, _hdrStyle.CalcSize(new GUIContent(s.Kind == SpawnKind.Slime ? Loc.T("spw_slime") : Loc.T("spw_hen"))).x);
+            if (editable) wMax = Mathf.Max(wMax, _editStyle.CalcSize(new GUIContent(Loc.T("spw_edit_hint"))).x + 10f);
             if (largo != null) wMax = Mathf.Max(wMax, _lblStyle.CalcSize(new GUIContent(largo)).x);
 
-            float lh = 15f;
-            float h = 8f + lines.Count * lh + (largo != null ? lh + 6f : 0f) + 6f;
-            float w = wMax + 20f;
+            const float lh = 22f;          // fila con icono, como en el menú
+            const float hdr = 22f;         // cabecera "Spawner de Slimes"
+            float h = 8f + hdr + lines.Count * lh + (largo != null ? lh + 8f : 0f)
+                      + (editable ? lh + 6f : 0f) + 8f;
+            float w = Mathf.Max(150f, wMax + 62f);   // + icono + márgenes
             float cx = head.x, cy = Screen.height - head.y;
             Rect card = new Rect(cx - w * 0.5f, cy - h, w, h);
 
-            // Tarjeta oscura translúcida con borde del color del spawner + puntita hacia el marcador.
-            Color edge = s.Enabled ? new Color(0.35f, 1f, 0.5f, 0.95f) : new Color(0.6f, 0.6f, 0.6f, 0.8f);
-            UIKit.Fill(card, new Color(0.05f, 0.07f, 0.10f, 0.82f));
-            UIKit.Fill(new Rect(card.x, card.y, card.width, 2f), edge);
-            UIKit.Fill(new Rect(card.x, card.yMax - 2f, card.width, 2f), edge);
-            UIKit.Fill(new Rect(card.x, card.y, 2f, card.height), edge);
-            UIKit.Fill(new Rect(card.xMax - 2f, card.y, 2f, card.height), edge);
-            for (int i = 0; i < 5; i++) UIKit.Fill(new Rect(cx - (5 - i), card.yMax + i, (5 - i) * 2f, 1f), edge);
+            // MISMA paleta que los menús del mod: crema pastel, sombra suave, brillo superior y borde rosado.
+            // (Antes era una caja oscura: se veía como un overlay de debug pegado encima, no como parte del mod.)
+            Color edge = s.Enabled ? SlimeTheme.PrimaryPink : new Color(0.55f, 0.52f, 0.50f, 0.85f);
+            Color body = SlimeTheme.Themed(SlimeTheme.BackgroundDark);
+            Color accent = s.Enabled ? SlimeTheme.GlowCyan : edge;
 
-            float ty = card.y + 5f;
+            UICards.RoundRectRaw(new Rect(card.x + 2f, card.y + 4f, card.width, card.height), new Color(0f, 0f, 0f, 0.30f), 10f);
+            UICards.RoundRectRaw(card, body, 10f);
+            UICards.TopSheen(card, Color.white, 10f, 0.55f, 0.35f);      // brillo de arriba, como las píldoras
+            UICards.RoundBorderRaw(card, edge, 10f, 2f);
+            UICards.RoundRectRaw(new Rect(card.x + 7f, card.y + 7f, 3.5f, card.height - 14f), accent, 1.75f);
+            for (int i = 0; i < 7; i++) UIKit.Fill(new Rect(cx - (7 - i), card.yMax + i, (7 - i) * 2f, 1f), edge);
+
+            // Cabecera con el tipo de spawner, sobre una barra de acento (igual que los títulos del menú).
+            float ty = card.y + 6f;
+            UICards.RoundRectRaw(new Rect(card.x + 14f, ty + 2f, card.width - 28f, hdr - 4f),
+                                 new Color(accent.r, accent.g, accent.b, 0.22f), 5f);
+            GUI.Label(new Rect(card.x + 20f, ty, card.width - 34f, hdr),
+                      new GUIContent(s.Kind == SpawnKind.Slime ? Loc.T("spw_slime") : Loc.T("spw_hen")), _hdrStyle);
+            ty += hdr;
+
             for (int i = 0; i < lines.Count; i++)
             {
-                GUI.Label(new Rect(card.x + 10f, ty, card.width - 20f, lh), new GUIContent(lines[i]), _lblStyle);
+                // Píldora suave de fondo en filas alternas: le da ritmo, como las listas del menú F5.
+                if (i % 2 == 0)
+                    UICards.RoundRectRaw(new Rect(card.x + 12f, ty, card.width - 24f, lh - 2f),
+                                         new Color(1f, 1f, 1f, 0.05f), 4f);
+
+                var en = i < ents.Count ? ents[i] : null;
+                if (en != null) DrawSmallIcon(new Rect(card.x + 15f, ty + 2f, lh - 6f, lh - 6f), en);
+                GUI.Label(new Rect(card.x + 15f + lh, ty, card.width - 30f - lh, lh), new GUIContent(lines[i]), _lblStyle);
                 ty += lh;
             }
             if (largo != null)
             {
-                UIKit.Fill(new Rect(card.x + 8f, ty + 2f, card.width - 16f, 1f), new Color(1f, 1f, 1f, 0.20f));
+                UIKit.Fill(new Rect(card.x + 12f, ty + 2f, card.width - 24f, 1f), SlimeTheme.Themed(SlimeTheme.BorderSubtle));
                 ty += 5f;
-                GUI.Label(new Rect(card.x + 10f, ty, card.width - 20f, lh), new GUIContent(largo), _largoStyle);
+                GUI.Label(new Rect(card.x + 14f, ty, card.width - 24f, lh), new GUIContent(largo), _largoStyle);
+                ty += lh;
+            }
+
+            // Pista de edición: solo en el spawner al que te acercaste. Píldora con la tecla, como el resto del mod.
+            if (editable)
+            {
+                UIKit.Fill(new Rect(card.x + 12f, ty + 1f, card.width - 24f, 1f), SlimeTheme.Themed(SlimeTheme.BorderSubtle));
+                ty += 4f;
+                var pill = new Rect(card.x + 13f, ty + 1f, card.width - 26f, lh - 2f);
+                UICards.RoundRectRaw(pill, new Color(SlimeTheme.GlowCyan.r, SlimeTheme.GlowCyan.g, SlimeTheme.GlowCyan.b, 0.25f), 5f);
+                GUI.Label(new Rect(pill.x + 8f, pill.y, pill.width - 12f, pill.height), new GUIContent(Loc.T("spw_edit_hint")), _editStyle);
             }
         }
         private static readonly System.Collections.Generic.List<string> _tmpLines = new System.Collections.Generic.List<string>();
+        private static readonly System.Collections.Generic.List<SpawnEntry> _tmpEnts = new System.Collections.Generic.List<SpawnEntry>();
+
+        /// <summary>Icono VANILLA de la criatura, recortado del atlas. Mismo método que el menú: BeginGroup +
+        /// DrawTexture (GUI.DrawTextureWithTexCoords crashea bajo este Il2Cpp).</summary>
+        private static void DrawSmallIcon(Rect r, SpawnEntry e)
+        {
+            if (e == null) return;
+            if (e.IconTex == null)
+            {
+                Color c = SlimeTheme.PrimaryPink;
+                try { if (e.Type != null) c = e.Type.color; } catch { }
+                UICards.RoundRectRaw(r, new Color(c.r, c.g, c.b, 0.9f), r.width * 0.5f);
+                return;
+            }
+            try
+            {
+                GUI.BeginGroup(r);
+                float dw = r.width / Mathf.Max(0.0001f, e.IconUv.width);
+                float dh = r.height / Mathf.Max(0.0001f, e.IconUv.height);
+                GUI.DrawTexture(new Rect(-e.IconUv.x * dw, -(1f - (e.IconUv.y + e.IconUv.height)) * dh, dw, dh), e.IconTex);
+                GUI.EndGroup();
+            }
+            catch { try { GUI.EndGroup(); } catch { } }
+        }
 
         // Se reporta UNA vez por sesión: si el marcador "no se ve", esto dice si es que quedó fuera de pantalla
         // (z<=0 = detrás de la cámara, o coordenadas absurdas) o si es que directamente no se está dibujando.

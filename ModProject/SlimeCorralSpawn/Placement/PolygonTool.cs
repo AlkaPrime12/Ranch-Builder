@@ -99,7 +99,7 @@ namespace SlimeCorralSpawn.Placement
         {
             RetryPending();
             if (!Active) return;
-            try { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; } catch { }
+            UI.CursorGuard.Lock();   // no bloquea fuera de la partida (si no, el menú principal queda sin cursor)
 
             if (InputHelper.GetKeyDown(KeyCode.Escape) || InputHelper.GetMouseButtonDown(1)) { Cancel(); return; }
             if (InputHelper.GetKeyDown(KeyCode.Backspace) && _pts.Count > 0) { _pts.RemoveAt(_pts.Count - 1); UpdatePreview(); }

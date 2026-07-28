@@ -1,4 +1,4 @@
-# Custom Ranch Builder v2.0 — Changelog
+# Custom Ranch Builder v2.0.1 — Changelog
 
 The mod is now called **Custom Ranch Builder** (it used to be "Slime Corral Spawn"). Big release: a whole new
 Slime/Chicken Spawner system, gardens that finally work end to end, a two-level model catalog, undo, and a long

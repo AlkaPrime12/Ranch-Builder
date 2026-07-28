@@ -646,6 +646,14 @@ namespace SlimeCorralSpawn.SceneBuilder
             // reconstruir de disco — típico de mallas NO LEGIBLES, p.ej. las VALLAS: se veía la preview pero al
             // clickearlas no aparecía ningún ghost. Si su zona está cargada, clonamos la instancia viva aunque el
             // Sample haya muerto, buscándola de nuevo por nombre en la escena.
+            // ★ CAUSA DEL LAG AL CARGAR ★
+            // Si la reconstrucción de disco falla, abajo se hace `FindLiveByKey`, que barre TODOS los
+            // MeshRenderer de la escena — decenas de miles de objetos en una zona de SR2. Sin memoria de
+            // fallos, cada modelo roto repetía ese barrido en CADA intento de spawn, cada frame. Con varios
+            // rotos (el log muestra 5) el juego se arrastraba y los modelos aparecían de a uno.
+            float nowRt = Time.realtimeSinceStartup;
+            if (_failedUntil.TryGetValue(ck, out float until) && nowRt < until) return null;
+
             var live = FindLiveByKey(info.Zone, info.Key);
             if (live != null)
             {
@@ -654,12 +662,17 @@ namespace SlimeCorralSpawn.SceneBuilder
                 LastSpawnOwned = false;
                 return live;
             }
+            // Falló todo: no volver a intentarlo por un rato (el barrido de escena es carísimo).
+            _failedUntil[ck] = nowRt + 30f;
             DumpGhostFailure(info, ck);
             return null;
         }
 
         // Modelos cuyo fallo de ghost ya se reportó (una línea por modelo, no spam por frame).
         private static readonly HashSet<string> _ghostReported = new HashSet<string>();
+        /// <summary>Modelo → momento hasta el que NO se vuelve a intentar el camino caro. Evita repetir el
+        /// barrido de escena por cada modelo roto en cada frame.</summary>
+        private static readonly Dictionary<string, float> _failedUntil = new Dictionary<string, float>();
 
         /// <summary>Cuando NO se puede dar un ghost, decir EXACTAMENTE en qué eslabón se cortó. Sin esto, clickear
         /// una valla simplemente no hacía nada y no había forma de saber por qué.</summary>
@@ -689,6 +702,9 @@ namespace SlimeCorralSpawn.SceneBuilder
 
         /// <summary>Busca en la escena una instancia VIVA del modelo por su clave (cuando el Sample murió por un
         /// re-stream de la zona). Presupuestado: solo mira los renderers activos, y cachea el resultado en Sample.</summary>
+        private static MeshRenderer[] _rendCache;
+        private static float _rendCacheAt = -999f;
+
         private static GameObject FindLiveByKey(string zone, string key)
         {
             if (string.IsNullOrEmpty(key)) return null;
@@ -696,7 +712,16 @@ namespace SlimeCorralSpawn.SceneBuilder
             {
                 // includeInactive=true: las vallas y otros props suelen colgar de un LODGroup que los DESACTIVA a
                 // distancia. Con el barrido de solo-activos no aparecían nunca y el ghost quedaba en null.
-                var rends = UnityEngine.Object.FindObjectsOfType<MeshRenderer>(true);
+                // CACHE de 3 s: durante una tanda de carga esto se llama muchas veces seguidas y el barrido es
+                // lo más caro de todo el proceso. Reusar el resultado no cambia el comportamiento (la escena no
+                // cambia en milisegundos) y saca el costo del bucle.
+                float t0 = Time.realtimeSinceStartup;
+                if (_rendCache == null || t0 - _rendCacheAt > 3f)
+                {
+                    _rendCache = UnityEngine.Object.FindObjectsOfType<MeshRenderer>(true);
+                    _rendCacheAt = t0;
+                }
+                var rends = _rendCache;
                 if (rends == null) return null;
                 string sig = BaseSignature(key);
                 GameObject porFirma = null;   // coincidencia aproximada: solo si no hay una exacta

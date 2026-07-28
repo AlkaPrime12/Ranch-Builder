@@ -1,67 +1,40 @@
-# Custom Ranch Builder v1.8.2 - Changelog
+# Custom Ranch Builder v2.0.1
+
+A MelonLoader mod that turns **Slime Rancher 2** into a full sandbox builder.
+Now with **Slime & Chicken Spawners**, working **gardens**, a two-level **model catalog**, and **Ctrl+Z**.
+
+> Installation, controls and the full feature list are further down. For everything that changed in 2.0,
+> see **[CHANGELOG.md](CHANGELOG.md)**.
 
 ---
 
+## 🆕 What's new in 2.0.1
+
 <ul>
-<li>✅ <strong>Reliable save on exit</strong> — the mod now saves alongside the game's own save (autosave / Save &amp; Exit), so the change you just made is always written and shows up when you reload the slot.</li>
-<li>✅ <strong>Gardens fully working</strong> — crops grow and drop produce on their own (real-time, sleeping, and time-skip).</li>
-<li>✅ <strong>Save slots fully isolated</strong> — every save is independent, a new save starts <em>empty</em>, no cross-contamination, and you can switch saves <em>without restarting the game</em>.</li>
-<li>✅ <strong>Purple/magenta textures fixed</strong> — root cause solved: shared materials are no longer destroyed while structures are using them (on sub-scene loads / pausing).</li>
-<li>✅ <strong>Pause no longer breaks textures.</strong></li>
-<li>✅ <strong>Free cam (noclip)</strong> in the gadget editor.</li>
-<li>✅ <strong>"Clear All" button</strong> in Config (with double confirmation) to wipe every custom corral, wall, floor and paint.</li>
-<li>✅ <strong>Hardened save/backup</strong> — atomic writes, rotating backups, and automatic recovery from a corrupted save.</li>
-<li>✅ <strong>Readable save names</strong> in the menu (Slot N · date/time), grouped and sorted by slot.</li>
-<li>✅ <strong>Much less lag</strong> on load and during gameplay.</li>
+<li>✅ <strong>Slime &amp; Chicken Spawners</strong> — place them anywhere. Configure frequency, max creatures in the area, radius, and "spawn immediately if none are left". Pick which creatures using the <em>game's own icons and names</em>.</li>
+<li>✅ <strong>Spawned creatures are vacuumable</strong> — they go through <code>GameModel.InstantiateActorModel</code>, the game's real spawn path, so they behave like any wild slime.</li>
+<li>✅ <strong>Radiant mode and Largo mode</strong> — pick which slime it mixes with; the game resolves the real combination.</li>
+<li>✅ <strong>Walk up to a spawner and press <code>E</code> to edit it</strong> (with "Show spawners" enabled).</li>
+<li>✅ <strong>Gardens fully working</strong> — crops use their <em>real growth interval read from the game</em> (18–24 game hours for carrots), and sleeping advances it exactly like playing.</li>
+<li>✅ <strong>Plort Collector now works on the Water Pond</strong>, not just slime corrals.</li>
+<li>✅ <strong>Grass under placed plots is flattened</strong> with the same <code>DynamicSDF</code> system the game's gadgets use.</li>
+<li>✅ <strong>Two-level model catalog</strong> — 6 main categories, 34 subcategories. Mountains and cliffs are no longer dumped into "Floors".</li>
+<li>✅ <strong>Ctrl+Z</strong> for placing, deleting and moving scene models, and for placing spawners.</li>
+<li>✅ <strong>All 20 icons redrawn</strong> and dark-mode contrast fixed.</li>
+<li>✅ <strong>Game input is blocked while any mod menu is open</strong> — no camera movement, no vacuuming, no throwing items by accident.</li>
+<li>✅ <strong>Faster loading</strong> and much less stutter; diagnostics are now off by default.</li>
+<li>🔴 <strong>Fixed a bug that could make a save unloadable</strong> — gardens could enter an infinite harvest loop. Now capped at one harvest per cycle, with a watchdog and a hard session limit.</li>
+<li>🔴 <strong>Fixed the cursor getting stuck</strong> in the main menu and after the pause menu.</li>
 </ul>
 
 <br>
 
-**v1.8.2 (prev) — Stability & save-isolation release.** Gardens now grow and drop produce by themselves; every save slot is fully independent (new saves start empty and switching saves works live, no restart); the purple-texture bug is fixed at its root (materials aren't destroyed while in use), and pausing no longer breaks them; loading is faster; and there's a Clear All button plus a hardened backup system. — alka
+**v2.0.1 — Spawners & sandbox release.** Adds a full Slime/Chicken Spawner system that uses the game's own
+prefabs, icons and spawn path (so creatures are vacuumable and behave normally), gardens that finally drop their
+produce on the crop's real schedule, a two-level model catalog, undo, and the Plort Collector working on ponds.
+Also fixes a garden loop that could inflate a save until it stopped loading, and several cursor/input lockups. — alka
 
 ---
-
-<ul>
-<li>✅ <strong>Plort Collector working.</strong></li>
-<li>✅ <strong>Auto Feeder working.</strong></li>
-<li>✅ <strong>Gardens now work.</strong></li>
-<li>✅ <strong>You can now enter Edit Mode with gadgets.</strong></li>
-<li>✅ <strong>Edit the X, Y and Z position of every gadget.</strong></li>
-<li>✅ <strong>Place gadgets in the air, inside plots, or basically anywhere.</strong></li>
-<li>✅ <strong>Backup system added to the config.</strong></li>
-<li>✅ <strong>Multiple save slots now fully work.</strong></li>
-<li>✅ <strong>Fixed Normal Maps on custom builds.</strong></li>
-<li>✅ <strong>Reduced lag.</strong></li>
-<li>🚧 <strong>Drone support for custom plots is currently being worked on.</strong></li>
-</ul>
-
----
-
-**Custom Ranch Builder - v1.8.0**
-
-Big release with a ton of fixes.
-
-Plort Collectors work, Feeders work, Gardens now work, and the most important thing: you can now enter Edit Mode with gadgets. You can edit the X, Y and Z position of every gadget, and also place them in the air, inside plots, or basically anywhere.
-
-There are also plenty of bug fixes. I added a Backup system to the config where you can save your world and use different save files than the one you're currently playing. You can now play on multiple save slots without breaking your custom world.
-
-I'm also working on Drone support for custom plots. I don't really know if everything works yet, but it's still a work in progress.
-
-Finally, I fixed the Normal Maps on custom builds, reduced the lag, and improved loading. You'll still get a small freeze (around 5–8 seconds) when joining a world because all custom objects need to load. That's currently unavoidable.
-
-**The mod is now basically 100% working.** I'd honestly call this Version 1.0, but I've already added so many features that I decided to keep going with the current versioning.
-
-I hope you all make some crazy builds and create a fully customized world where you can build whatever you want. :3
-
-Thanks for all the support.
-
-**- alka**
-
----
-
-<br>
-
-<div align="center">
 
 # 🏗️ Ranch Builder
 
@@ -84,10 +57,10 @@ Thanks for all the support.
 - **MelonLoader 0.7.0+** installed on the game
 
 ### Steps
-1. Download `SlimeCorralSpawn.dll` from the **[latest release](https://github.com/AlkaPrime12/Ranch-Builder/releases)**
+1. Download `CustomRanchBuilder.dll` from the **[latest release](https://github.com/AlkaPrime12/Ranch-Builder/releases)**
 2. Place the `.dll` in your game's `Mods/` folder:
    ```
-   [Slime Rancher 2 folder]/Mods/SlimeCorralSpawn.dll
+   [Slime Rancher 2 folder]/Mods/CustomRanchBuilder.dll
    ```
 3. Launch the game
 4. Press **F5** in-game to open the build menu

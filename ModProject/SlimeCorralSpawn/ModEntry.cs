@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Custom Ranch Builder", "2.0.0", "ALKA")]
+[assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Custom Ranch Builder", "2.0.1", "ALKA")]
 [assembly: MelonGame("MonomiPark", "SlimeRancher2")]
 
 namespace SlimeCorralSpawn
@@ -27,6 +27,8 @@ namespace SlimeCorralSpawn
         // Tras reanudar (despausar), saltamos VARIOS frames de trabajo del mod para que el juego termine su
         // propia reanudación sin interferencia (resume más fluido). Lo decrementa OnLateUpdate.
         private static int _resumeSkip;
+        /// <summary>El mod liberó el cursor al pausar → hay que devolver la mira al reanudar.</summary>
+        private static bool _restoreCursorOnResume;
 
         // Detección ROBUSTA de cambio de partida: el slot VIVO de la partida actual. Si cambia, wipear TODO el
         // estado del mod (independiente del timing de escenas, que no era confiable).
@@ -35,7 +37,7 @@ namespace SlimeCorralSpawn
 
         // Marca de build: si NO ves esta línea EXACTA en el log, estás corriendo un DLL VIEJO (el juego estaba
         // abierto al copiar). Cambia el texto cada build importante para poder confirmar cuál está cargado.
-        public const string BuildTag = "Custom Ranch Builder 2.0 · El Scene Tool ya no pisa el cursor del spawner (fix al entrar desde el editor)";
+        public const string BuildTag = "Custom Ranch Builder 2.0.1 · Editar spawner con E al acercarte + sin atajos F7/F9 + carga sin trabajo repetido";
 
         public override void OnInitializeMelon()
         {
@@ -53,6 +55,19 @@ namespace SlimeCorralSpawn
 
             try { Patches.GamePatches.ApplyPatches(); }
             catch (Exception ex) { LogErrorOnce("GamePatches.ApplyPatches", ex); }
+        }
+
+        /// <summary>Deja el juego COMO SI EL MOD NO ESTUVIERA: cierra sus menús, devuelve los action maps y
+        /// libera el cursor. Se llama al pausar y al salir al menú principal — los dos momentos en los que el
+        /// mod dejaba al jugador sin poder hacer clic.</summary>
+        internal static void ReleaseEverythingForPause()
+        {
+            try { UI.PlotsMenuUI.CloseMenu(); } catch { }
+            try { Spawners.SpawnerMenuUI.Close(); } catch { }
+            try { Spawners.SpawnerPlaceTool.Cancel(); } catch { }
+            try { UI.GameInputBlock.ReleaseAll(); } catch { }        // devuelve los action maps del juego
+            try { UI.PlotsMenuUI.ForceRestoreGameInput(); } catch { }  // el freeze propio del menú F5
+            try { UI.CursorGuard.Free(); } catch { }                 // que SIEMPRE se pueda clickear
         }
 
         public override void OnUpdate()
@@ -75,18 +90,63 @@ namespace SlimeCorralSpawn
                 // Procesar escape de freecam ANTES de que el pause bloquee — así salimos de freecam
                 // aunque el juego ya haya seteado timeScale = 0.
                 if (paused) try { Gadgets.GadgetEditor.OnGamePaused(); } catch { }
-                if (!_prevPaused && paused) { }                     // transición pausa → no hacer nada extra
-                if (_prevPaused && !paused) { _resumeSkip = 3; }   // transición reanudar → saltar frames
+
+                // ★ AL PAUSAR, EL MOD SUELTA TODO ★
+                // El bug: con el menú F5 abierto el mod DESACTIVA los action maps del juego (para que no muevas la
+                // cámara ni tires cosas). Si en ese momento apretabas Escape, esta misma función cortaba por
+                // `paused` y ya nadie volvía a activarlos → el menú de pausa quedaba inutilizable y el cursor
+                // trabado. Ahora, en cuanto el juego se pausa, se cierran los menús del mod, se devuelve el input
+                // y se libera el cursor. Vale para F5, Scene Tool, spawners y cualquier combinación.
+                if (!_prevPaused && paused) ReleaseEverythingForPause();
+                if (_prevPaused && !paused)
+                {
+                    _resumeSkip = 3;   // transición reanudar → saltar frames
+                    // Nosotros liberamos el cursor al pausar, así que nosotros lo devolvemos al reanudar. El
+                    // juego re-bloquea `lockState` pero NO toca `visible`, así que sin esto el puntero quedaba
+                    // dibujado encima del juego después de cada Escape.
+                    _restoreCursorOnResume = true;
+                }
                 _prevPaused = paused;
-                if (paused) return;
+                if (paused)
+                {
+                    // No alcanza con soltar en la TRANSICIÓN: si el juego se pausa por un camino que no vemos
+                    // (cinemática, diálogo, pérdida de foco), hay que asegurarse cada frame de que el mod no
+                    // esté reteniendo ni el input ni el cursor.
+                    try { if (UI.GameInputBlock.Blocked) UI.GameInputBlock.ReleaseAll(); } catch { }
+                    try { if (Cursor.lockState == CursorLockMode.Locked) UI.CursorGuard.Free(); } catch { }
+                    return;
+                }
                 if (_resumeSkip > 0) return;   // OnLateUpdate lo decrementa al final del frame
             }
             catch { }
 
             // CLAVE anti-lag: el trabajo pesado (texturas + escaneo de materiales del juego) SOLO corre
             // cuando ya estamos en el rancho. En el menú principal no tocamos nada => carga rápida.
+            // Devolver la mira tras la pausa: solo si estamos jugando y ningún menú del mod la necesita libre.
+            if (_restoreCursorOnResume)
+            {
+                _restoreCursorOnResume = false;
+                bool menuAbierto = false;
+                try
+                {
+                    menuAbierto = UI.PlotsMenuUI.IsVisible || Spawners.SpawnerMenuUI.IsOpen
+                                  || Spawners.SpawnerPlaceTool.Active || SceneBuilder.SceneBuilderTool.ToolOpen;
+                }
+                catch { }
+                if (!menuAbierto) { try { UI.CursorGuard.Lock(); } catch { } }
+            }
+
             bool ranchReady = false;
             try { ranchReady = Placement.RealPlotFactory.ContextReady(); } catch { }
+
+            // Fuera de la partida el mod no debe retener NADA. Cubre el caso reportado (cursor trabado en el
+            // menú principal) venga de donde venga, incluso de una ruta que no hayamos previsto.
+            if (!ranchReady)
+            {
+                try { if (UI.GameInputBlock.Blocked) UI.GameInputBlock.ReleaseAll(); } catch { }
+                try { if (Cursor.lockState == CursorLockMode.Locked) UI.CursorGuard.Free(); } catch { }
+            }
+
             if (ranchReady)
             {
                 // DETECCIÓN DE CAMBIO DE PARTIDA (robusta, no depende del timing de escenas): si el slot VIVO
@@ -158,6 +218,9 @@ namespace SlimeCorralSpawn
             try { Spawners.SpawnerManager.Update(); }
             catch (Exception ex) { LogErrorOnce("SpawnerManager.Update", ex); }
 
+            try { Spawners.SpawnerPlaceTool.UpdateNearby(); }
+            catch (Exception ex) { LogErrorOnce("SpawnerPlaceTool.UpdateNearby", ex); }
+
             try { Spawners.SpawnerPlaceTool.Update(); }
             catch (Exception ex) { LogErrorOnce("SpawnerPlaceTool.Update", ex); }
 
@@ -176,14 +239,8 @@ namespace SlimeCorralSpawn
             try { SceneBuilder.SceneBuilderTool.CheckGlobalHotkey(); }
             catch (Exception ex) { LogErrorOnce("SceneBuilderTool.CheckGlobalHotkey", ex); }
 
-            // PRUEBA DIAGNÓSTICA F7: exagera el ramp (+40) de todo lo colocado y lo vuelve. Sirve para ver a simple
-            // vista si el ramp controla el aspecto de los props (montañas/mounds/corales) o si es un callejón.
-            try { if (InputHelper.GetKeyDown(KeyCode.F7)) SceneBuilder.SceneBuilderManager.DebugToggleExtremeRamp(); }
-            catch (Exception ex) { LogErrorOnce("DebugToggleExtremeRamp", ex); }
-
-            // F8 = FORZAR COSECHA en los jardines (prueba inmediata; un cultivo vanilla tarda ~18 min reales).
-            try { if (InputHelper.GetKeyDown(KeyCode.F8)) Placement.GardenDriver.DebugHarvestNow(); }
-            catch (Exception ex) { LogErrorOnce("DebugHarvestNow", ex); }
+            // (Se quitaron las teclas de prueba F7 [ramp extremo] y F8 [forzar cosecha]: eran para depurar,
+            //  ensuciaban el log y se disparaban sin querer. Los jardines ya funcionan solos por el reloj.)
 
             try { SceneBuilder.SceneBuilderTool.UpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("SceneBuilderTool.UpdateStatic", ex); }
@@ -268,6 +325,10 @@ namespace SlimeCorralSpawn
                     Plots.PlotData.FlushAllContentToModData();
 
                 _ranchWasActive = Placement.RealPlotFactory.ContextReady();
+
+                // Red de seguridad: si al cambiar de escena quedamos fuera de la partida (menú principal), el
+                // cursor SIEMPRE se libera. Fue el bug que dejó la 2.0 sin poder clickear en el menú.
+                try { UI.CursorGuard.ReleaseIfOutsideGameplay(); } catch { }
 
                 Placement.RealPlotFactory.ResetRoots();
                 Placement.SceneArtifactCleanup.OnSceneLoaded();

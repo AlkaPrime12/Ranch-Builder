@@ -111,6 +111,7 @@ namespace SlimeCorralSpawn.SceneBuilder
         private static readonly System.Collections.Generic.List<PlacedSceneModel> _workList = new System.Collections.Generic.List<PlacedSceneModel>();
         private static int _workCursor;
         private static float _lastRebuild = -999f;
+        private static readonly System.Collections.Generic.HashSet<string> _ownedChecked = new System.Collections.Generic.HashSet<string>();
 
         /// <summary>Cuántos modelos COLOCADOS por el jugador faltan spawnear. El auto-guardado de zona lo consulta
         /// para NO robarle tiempo: primero aparece todo lo que colocaste, después se hornea el resto de la zona.</summary>
@@ -145,7 +146,16 @@ namespace SlimeCorralSpawn.SceneBuilder
 
             // Mientras el juego esté CARGANDO (frames larguísimos), el mod no toca nada: cada ms que le robemos
             // acá alarga la pantalla de carga. Se retoma solo cuando el frame vuelve a ser normal.
-            if (Time.deltaTime > 0.25f) { _ctxSince = now; _timed = false; return; }
+            if (Time.deltaTime > 0.25f)
+            {
+                // ★ EL LAG AL ENTRAR/SALIR DEL MENÚ DE PAUSA ★
+                // Salir del Escape produce un frame larguísimo, igual que una pantalla de carga. Antes esto
+                // reiniciaba `_ctxSince` SIEMPRE, así que el mod volvía a entrar en modo carga agresiva
+                // (42 ms/frame durante 10 s, más el cambio de ajustes de subida a GPU) en CADA pausa, aunque no
+                // quedara un solo modelo por spawnear. Ahora la ventana solo se reinicia si de verdad queda trabajo.
+                if (_workCursor < _workList.Count) { _ctxSince = now; _timed = false; }
+                return;
+            }
 
             // (Re)armar la cola cuando se AGOTÓ (máx ~5/seg, para no re-escanear todo cada frame si aún no hay nada
             // spawneable) o cada ~1s (para tomar modelos que recién quedaron listos).
@@ -183,7 +193,7 @@ namespace SlimeCorralSpawn.SceneBuilder
             // Ventana inicial CORTA y agresiva: que todo aparezca de una en pocos segundos, no goteando 20 s.
             // (Se probó culpar a esto de una pantalla de carga infinita; era falso — el culpable era una partida
             // dañada, verificado desactivando el mod entero y reproduciendo el cuelgue igual.)
-            bool frontLoad = elapsed < 8f || pending > 4;
+            bool frontLoad = elapsed < 10f || pending > 4;
 
             // Guardar/restaurar settings de GPU al ENTRAR/SALIR del modo front-load
             if (frontLoad && !_prevFrontLoad)
@@ -202,7 +212,9 @@ namespace SlimeCorralSpawn.SceneBuilder
             // mientras el juego todavía está cargando (frames largos): este presupuesto solo se gasta cuando el
             // frame ya es normal, o sea cuando el jugador está en el mundo y lo que falta es que aparezcan sus
             // modelos. Sin bajar calidad ni perder shaders: es el mismo trabajo, hecho de una en vez de a cuotas.
-            if (frontLoad) budget = elapsed < 8f ? 0.030f : 0.018f;
+            // Ahora es seguro subirlo: más arriba nos apartamos por completo mientras el juego carga (frames
+            // largos), así que estos ms solo se gastan con el jugador YA en el mundo, esperando sus modelos.
+            if (frontLoad) budget = elapsed < 10f ? 0.055f : 0.020f;
             else if (dt > 0.05f) { float s = Mathf.Clamp01(0.050f / dt); budget = 0.006f * s; if (budget < 0.001f) return; }
             else budget = 0.006f;
 
@@ -223,7 +235,10 @@ namespace SlimeCorralSpawn.SceneBuilder
                 if (p.LinkedObject != null) continue;
                 var info = SceneModelLibrary.FindModel(p.Zone, p.Key);
                 if (info == null || !SceneModelLibrary.CanSpawn(info)) continue;
-                try { SceneModelLibrary.EnsureOwnedCopy(info); } catch { }   // bake a disco (una vez por reconstrucción)
+                // UNA sola vez por modelo y sesión: RebuildWorkList corre hasta 5 veces por segundo y esto se
+                // llamaba para los ~289 pendientes en cada pasada. Puro trabajo repetido durante la carga.
+                string ck = p.Zone + "/" + p.Key;
+                if (_ownedChecked.Add(ck)) { try { SceneModelLibrary.EnsureOwnedCopy(info); } catch { } }
                 p.SortKey = (SceneModelLibrary.IsFloorCategory(info) ? 0f : 1e9f) + (p.Position - _playerPos).sqrMagnitude;
                 _workList.Add(p);
                 pendKeys.Add(p.Zone + "/" + p.Key);

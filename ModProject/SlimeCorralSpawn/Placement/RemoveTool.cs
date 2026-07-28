@@ -31,7 +31,7 @@ namespace SlimeCorralSpawn.Placement
             if (ModKeybinds.IsDown(ModAction.RemoveTool)) Toggle();
             if (!Active) return;
 
-            try { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; } catch { }
+            UI.CursorGuard.Lock();   // no bloquea fuera de la partida (si no, el menú principal queda sin cursor)
 
             if (InputHelper.GetKeyDown(KeyCode.Escape) || InputHelper.GetMouseButtonDown(1)) { Stop(); return; }
 

@@ -147,7 +147,7 @@ namespace SlimeCorralSpawn.Placement
 
             // Durante la colocación el cursor se BLOQUEA: aiming con la cámara (estilo FPS) y
             // raycast desde el centro de pantalla.
-            try { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; } catch { }
+            UI.CursorGuard.Lock();   // no bloquea fuera de la partida (si no, el menú principal queda sin cursor)
 
             UpdateGhostPosition();
             HandleRotation();

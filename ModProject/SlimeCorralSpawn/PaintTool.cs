@@ -117,7 +117,7 @@ namespace SlimeCorralSpawn
             }
 
             // Modo pintar/aplicar: mira FPS.
-            try { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; } catch { }
+            UI.CursorGuard.Lock();   // no bloquea fuera de la partida (si no, el menú principal queda sin cursor)
             // Toggle rápido PINTAR <-> TEXTURA con R (sin abrir menú).
             if (InputHelper.GetKeyDown(KeyCode.R)) _mode = _mode == Mode.Material ? Mode.Color : Mode.Material;
             // El click que acaba de cerrar un menú NO debe pintar (esperás a clickear de nuevo).

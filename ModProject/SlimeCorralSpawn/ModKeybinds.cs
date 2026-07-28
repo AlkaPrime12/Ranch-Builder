@@ -19,8 +19,10 @@ namespace SlimeCorralSpawn
         private static readonly KeyCode[] Defaults =
         {
             KeyCode.F5,
-            KeyCode.F7,
-            KeyCode.F9,
+            // Pintar y Quitar YA NO tienen atajo global: se abren desde el menú F5 (Free Build). Antes F7/F9
+            // los activaban desde cualquier parte y era fácil entrar sin querer.
+            KeyCode.None,
+            KeyCode.None,
             KeyCode.R,
             KeyCode.Delete
         };

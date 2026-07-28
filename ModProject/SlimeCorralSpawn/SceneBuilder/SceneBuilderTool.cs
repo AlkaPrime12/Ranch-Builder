@@ -202,7 +202,7 @@ namespace SlimeCorralSpawn.SceneBuilder
             }
 
             bool look = LookActive || _drag != 0;
-            try { Cursor.lockState = look ? CursorLockMode.Locked : CursorLockMode.None; Cursor.visible = !look; } catch { }
+            UI.CursorGuard.Set(!look);
             // El Scene Tool posee el free cam → que GadgetEditor nunca lo corte por click derecho.
             GadgetEditor._alwaysOrbit = GadgetEditor.FreeCamActive;
         }
@@ -213,7 +213,7 @@ namespace SlimeCorralSpawn.SceneBuilder
             _lookLock = false;
             ClearGhostOnly();
             try { GadgetEditor.EndExternalFreeCam(); } catch { }   // teleporta de regreso a la pose previa
-            try { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; } catch { }
+            UI.CursorGuard.Lock();   // no bloquea fuera de la partida (si no, el menú principal queda sin cursor)
         }
 
         /// <summary>Punto de pantalla para apuntar/colocar/agarrar: el centro si estás MIRANDO (cursor oculto),

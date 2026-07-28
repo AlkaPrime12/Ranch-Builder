@@ -433,6 +433,7 @@ namespace SlimeCorralSpawn
             { "spw_manage",   new[]{ "Spawners colocados", "Placed spawners", "已放置的生成器", "Размещённые спавнеры", "Générateurs placés" } },
             { "spw_none",     new[]{ "Todavía no colocaste ningún spawner.", "You haven't placed any spawner yet.", "你还没有放置任何生成器。", "Вы ещё не разместили спавнеры.", "Aucun générateur placé." } },
             { "spw_alive",    new[]{ "vivos", "alive", "存活", "живых", "vivants" } },
+            { "spw_edit_hint", new[]{ "[E]  Editar este spawner", "[E]  Edit this spawner", "[E] 编辑此生成器", "[E]  Изменить этот спавнер", "[E]  Modifier ce générateur" } },
             { "spw_edit",     new[]{ "Editar", "Edit", "编辑", "Изменить", "Modifier" } },
             { "spw_save",     new[]{ "Guardar cambios", "Save changes", "保存更改", "Сохранить", "Enregistrer" } },
             { "spw_del",      new[]{ "Borrar", "Delete", "删除", "Удалить", "Suppr." } },

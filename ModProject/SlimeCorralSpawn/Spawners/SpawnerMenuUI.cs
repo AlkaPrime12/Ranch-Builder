@@ -35,6 +35,19 @@ namespace SlimeCorralSpawn.Spawners
             _scroll = 0f;
         }
 
+        /// <summary>Abre el menú directo en la CONFIGURACIÓN de un spawner ya colocado. Es el mismo camino que
+        /// el botón "Editar" de la lista: reusa el borrador, el flag de edición y el botón "Guardar cambios".</summary>
+        public static void OpenEdit(PlacedSpawner s)
+        {
+            if (s == null) return;
+            IsOpen = true;
+            _draft = s;
+            _editing = true;
+            _largoPick = false;
+            _page = Page.Config;
+            _scroll = 0f;
+        }
+
         public static void Close()
         {
             IsOpen = false; _draft = null; _largoPick = false; _editing = false;

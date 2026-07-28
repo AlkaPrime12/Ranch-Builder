@@ -149,15 +149,57 @@ namespace SlimeCorralSpawn.Spawners
                 // Ahora NADA puede spawnear más de una vez por intervalo: lo urgente solo acorta la espera.
                 if (now < s.NextSpawn) continue;
 
-                int alive = s.CountAlive();
+                // ★ CONTAR LO QUE HAY DE VERDAD EN EL MUNDO, no lo que recordamos ★
+                // El bug: al recargar la partida, LoadFromSave crea los spawners con la lista de vivos VACÍA.
+                // Creían que no había nada y volvían a llenar hasta MaxAlive… encima de los que ya estaban de la
+                // sesión anterior. Cada entrada al juego sumaba otra tanda y nunca desaparecían.
+                // Ahora se cuentan las criaturas REALES dentro del radio; si el espacio ya está lleno, no spawnea.
+                int alive = CountCreaturesAround(s);
                 if (alive >= s.MaxAlive) { s.NextSpawn = now + Mathf.Max(MinInterval, s.IntervalSeconds); continue; }
 
-                bool urgent = s.RespawnIfEmpty && alive == 0;
+                bool urgent = s.RespawnIfEmpty && alive == 0;   // 'alive' ya es el conteo REAL del mundo
                 float wait = Mathf.Max(MinInterval, urgent ? Mathf.Min(6f, s.IntervalSeconds) : s.IntervalSeconds);
                 s.NextSpawn = now + wait;
                 if (!WatchdogAllows()) return;
                 SpawnOne(s);
             }
+        }
+
+        // Buffer reutilizado por el conteo (evita basura cada tick).
+        private static readonly Collider[] _overlap = new Collider[128];
+
+        /// <summary>
+        /// Cuántas criaturas hay REALMENTE dentro del radio del spawner, mirando el mundo con un OverlapSphere
+        /// y contando objetos con `Identifiable` del mismo tipo que este spawner produce (slimes o animales).
+        ///
+        /// Es lo correcto además de por el bug de la recarga: si el jugador ya llenó la zona a mano, o quedaron
+        /// los de antes, el spawner respeta ese tope en vez de amontonar. Y si se los lleva, vuelve a producir.
+        /// </summary>
+        private static int CountCreaturesAround(PlacedSpawner s)
+        {
+            int n = 0;
+            try
+            {
+                float r = Mathf.Max(2f, s.Radius) + 2f;   // un poco más ancho que el radio de spawn
+                int hits = Physics.OverlapSphereNonAlloc(s.Pos, r, _overlap, ~0, QueryTriggerInteraction.Collide);
+                for (int i = 0; i < hits && i < _overlap.Length; i++)
+                {
+                    var col = _overlap[i]; if (col == null) continue;
+                    Il2Cpp.Identifiable id = null;
+                    try { id = col.GetComponentInParent<Il2Cpp.Identifiable>(); } catch { }
+                    if (id == null) continue;
+                    var t = id.identType; if (t == null) continue;
+
+                    // Solo cuentan las de ESTE spawner: un corral de gallinas al lado no debe frenar los slimes.
+                    bool esAnimal = false; try { esAnimal = t.IsAnimal; } catch { }
+                    if (s.Kind == SpawnKind.Animal ? esAnimal : !esAnimal) n++;
+                }
+            }
+            catch (Exception ex) { ModEntry.LogErrorOnce("SpawnerManager.CountCreaturesAround", ex); }
+
+            // Sumamos lo que el juego todavía está creando (aún sin collider) para no spawnear de más entretanto.
+            try { s.CountAlive(); n += s.Creating.Count; } catch { }
+            return n;
         }
 
         private static void SpawnOne(PlacedSpawner s)

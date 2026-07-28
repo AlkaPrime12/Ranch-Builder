@@ -182,8 +182,35 @@ namespace SlimeCorralSpawn.UI
             }
         }
 
+        /// <summary>Devuelve el input del juego SIEMPRE, sin depender de si el menú está abierto. La usa el
+        /// mod al pausar y al salir al menú principal: si el freeze quedaba puesto, el jugador no podía ni
+        /// navegar el menú de pausa.</summary>
+        public static void ForceRestoreGameInput()
+        {
+            // SOLO si de verdad fuimos NOSOTROS los que congelamos. Antes llamaba a SetCameraFrozen(false)
+            // siempre, y eso hace `_mainGame.Map.Enable()`. Al pausar, el juego acababa de DESACTIVAR ese mapa
+            // para abrir su menú; nosotros se lo re-activábamos en el mismo frame y el menú de pausa no abría
+            // la primera vez (a la segunda sí, porque para entonces el estado ya coincidía). También explicaba
+            // el segundo de espera al cerrarlo.
+            if (_frozenApplied != true) return;
+            try { SetCameraFrozen(false); } catch { }
+        }
+
+        /// <summary>Último estado REALMENTE aplicado. Sin esto, OnLateUpdateStatic llamaba a
+        /// `Map.Disable()` en CADA FRAME con el menú abierto: dos llamadas de interop por frame sobre mapas que
+        /// ya estaban desactivados. Ese era el tirón al abrir y cerrar el menú.</summary>
+        private static bool? _frozenApplied;
+
         private static void SetCameraFrozen(bool frozen)
         {
+            if (_frozenApplied.HasValue && _frozenApplied.Value == frozen)
+            {
+                // Ya está en ese estado: solo re-imponemos el controlador de cámara, que sí puede reactivarse
+                // solo en su propio Update. Los action maps no se vuelven a tocar.
+                try { if (_camCtrl != null) _camCtrl.enabled = !frozen; } catch { _camCtrl = null; }
+                return;
+            }
+            _frozenApplied = frozen;
             try
             {
                 // Método REAL de Starlight: desactivar los action maps de input del juego
