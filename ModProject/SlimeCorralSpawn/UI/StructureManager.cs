@@ -845,6 +845,59 @@ namespace SlimeCorralSpawn.UI
             return list;
         }
 
+        /// <summary>Borra TODO lo dibujado a mano (suelos del pincel / formas irregulares / Draw Floor), que son las
+        /// piezas con definición interna "free_*". No toca las estructuras normales colocadas del catálogo.
+        /// Devuelve cuántas se borraron. Lo usa el botón rojo "Borrar lo dibujado" del tab Free Build.</summary>
+        public static int DeleteAllDrawn()
+        {
+            // (1) Piezas de "Draw Floor by Hand": SÍ pasan por StructureManager con definición interna "free_*".
+            var toDelete = new List<string>();
+            foreach (var kv in _placed)
+            {
+                string defId = kv.Value != null ? kv.Value.DefinitionId : null;
+                if (!string.IsNullOrEmpty(defId) && defId.StartsWith("free_")) toDelete.Add(kv.Key);
+            }
+            foreach (var id in toDelete) { try { DeleteStructure(id); } catch { } }
+            int n = toDelete.Count;
+
+            // (2) FREE DRAW y (3) FORMAS IRREGULARES tienen su PROPIO almacenamiento (StrokeSaveEntry /
+            // PolygonSaveEntry) y NO están en _placed → antes el botón "borraba 0 piezas" porque solo miraba acá.
+            int strokes = 0, polys = 0;
+            try { strokes = Placement.FreeDrawTool.CountAll(); Placement.FreeDrawTool.DestroyAndClearAll(); } catch { }
+            try { polys = Placement.PolygonTool.CountAll(); Placement.PolygonTool.DestroyAndClearAll(); } catch { }
+            n += strokes + polys;
+
+            // Persistir el borrado. Limpiar solo la memoria NO alcanza: las listas Strokes/Polygons y las
+            // estructuras "free_*" siguen en el ARCHIVO y todo volvía al recargar. WipeDrawnFromSave las quita
+            // del save y guarda (con ForceSave, nunca FlushBeforeQuit: ese puede escribir un save vacío).
+            int wiped = 0;
+            try { wiped = SaveData.ModDataManager.WipeDrawnFromSave(); } catch { }
+            n = Mathf.Max(n, wiped);
+
+            // VERIFICACIÓN: releer lo que quedó realmente (memoria Y save). Si algo sobrevive acá, el borrado NO
+            // persistió y el log lo dice en el acto, en vez de descubrirlo al recargar la partida.
+            int qStrokes = 0, qPolys = 0, qFree = 0, qSaved = 0;
+            try { qStrokes = Placement.FreeDrawTool.CountAll(); } catch { }
+            try { qPolys = Placement.PolygonTool.CountAll(); } catch { }
+            foreach (var kv in _placed)
+            {
+                string d = kv.Value != null ? kv.Value.DefinitionId : null;
+                if (!string.IsNullOrEmpty(d) && d.StartsWith("free_")) qFree++;
+            }
+            try { qSaved = SaveData.ModDataManager.CountDrawnInSave(); } catch { }
+
+            try
+            {
+                ModEntry.LogInfo($"[FreeBuild] Borrado de lo dibujado: {n} pieza(s) (suelos={toDelete.Count} trazos={strokes} formas={polys}).");
+                if (qStrokes + qPolys + qFree + qSaved > 0)
+                    ModEntry.LogInfo($"[FreeBuild] ATENCION: quedaron restos → trazos={qStrokes} formas={qPolys} suelos={qFree} enElSave={qSaved}");
+                else
+                    ModEntry.LogInfo("[FreeBuild] verificado: no queda nada dibujado ni en memoria ni en el archivo.");
+            }
+            catch { }
+            return n;
+        }
+
         public static void RegisterFromSave(StructureSaveEntry entry)
         {
             if (entry == null || string.IsNullOrEmpty(entry.UniqueId) || string.IsNullOrEmpty(entry.DefinitionId))

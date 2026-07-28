@@ -15,7 +15,8 @@ namespace SlimeCorralSpawn.SceneBuilder
         public Quaternion Rotation;
         public float Scale = 1f;
         public GameObject LinkedObject;   // el clon vivo (null hasta que UpdateRetry lo re-crea)
-        public bool BuiltFromDisk;        // true si se clonó desde disco (para re-clonarlo desde la instancia viva luego)
+        public bool BuiltFromDisk;        // true = es la copia PROPIA de disco (se ve algo flat); pasar al material VIVO cuando su zona cargue
+        public float SortKey;             // orden de carga (pisos y cercanos primero); lo calcula RebuildWorkList
     }
 
     /// <summary>
@@ -32,10 +33,12 @@ namespace SlimeCorralSpawn.SceneBuilder
         public static GameObject PlaceAndSave(SceneModelInfo info, Vector3 pos, Quaternion rot, float scale)
         {
             if (info == null) return null;
-            // Asegurar la copia PROPIA (de disco) ANTES de spawnear → lo colocado usa el material propio, que NO
-            // se rompe al descargar la zona (el material vivo del juego sí se rompe).
+            // Encolar el horneado a disco (para tener la copia PROPIA independiente + colisión). Mientras tanto
+            // spawneamos preferOwned=true: si ya está horneada usa la copia PROPIA (mallas legibles → collider OK
+            // + independiente del original); si no, cae al clon vivo como preview y el swap lo actualiza al terminar.
             try { SceneModelLibrary.EnsureOwnedCopy(info); } catch { }
             var go = SceneModelLibrary.Spawn(info, pos, rot, scale, park: true, addColliders: SceneModelLibrary.ShouldCollide(info));
+            bool ownedDisk = SceneModelLibrary.LastSpawnOwned;
             if (go == null) return null;
 
             var entry = new PlacedSceneModel
@@ -47,6 +50,7 @@ namespace SlimeCorralSpawn.SceneBuilder
                 Rotation = rot,
                 Scale = scale <= 0f ? 1f : scale,
                 LinkedObject = go,
+                BuiltFromDisk = ownedDisk,   // si arrancó de disco (flat), el swap lo pasa al material vivo al cargar la zona
             };
             _placed[entry.UniqueId] = entry;
 
@@ -93,69 +97,395 @@ namespace SlimeCorralSpawn.SceneBuilder
         // muchos livianos entran de a varios → aparecen mucho más rápido sin bajar los FPS.
         // Presupuesto ALTO por frame → los colocados aparecen casi al instante (para que los slimes NO se caigan).
         // Los colliders se agregan JUNTO con el modelo (no diferidos) con cocinado rápido, así son sólidos al aparecer.
-        private static float _ctxSince = -1f;   // cuándo quedó listo el rancho (para front-load al entrar)
+        private static float _ctxSince = -1f;
+        private static Vector3 _playerPos;
+        private static float _lastPlayerPosTime;
+        private static bool _prevFrontLoad;
+        private static bool _timed;
+        private static int _savedBufferSize;
+        private static int _savedTimeSlice;
+
+        // Cola de trabajo PERSISTENTE: se arma UNA vez (ordenada: pisos y cercanos primero) y se consume de a poco por
+        // frame. Antes se recorría y ORDENABA TODO cada frame (varias pasadas O(N) + 2 sorts + pre-cargar todas las
+        // texturas de una) → eso era lo que laggeaba y demoraba con muchos modelos. Ahora casi todo frame es O(budget).
+        private static readonly System.Collections.Generic.List<PlacedSceneModel> _workList = new System.Collections.Generic.List<PlacedSceneModel>();
+        private static int _workCursor;
+        private static float _lastRebuild = -999f;
+
+        /// <summary>Cuántos modelos COLOCADOS por el jugador faltan spawnear. El auto-guardado de zona lo consulta
+        /// para NO robarle tiempo: primero aparece todo lo que colocaste, después se hornea el resto de la zona.</summary>
+        public static int PendingSpawns => Mathf.Max(0, _workList.Count - _workCursor);
+
+        /// <summary>Zona (cruda) del modelo COLOCADO más cercano al jugador → buena pista de "dónde está parado".
+        /// La usa "Actualizar texturas" para tocar SOLO esa zona en vez de todo lo cargado. null si no hay nada.</summary>
+        public static string PlayerZoneHint()
+        {
+            try
+            {
+                UpdatePlayerPos();
+                string best = null; float bestSq = float.MaxValue;
+                foreach (var kv in _placed)
+                {
+                    var p = kv.Value; if (p == null || p.LinkedObject == null) continue;
+                    float d = (p.Position - _playerPos).sqrMagnitude;
+                    if (d < bestSq) { bestSq = d; best = p.Zone; }
+                }
+                return best;
+            }
+            catch { return null; }
+        }
 
         public static void UpdateRetry()
         {
-            if (_placed.Count == 0) { _ctxSince = -1f; return; }
-            if (!Placement.RealPlotFactory.ContextReady()) { _ctxSince = -1f; return; }
+            if (_placed.Count == 0) { _ctxSince = -1f; _workList.Clear(); _workCursor = 0; if (_prevFrontLoad) RestoreGpuSettings(); return; }
+            if (!Placement.RealPlotFactory.ContextReady()) { _ctxSince = -1f; if (_prevFrontLoad) RestoreGpuSettings(); return; }
             if (_ctxSince < 0f) _ctxSince = Time.realtimeSinceStartup;
 
-            // FRONT-LOAD agresivo: durante los primeros ~6 s tras entrar (o mientras quede mucho por cargar) usamos
-            // un presupuesto GRANDE y NO nos salteamos frames pesados → lo colocado aparece casi al INSTANTE (los
-            // slimes no se caen). Después bajamos a un presupuesto chico y sí respetamos los frames pesados → 0 lag.
-            bool frontLoad = (Time.realtimeSinceStartup - _ctxSince) < 6f;
-            if (!frontLoad && Time.deltaTime > 0.05f) return;   // fuera de la ventana: no sumar si el frame va MUY pesado
-            float budget = frontLoad ? 0.05f : 0.006f;
-            float start = Time.realtimeSinceStartup;
+            float now = Time.realtimeSinceStartup;
 
-            // Los PISOS/SUELOS primero (para pararse encima), luego el resto. Comparten el presupuesto de tiempo.
-            if (SpawnPass(start, budget, floorsOnly: true)) return;
-            SpawnPass(start, budget, floorsOnly: false);
+            // Mientras el juego esté CARGANDO (frames larguísimos), el mod no toca nada: cada ms que le robemos
+            // acá alarga la pantalla de carga. Se retoma solo cuando el frame vuelve a ser normal.
+            if (Time.deltaTime > 0.25f) { _ctxSince = now; _timed = false; return; }
+
+            // (Re)armar la cola cuando se AGOTÓ (máx ~5/seg, para no re-escanear todo cada frame si aún no hay nada
+            // spawneable) o cada ~1s (para tomar modelos que recién quedaron listos).
+            bool exhausted = _workCursor >= _workList.Count;
+            if ((exhausted && now - _lastRebuild > 0.2f) || now - _lastRebuild > 1f)
+                RebuildWorkList(now);
+
+            int pending = _workList.Count - _workCursor;
+            if (pending <= 0)
+            {
+                if (_prevFrontLoad) RestoreGpuSettings();
+                if (!_timed && _placed.Count > 0)
+                {
+                    _timed = true;
+                    try { ModEntry.LogInfo($"[Carga] {_placed.Count} modelos colocados listos en {(now - _ctxSince):0.0}s desde que el mundo quedó jugable."); }
+                    catch { }
+                }
+                // Una sola vez por sesión, cuando ya está todo lo colocado: verificar qué hay REALMENTE en disco
+                // (geometría/material/textura) → dice si el problema sería al guardar o al reconstruir.
+                // Solo con diagnósticos ENCENDIDOS: esta verificación abre y parsea cientos de archivos en el
+                // hilo principal justo al entrar a la partida (era parte del tirón de carga).
+                if (!_verified && _placed.Count > 0 && ModDiagnostics.Enabled)
+                {
+                    _verified = true;
+                    var keys = new System.Collections.Generic.List<string>();
+                    foreach (var kv in _placed) if (kv.Value != null) keys.Add(kv.Value.Zone + "/" + kv.Value.Key);
+                    try { SceneModelStore.VerifyPlacedAssets(keys); } catch { }
+                }
+                return;
+            }
+
+            float elapsed = now - _ctxSince;
+            // Front-load MÁS AGRESIVO: la idea es que lo COLOCADO aparezca prácticamente instantáneo. Ventana más
+            // larga (20 s) y se re-activa con pocos pendientes (>4), no solo al principio.
+            // Ventana inicial CORTA y agresiva: que todo aparezca de una en pocos segundos, no goteando 20 s.
+            // (Se probó culpar a esto de una pantalla de carga infinita; era falso — el culpable era una partida
+            // dañada, verificado desactivando el mod entero y reproduciendo el cuelgue igual.)
+            bool frontLoad = elapsed < 8f || pending > 4;
+
+            // Guardar/restaurar settings de GPU al ENTRAR/SALIR del modo front-load
+            if (frontLoad && !_prevFrontLoad)
+            {
+                _prevFrontLoad = true;
+                SceneModelStore.SetFrontLoadMode(true);
+                try { _savedBufferSize = QualitySettings.asyncUploadBufferSize; QualitySettings.asyncUploadBufferSize = 64; } catch { }
+                try { _savedTimeSlice = QualitySettings.asyncUploadTimeSlice; QualitySettings.asyncUploadTimeSlice = 8; } catch { }
+            }
+            else if (!frontLoad && _prevFrontLoad) RestoreGpuSettings();
+
+            // Budget adaptativo: en frames pesados se achica → sin tirones.
+            float dt = Time.deltaTime;
+            float budget;
+            // 30 ms/frame durante la ventana inicial. Es seguro porque MÁS ARRIBA nos apartamos por completo
+            // mientras el juego todavía está cargando (frames largos): este presupuesto solo se gasta cuando el
+            // frame ya es normal, o sea cuando el jugador está en el mundo y lo que falta es que aparezcan sus
+            // modelos. Sin bajar calidad ni perder shaders: es el mismo trabajo, hecho de una en vez de a cuotas.
+            if (frontLoad) budget = elapsed < 8f ? 0.030f : 0.018f;
+            else if (dt > 0.05f) { float s = Mathf.Clamp01(0.050f / dt); budget = 0.006f * s; if (budget < 0.001f) return; }
+            else budget = 0.006f;
+
+            ConsumeWorkList(now, budget, frontLoad ? 4000 : 10);
         }
 
-        private static bool SpawnPass(float start, float budget, bool floorsOnly)
+        /// <summary>Arma la lista de pendientes lista-para-spawnear, ordenada (pisos primero, luego por cercanía).
+        /// Barato de consumir después. Solo se llama cuando la cola se agota o cada ~1s.</summary>
+        private static void RebuildWorkList(float now)
         {
+            _lastRebuild = now;
+            UpdatePlayerPos();
+            _workList.Clear(); _workCursor = 0;
+            var pendKeys = new System.Collections.Generic.HashSet<string>();
             foreach (var kv in _placed)
             {
                 var p = kv.Value;
                 if (p.LinkedObject != null) continue;
                 var info = SceneModelLibrary.FindModel(p.Zone, p.Key);
-                if (info == null || !SceneModelLibrary.CanSpawn(info)) continue;   // aún no disponible → reintentar
-                if (SceneModelLibrary.IsFloorCategory(info) != floorsOnly) continue;   // esta pasada: pisos o resto
-                SceneModelLibrary.EnsureOwnedCopy(info);   // asegurar el bake a disco (para reinicio/zona descargada)
-                // Con collider YA (cocinado rápido) → sólido al aparecer, los slimes no se caen.
-                p.LinkedObject = SceneModelLibrary.Spawn(info, p.Position, p.Rotation, p.Scale, park: true, addColliders: SceneModelLibrary.ShouldCollide(info));
-                // Si se construyó desde DISCO (su zona no está cargada), marcarlo para re-clonarlo desde la instancia
-                // VIVA cuando su zona aparezca → recupera el look exacto (p.ej. rocas de montaña pasto+piedra).
+                if (info == null || !SceneModelLibrary.CanSpawn(info)) continue;
+                try { SceneModelLibrary.EnsureOwnedCopy(info); } catch { }   // bake a disco (una vez por reconstrucción)
+                p.SortKey = (SceneModelLibrary.IsFloorCategory(info) ? 0f : 1e9f) + (p.Position - _playerPos).sqrMagnitude;
+                _workList.Add(p);
+                pendKeys.Add(p.Zone + "/" + p.Key);
+            }
+            if (_workList.Count > 1)
+                _workList.Sort((a, b) => a.SortKey.CompareTo(b.SortKey));
+            // Descomprimir sus texturas en SEGUNDO PLANO → cuando se spawneen, ya están listas (subida rápida).
+            try { SceneModelStore.PreloadTextureFor(pendKeys); } catch { }
+            // Pre-buscar los SHADERS reales de lo colocado → la reconstrucción los encuentra al toque (menos
+            // fallback Unlit blanco/gris; el material se ve bien antes).
+            try { SceneModelStore.PreloadShadersFor(pendKeys); } catch { }
+        }
+
+        /// <summary>Spawnea de la cola hasta llenar el budget de tiempo o el tope de cantidad. O(spawneados) por frame.</summary>
+        private static void ConsumeWorkList(float start, float budget, int maxCount)
+        {
+            int spawned = 0;
+            while (_workCursor < _workList.Count)
+            {
+                var p = _workList[_workCursor];
+                _workCursor++;
+                if (p.LinkedObject != null) continue;
+                var info = SceneModelLibrary.FindModel(p.Zone, p.Key);
+                if (info == null || !SceneModelLibrary.CanSpawn(info)) continue;
+                bool floor = SceneModelLibrary.IsFloorCategory(info);
+                bool wantsCol = SceneModelLibrary.ShouldCollide(info);
+                // Al cargar la partida: material VIVO si su zona está cargada (perfecto), si no la copia de disco.
+                // PISOS: collider YA (los slimes se paran encima). El resto: collider DIFERIDO (cola).
+                p.LinkedObject = SceneModelLibrary.Spawn(info, p.Position, p.Rotation, p.Scale, park: true, addColliders: floor && wantsCol);
+                bool ownedDisk = SceneModelLibrary.LastSpawnOwned;
                 if (p.LinkedObject != null)
                 {
-                    p.BuiltFromDisk = !SceneModelLibrary.HasLiveSample(p.Zone, p.Key);
-                    if ((Time.realtimeSinceStartup - start) >= budget) return true;   // sin tiempo este frame
+                    if (!floor && wantsCol) _colliderQ.Enqueue(p.LinkedObject);
+                    TouchMaterials(p.LinkedObject);
+                    p.BuiltFromDisk = ownedDisk;   // de disco (flat) → el swap lo pasa al material vivo cuando cargue la zona
+                    if (++spawned >= maxCount) return;
+                    if ((Time.realtimeSinceStartup - start) >= budget) return;
                 }
             }
-            return false;
         }
+
+        private static void RestoreGpuSettings()
+        {
+            _prevFrontLoad = false;
+            SceneModelStore.SetFrontLoadMode(false);
+            try { QualitySettings.asyncUploadBufferSize = _savedBufferSize; } catch { }
+            try { QualitySettings.asyncUploadTimeSlice = _savedTimeSlice; } catch { }
+        }
+
+        private static void UpdatePlayerPos()
+        {
+            try
+            {
+                if (Time.realtimeSinceStartup - _lastPlayerPosTime > 0.3f)
+                {
+                    _lastPlayerPosTime = Time.realtimeSinceStartup;
+                    var go = GameObject.FindGameObjectWithTag("Player");
+                    if (go != null) _playerPos = go.transform.position;
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>#5: toca los materiales de un GameObject recién spawnedo para forzar que Unity
+        /// resuelva texturas y referencias del shader ya en este frame.</summary>
+        private static void TouchMaterials(GameObject go)
+        {
+            try
+            {
+                var rends = go.GetComponentsInChildren<Renderer>(true);
+                if (rends == null) return;
+                for (int i = 0; i < rends.Length; i++)
+                {
+                    var r = rends[i];
+                    if (r == null) continue;
+                    var mats = r.sharedMaterials;
+                    if (mats == null) continue;
+                    for (int s = 0; s < mats.Length; s++)
+                    {
+                        var m = mats[s];
+                        if (m == null) continue;
+                        try { var _ = m.mainTexture; } catch { }
+                        try { var _ = m.shader; } catch { }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        // Cola de colliders DIFERIDOS (no-pisos): se cocinan de a pocos por frame DESPUÉS de que el modelo apareció.
+        private static readonly System.Collections.Generic.Queue<GameObject> _colliderQ = new System.Collections.Generic.Queue<GameObject>();
 
         // Re-clona desde la instancia VIVA los colocados que se habían construido desde disco, en cuanto su zona
         // se carga → el material queda EXACTO (persistencia del look, sin tener que "Actualizar texturas" a mano).
         private static float _liveUpgradeThrottle;
-        public static void ProcessColliderQueue()   // (nombre histórico; ahora hace el re-clonado vivo)
+        public static void ProcessColliderQueue()   // colliders diferidos + re-clonado vivo
         {
+            // 1) Cocinar colliders pendientes por frame (salvo en frames pesados) → sin hitch.
+            if (_colliderQ.Count > 0 && Time.deltaTime <= 0.05f)
+            {
+                int colBudget = 8;   // más presupuesto → la colisión llega antes (el usuario reportaba pérdidas)
+                while (_colliderQ.Count > 0 && colBudget-- > 0)
+                {
+                    var go = _colliderQ.Dequeue();
+                    if (go == null) continue;
+                    try { SceneModelLibrary.AddColliders(go); } catch { }
+                }
+            }
+
             if (_placed.Count == 0) return;
+
+            // 1.5) BARRIDO DE SEGURIDAD de colisiones: recorrer de a pocos los colocados sólidos y re-agregar el
+            // collider si por alguna razón se perdió (garantía "ningún modelo pierde colisión al guardar/cargar").
+            EnsureCollidersSweep();
+
             if (Time.deltaTime > 0.05f) return;
-            if ((_liveUpgradeThrottle += Time.deltaTime) < 0.5f) return;   // como mucho ~2 veces/seg
+            if ((_liveUpgradeThrottle += Time.deltaTime) < 0.25f) return;   // ~4 pasadas/seg
             _liveUpgradeThrottle = 0f;
-            int budget = 2;   // pocos por pasada → sin hitch
+            int budget = 3;   // pocos por pasada → sin hitch
+            var toSwap = new System.Collections.Generic.List<PlacedSceneModel>();
             foreach (var kv in _placed)
             {
                 var p = kv.Value;
+                // Lo que arrancó de DISCO (flat) y ahora su zona está CARGADA → pasarlo al material VIVO (perfecto).
                 if (p == null || !p.BuiltFromDisk || p.LinkedObject == null) continue;
-                if (!SceneModelLibrary.HasLiveSample(p.Zone, p.Key)) continue;   // su zona aún no está cargada
-                try { UnityEngine.Object.Destroy(p.LinkedObject); } catch { }
-                p.LinkedObject = null; p.BuiltFromDisk = false;   // UpdateRetry lo re-spawnea desde la instancia viva
-                if (--budget <= 0) return;
+                if (!SceneModelLibrary.HasLiveSample(p.Zone, p.Key)) continue;
+                toSwap.Add(p);
+                if (toSwap.Count >= budget) break;
             }
+            foreach (var p in toSwap)
+            {
+                var info = SceneModelLibrary.FindModel(p.Zone, p.Key);
+                if (info == null) continue;
+                // UPGRADE a v6: si el archivo de disco es viejo (v5: sin Y original + posiblemente 1 sola parte),
+                // re-hornearlo ahora que hay muestra viva → la próxima vez cross-zone se ve perfecto (todas las
+                // partes + ramp compensado). En 2do plano, presupuestado.
+                try { SceneModelLibrary.EnsureOwnedCopy(info); } catch { }
+                bool wantsCol = SceneModelLibrary.ShouldCollide(info);
+                // SWAP SIN HUECO al material VIVO (perfecto): construir la fresca con collider ANTES de destruir la
+                // vieja → nunca desaparece ni un frame (los slimes encima no se caen).
+                var fresh = SceneModelLibrary.Spawn(info, p.Position, p.Rotation, p.Scale, park: true, addColliders: wantsCol);
+                if (fresh == null || SceneModelLibrary.LastSpawnOwned) { try { if (fresh != null) UnityEngine.Object.Destroy(fresh); } catch { } continue; }  // seguir de disco hasta tener el vivo
+                var old = p.LinkedObject;
+                // DIAG: comparar el VIVO (fresh) contra el RECONSTRUIDO de disco (old) antes de destruir el viejo →
+                // ground truth de qué difiere (por qué el de disco se ve distinto).
+                if (ModDiagnostics.Enabled) { try { SceneModelLibrary.CompareLiveVsDisk(fresh, old); } catch { } }
+                p.LinkedObject = fresh;
+                p.BuiltFromDisk = false;
+                TouchMaterials(fresh);
+                // La MINIATURA se había renderizado con la copia de DISCO (aproximada) → se veía fea hasta que el
+                // jugador apretaba "Actualizar texturas". Ahora que este modelo ya tiene su material VIVO, tiramos
+                // su miniatura para que se re-renderice sola con el material bueno. Solo ESA (no las miles).
+                try
+                {
+                    var one = new System.Collections.Generic.HashSet<string> { p.Zone + "/" + p.Key };
+                    SceneThumbnailRenderer.InvalidateMatching(one);
+                }
+                catch { }
+                try { if (old != null) UnityEngine.Object.Destroy(old); } catch { }
+            }
+        }
+
+        // ── PRUEBA F7: exagerar el ramp de TODO lo colocado (+40 / volver) para ver a simple vista si el ramp
+        // controla el aspecto. Si al presionar F7 el mundo cambia dramáticamente → el ramp ES la palanca. Si no
+        // cambia nada → el ramp no afecta el síntoma visible y hay que buscar en otro lado.
+        private static bool _extremeRamp;
+        public static void DebugToggleExtremeRamp()
+        {
+            _extremeRamp = !_extremeRamp;
+            float d = _extremeRamp ? 40f : -40f;
+            int n = 0;
+            foreach (var kv in _placed)
+            {
+                var go = kv.Value != null ? kv.Value.LinkedObject : null;
+                if (go == null) continue;
+                try { SceneModelLibrary.ApplyHeightRampOffset(go, d); n++; } catch { }
+            }
+            try { ModEntry.LogInfo($"[RampTest] EXTREMO={_extremeRamp} (deltaY {(d > 0 ? "+" : "")}{d}) aplicado a {n} props colocados → ¿cambió algo a simple vista?"); } catch { }
+        }
+
+        // Barrido incremental de colisiones (cursor por el dict) para no recorrer todo cada frame.
+        private static float _colSweepThrottle;
+        private static readonly System.Collections.Generic.List<string> _colSweepKeys = new System.Collections.Generic.List<string>();
+        private static int _colSweepCursor;
+        private static int _rescued;
+        private static int _rescueDiag = 5;
+        private static bool _verified;   // la verificación de assets en disco corre 1 sola vez por sesión
+
+        /// <summary>True si el objeto colocado quedó ROTO porque el juego descargó la zona de la que se clonó:
+        /// sus renderers perdieron la malla o el material (referencias muertas) → hay que rehacerlo desde disco.</summary>
+        private static bool IsBroken(GameObject go)
+        {
+            try
+            {
+                var rends = go.GetComponentsInChildren<Renderer>(true);
+                if (rends == null || rends.Length == 0) return false;   // sin renderers (luces, etc.) → no juzgar
+                int checkedN = 0;
+                for (int i = 0; i < rends.Length && checkedN < 3; i++)
+                {
+                    var r = rends[i]; if (r == null) continue;
+                    checkedN++;
+                    Material m = null; try { m = r.sharedMaterial; } catch { return true; }
+                    if (m == null) return true;                          // material destruido con la zona
+                    var mf = r.GetComponent<MeshFilter>();
+                    if (mf != null) { Mesh me = null; try { me = mf.sharedMesh; } catch { return true; } if (me == null) return true; }
+                }
+                return false;
+            }
+            catch { return false; }
+        }
+
+        private static void EnsureCollidersSweep()
+        {
+            if (Time.deltaTime > 0.05f) return;
+            if ((_colSweepThrottle += Time.deltaTime) < 1f) return;   // ~1 vez/seg
+            _colSweepThrottle = 0f;
+            if (_colSweepCursor >= _colSweepKeys.Count)
+            { _colSweepKeys.Clear(); _colSweepKeys.AddRange(_placed.Keys); _colSweepCursor = 0; }
+            int budget = 6;
+            while (_colSweepCursor < _colSweepKeys.Count && budget-- > 0)
+            {
+                var k = _colSweepKeys[_colSweepCursor++];
+                if (!_placed.TryGetValue(k, out var p) || p == null || p.LinkedObject == null) continue;
+
+                // RESCATE al cambiar de zona: lo colocado se clona de la instancia VIVA del juego (para que se vea
+                // perfecto), así que comparte sus mallas/materiales. Cuando SR2 DESCARGA esa zona los destruye y el
+                // objeto queda roto/invisible ("los modelos se pierden al ir a otra zona"). Lo detectamos y lo
+                // marcamos para re-spawnear: sin Sample vivo, UpdateRetry lo reconstruye desde la copia de DISCO
+                // (independiente del juego) → sobrevive el cambio de zona.
+                if (IsBroken(p.LinkedObject))
+                {
+                    try { UnityEngine.Object.Destroy(p.LinkedObject); } catch { }
+                    p.LinkedObject = null;
+                    _rescued++;
+                    if (_rescueDiag > 0) { _rescueDiag--; try { ModEntry.LogInfo($"[Rescate] '{p.Key}' se rompio al descargar su zona → reconstruyendo desde disco."); } catch { } }
+                    continue;
+                }
+
+                var info = SceneModelLibrary.FindModel(p.Zone, p.Key);
+                if (info == null || !SceneModelLibrary.ShouldCollide(info)) continue;
+                try
+                {
+                    if (p.LinkedObject.GetComponentInChildren<Collider>(true) == null)
+                        SceneModelLibrary.AddColliders(p.LinkedObject);   // se perdió → re-agregar
+                }
+                catch { }
+            }
+        }
+
+        /// <summary>Devuelve el objeto COLOCADO vivo más cercano a 'pos' dentro de maxDist (para engancharse borde a
+        /// borde con él en el modo grilla). Barato: solo compara posiciones. 'exclude' se ignora (p.ej. el fantasma).</summary>
+        public static GameObject FindNearestPlacedObject(Vector3 pos, float maxDist, GameObject exclude = null)
+        {
+            GameObject best = null; float bestSq = maxDist * maxDist;
+            foreach (var kv in _placed)
+            {
+                var go = kv.Value.LinkedObject;
+                if (go == null || go == exclude) continue;
+                float d = (go.transform.position - pos).sqrMagnitude;
+                if (d < bestSq) { bestSq = d; best = go; }
+            }
+            return best;
         }
 
         public static void ResetLinksForSceneChange()
@@ -270,6 +600,25 @@ namespace SlimeCorralSpawn.SceneBuilder
                 if (info != null && !SceneModelLibrary.ShouldCollide(info)) toRemove.Add(p.UniqueId);   // plantas/pasto/agua
             }
             foreach (var uid in toRemove) RemovePlaced(uid);
+        }
+
+        /// <summary>UniqueId del modelo colocado cuyo GameObject raíz es el dado (null si no es nuestro).
+        /// Lo usa el Ctrl+Z para saber QUÉ acaba de colocarse y poder deshacerlo.</summary>
+        public static string UidOf(GameObject obj)
+        {
+            if (obj == null) return null;
+            foreach (var kv in _placed)
+                if (kv.Value?.LinkedObject == obj) return kv.Key;
+            return null;
+        }
+
+        /// <summary>Quita un modelo colocado encontrándolo por su GameObject raíz (para el modo borrar escena).</summary>
+        public static bool RemoveByGameObject(GameObject obj)
+        {
+            if (obj == null) return false;
+            foreach (var kv in _placed)
+                if (kv.Value?.LinkedObject == obj) { RemovePlaced(kv.Key); return true; }
+            return false;
         }
 
         /// <summary>Quita un modelo colocado (destruye el clon del mundo + lo borra del slot). Para "agarrar"/borrar.</summary>

@@ -1,0 +1,2051 @@
+### 6422 tipos cargados de C:\Games\Slime Rancher 2\MelonLoader\Il2CppAssemblies ###
+
+############ JARDINES / SPAWN DE RECURSOS ############
+  Il2Cpp.DroneFastForwarder
+  Il2Cpp.GardenCatcher
+  Il2Cpp.LandPlot
+  Il2Cpp.LandPlotLocation
+  Il2Cpp.PhasingSpawnResource
+  Il2Cpp.RanchCellFastForwarder
+  Il2Cpp.RanchCellFastForwarder+_OnFastForward_d__18
+  Il2Cpp.RanchCellFastForwarder+_OnFastForwardChangedCoroutine_d__22
+  Il2Cpp.RanchMetadata+LandPlotMetadata
+  Il2Cpp.ResourceCycle
+  Il2Cpp.ResourceGrowerDefinition
+  Il2Cpp.ResourceGrowerList
+  Il2Cpp.ResourceNode+_SpawnResourcesAsync_d__36
+  Il2Cpp.SpawnResource
+  Il2Cpp.SpawnResourceForceFirstRipeness
+  Il2Cpp.TimeDirector+OnFastForwardChangedDelegate
+  Il2CppMonomiPark.SlimeRancher.DataModel.LandPlotModel
+  Il2CppMonomiPark.SlimeRancher.DataModel.SpawnResourceModel
+  Il2CppMonomiPark.SlimeRancher.Drone.IRanchDroneSinkProgram+FastForwardResponse
+  Il2CppMonomiPark.SlimeRancher.Drone.RanchDroneSourceProgramLandPlot
+  Il2CppMonomiPark.SlimeRancher.Persist.LandPlotV01
+  Il2CppMonomiPark.SlimeRancher.Persist.LandPlotV02
+  Il2CppMonomiPark.SlimeRancher.Persist.ResourceCycleDataV01
+  Il2CppMonomiPark.SlimeRancher.Persist.ResourceGrowerIndexTableV01
+  Il2CppMonomiPark.SlimeRancher.Player.LockOnDeath+_DelayedFastForward_d__18
+  Il2CppMonomiPark.SlimeRancher.ResourceGrowerDebugDisplay
+  Il2CppMonomiPark.SlimeRancher.ResourceGrowerDebugDisplayController
+  Il2CppMonomiPark.SlimeRancher.Slime.FastForwardSlimeEatHandler
+  Il2CppMonomiPark.SlimeRancher.UI.LandPlotUIActivator
+  Il2CppMonomiPark.SlimeRancher.UI.Plot.LandPlotUIRoot
+
+================ SpawnResource ================
+FullName: Il2Cpp.SpawnResource   Base: IdHandler
+-- CAMPOS --
+-- PROPIEDADES --
+  Boolean _allowSpawningInFastForwarding
+  AmbianceDirector _ambianceDir
+  Boolean _forceDestroyLeftoversOnSpawn
+  LandPlot _landPlot
+  SpawnResourceModel _model
+  GameObject _onWateredFX
+  Randoms _rand
+  Region _region
+  ResourceGrowerDefinition _resourceGrowerDefinition
+  Int32 _spawnBlockers
+  List`1 _spawned
+  GameObject _spawnFX
+  Queue`1 _spawnQueue
+  TimeDirector _timeDir
+  Int32 _totalSpawnsRemaining
+  UnityAction OnReachedSpawnTime
+  ResourceGrowerDefinition ResourceGrowerDefinition
+  Il2CppReferenceArray`1 SpawnJoints
+  Queue`1 SpawnQueue
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Single AdditionalRipenessPerSecond()
+  Void AddLiquid(LiquidDefinition liquidId, Single amount, Vector3 center)
+  Boolean AllJointsDisconnected()
+  Void Awake()
+  Void DeregisterSpawnBlocker()
+  Void DropFromJoints()
+  Void FastForward(Double startTime, Double endTime, Single endHour)
+  Color GetDebugColor()
+  String GetDebugHUDText()
+  IEnumerable`1 GetFastForwardGroups(Double endTime)
+  IdentifiableType GetPrimarySpawnId()
+  IEnumerable`1 GetSpawnMetadatas(SpawnRequest request, Double worldTime)
+  Boolean HasNutrientSoil()
+  Boolean HasSprinkler()
+  String IdPrefix()
+  Void InitAsReplacement(SpawnResource old)
+  Void InitModel(SpawnResourceModel model)
+  Boolean IsActiveAndEnabled()
+  Boolean IsWatered()
+  Joint NearestJoint(Vector3 pos, Single maxDist)
+  Void OnDestroy()
+  Joint PickRipeResourceJoint()
+  Void PlantCrops()
+  Boolean ReadyToDestroy()
+  Void RefreshSpawnJointObjectPositions()
+  Void RegisterSpawnBlocker()
+  Void SetModel(SpawnResourceModel model)
+  Void Spawn(SpawnRequest request)
+  Void Spawn(SpawnRequest request, Double worldTime)
+  Void Spawn(IEnumerable`1 metadatas)
+  Void Start()
+  Void StepNextSpawnTime(Single ripeness, Single stepHours)
+  Single TotalRipenessPerSecond()
+  Void TryReleaseRipeResource(Predicate`1 locPredicate)
+  Void Update()
+  Void UpdateNextSpawnTime(Single preripenedHours)
+  Void UpdateToTime(Double worldTime, Double deltaWorldTime, Single timeOfDay)
+  Void WillDestroyAfterTime()
+  Boolean WithinSpawningHours(Single time)
+-- TIPOS ANIDADOS --
+  SpawnRequest
+  SpawnMetadata
+  GatherGroup
+  __c
+  __c__DisplayClass42_0
+  __c__DisplayClass62_0
+
+================ SpawnRequest ================
+FullName: Il2Cpp.SpawnResource+SpawnRequest   Base: Object
+-- CAMPOS --
+-- PROPIEDADES --
+  Nullable`1 SpawnAtTime
+  Boolean SpawnRipe
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+-- TIPOS ANIDADOS --
+
+================ SpawnMetadata ================
+FullName: Il2Cpp.SpawnResource+SpawnMetadata   Base: Object
+-- CAMPOS --
+-- PROPIEDADES --
+  Int32 Count
+  GameObject Prefab
+  SpawnRequest Request
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+-- TIPOS ANIDADOS --
+
+================ SpawnResourceModel ================
+FullName: Il2CppMonomiPark.SlimeRancher.DataModel.SpawnResourceModel   Base: PositionalModel
+-- CAMPOS --
+-- PROPIEDADES --
+  Boolean nextSpawnRipens
+  Double nextSpawnTime
+  Participant part
+  Single storedWater
+  Boolean wasPreviouslyPlanted
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void Init()
+  Boolean IsSpawnerActiveAndEnabled()
+  Joint NearestJoint(Vector3 position, Single maxDist)
+  Void NotifyParticipants()
+  Void Pull(Single& storedWater, Double& nextSpawnTime)
+  Void Push(Single storedWater, Double nextSpawnTime)
+  Void RemoveParticipant()
+  Void SetParticipant(Participant part)
+  Void TryAddWater(LiquidDefinition liquidId, Single amount)
+  Void TryReleaseRipeResource(Predicate`1 locPredicate)
+-- TIPOS ANIDADOS --
+  Participant
+
+================ ResourceCycle ================
+FullName: Il2Cpp.ResourceCycle   Base: RegisteredBehaviourType`1
+-- CAMPOS --
+-- PROPIEDADES --
+  AdditionalRipeness _additionalRipenessDelegate
+  Rigidbody _body
+  Vector3 _defaultScale
+  Boolean _hasVacuumable
+  Identifiable _ident
+  SafeJointReference _joint
+  Renderer _mainRenderer
+  ProduceModel _model
+  DetachmentEvent _onDetachment
+  Boolean _preparingToRelease
+  MiracleMix _preservative
+  Double _releaseAt
+  Material _rotInProgressMat
+  TimeDirector _timeDir
+  Vector3 _toShakeDefaultPos
+  Vacuumable _vacuumable
+  Single _vibrateAmplitude
+  Boolean AddEjectionForce
+  GameObject DestroyFX
+  Single EdibleGameHours
+  Single EJECT_FORCE
+  Single EJECT_TORQUE
+  GameObject IgniteFX
+  SECTR_AudioCue ReleaseCue
+  Single ReleasePrepTime
+  Single RipeGameHours
+  Single RIPEN_SCALE_TIME
+  Single ROT_PROGRESS_PER_SEC
+  String ROT_SHADER_PARAM
+  Single RottenGameHours
+  Material RottenMat
+  Transform ToShake
+  Single UNRIPE_SCALE
+  Single UnripeGameHours
+  RegisteredUpdateFunctions UpdateFunctions
+  Boolean VacuumableWhenRipe
+  Single VIBRATE_AMPLITUDE
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void AdvanceProgressTime(Single progressBaseAmount)
+  Void Attach(Joint joint, AdditionalRipeness additionalRipenessDelegate, DetachmentEvent detachmentDelegate)
+  Void AttachPreservative(MiracleMix preservative)
+  Boolean AttachToNearest()
+  Void Awake()
+  Void DestroyWithFX(Boolean shouldSkipFX)
+  Void Detach(AdditionalRipeness additionalRipenessDelegate)
+  Void DetachFromJoint()
+  Void DetachPreservative(MiracleMix preservative)
+  Void Eject(Rigidbody rigidbody)
+  String GetDebugHUDText()
+  Boolean GetNearest(IEnumerable`1 items, Single distance, T& picked)
+  Boolean GetNearestIdHandler(IEnumerable`1 items, Single distance, T& picked)
+  State GetState()
+  Action GetUpdateAllAction()
+  State GuessStateAtTime(Double atTime)
+  Void Ignite(GameObject igniter)
+  Void ImmediatelyRipen(Single bonusRipenessHours)
+  Void ImmediatelyRot()
+  Void InitModel(ActorModel model)
+  Void MakeEdible()
+  Void OnDestroy()
+  Void ProgressResource(Double nextProgressionTime)
+  Void Reattach(Joint joint)
+  Void ResetStaticState()
+  Void Ripen()
+  Void Rot()
+  Void SetInitState(State state, Double progressTime)
+  Void SetModel(ActorModel model)
+  Void SetRotten(Boolean immediate)
+  Void UpdateAllInstances()
+  Void UpdateInstance()
+  Void UpdateToNow()
+  Single Vary(Single val)
+  Boolean WouldProgressToRotten(Double spawnTime, Double worldTime)
+-- TIPOS ANIDADOS --
+  State
+  CycleData
+  AdditionalRipeness
+  DetachmentEvent
+  MethodInfoStoreGeneric_GetNearest_Private_Boolean_IEnumerable_1_T_Single_byref_T_0`1
+  MethodInfoStoreGeneric_GetNearestIdHandler_Private_Boolean_IEnumerable_1_T_Single_byref_T_0`1
+
+================ ResourceGrowerDefinition ================
+FullName: Il2Cpp.ResourceGrowerDefinition   Base: ResourceSpawnerDefinition
+-- CAMPOS --
+-- PROPIEDADES --
+  Single _fastForwardMinHours
+  Int32 _maxActiveSpawns
+  Single _maxBonusRipeness
+  Single _maxSpawnIntervalGameHours
+  Int32 _maxTotalLifetimeSpawns
+  Single _maxWaterStored
+  Single _minBonusRipeness
+  Single _minSpawnIntervalGameHours
+  Single _minSpawnTimeStep
+  GameObject _prefab
+  IdentifiableType _primaryResourceType
+  Single _scaleInResourceTime
+  Single _spawnEndTimeOfDay
+  Single _spawnStartTimeOfDay
+  Single _wateredTimeFactor
+  Single _waterUsedPerHour
+  Single FastForwardMinHours
+  Int32 MaxActiveSpawns
+  Single MaxBonusRipeness
+  Single MaxSpawnIntervalGameHours
+  Int32 MaxTotalLifetimeSpawns
+  Single MaxWaterStored
+  Single MinBonusRipeness
+  Single MinSpawnIntervalGameHours
+  Single MinSpawnTimeStep
+  GameObject Prefab
+  IdentifiableType PrimaryResourceType
+  Single ScaleInResourceTime
+  Single SpawnEndTimeOfDay
+  Single SpawnStartTimeOfDay
+  Single WateredTimeFactor
+  Single WaterUsedPerHour
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+-- TIPOS ANIDADOS --
+
+================ GardenCatcher ================
+FullName: Il2Cpp.GardenCatcher   Base: SRBehaviour
+-- CAMPOS --
+-- PROPIEDADES --
+  IdentifiableEventProducer _cropPlantedEvent
+  Dictionary`2 _deluxeDict
+  Dictionary`2 _plantableDict
+  GameObject AcceptFX
+  LandPlot Activator
+  IdentifiableTypeGroup FruitTypeGroup
+  Il2CppReferenceArray`1 Plantable
+  SECTR_AudioCue TreeScaleDownCue
+  SECTR_AudioCue TreeScaleUpCue
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void Awake()
+  Boolean CanAccept(IdentifiableType id)
+  Void OnTriggerEnter(Collider col)
+  GameObject Plant(IdentifiableType cropId, Boolean isReplacement)
+-- TIPOS ANIDADOS --
+  PlantSlot
+
+================ LandPlot ================
+FullName: Il2Cpp.LandPlot   Base: SRBehaviour
+-- CAMPOS --
+-- PROPIEDADES --
+  RanchPlotEventProducer _allPlotsDemolishEvent
+  GameObject _attached
+  LandPlotModel _model
+  Dictionary`2 _plortLifetimes
+  PlotDefinition _plotDefinition
+  RanchPlotEventProducer _plotDemolishEvent
+  RanchMetadata _ranchMetadata
+  Region _region
+  Il2CppReferenceArray`1 _trackers
+  Single ATTACH_SCALE_UP_TIME
+  IdComparer IDComparer
+  Id TypeId
+  UpgradeEqualityComparer UpgradeComparer
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void AddUpgrade(Upgrade upgrade)
+  Void ApplyUpgrades(IEnumerable`1 upgrades, Boolean isInitialPurchase)
+  Void Attach(GameObject toAttach, Boolean immediate, Boolean isReplacement, SECTR_AudioCue scaleUpCue)
+  Void Awake()
+  Void DestroyAttached()
+  Void DestroyAttachedModel()
+  IdentifiableType GetAttachedCropId()
+  Double GetAttachedDeathTime()
+  Int32 GetCountInRanch()
+  Id GetPlotId()
+  Boolean HasAttached()
+  Boolean HasUpgrade(Upgrade upgrade)
+  Void InitModel(LandPlotModel model)
+  Void OnBeforeHibernationStateChanged(Boolean hibernating)
+  Void OnDestroy()
+  Void PreventActorsDelayedUnhibernation()
+  Void RaiseAllDemolishedEvent()
+  Void RaiseDemolishEvent()
+  Void SetModel(LandPlotModel model)
+  Void Start()
+  Void TweenScaleUpItem(GameObject toAttach, Boolean isReplacement)
+  Void TweenScaleUpItem_OnTweenComplete(Il2CppReferenceArray`1 spawners)
+-- TIPOS ANIDADOS --
+  Id
+  IdComparer
+  Upgrade
+  UpgradeEqualityComparer
+  __c
+  __c__DisplayClass27_0
+
+================ Region ================
+FullName: Il2CppMonomiPark.SlimeRancher.Regions.Region   Base: MonoBehaviour
+-- CAMPOS --
+-- PROPIEDADES --
+  List`1 _adjuncts
+  ExposedArrayList`1 _members
+  Int32 _neighborActiveCount
+  Int32 _nonHibernateRefCount
+  Int32 _nonProxyRefCount
+  GameObject _proxyObj
+  RegionRegistry _regionReg
+  SceneGroup _SceneGroup_k__BackingField
+  Il2CppReferenceArray`1 _updateLocalMembers
+  Bounds Bounds
+  CellDirector CellDir
+  Single HEADROOM
+  Boolean HeadroomForAutoBounds
+  Boolean Hibernated
+  Int32 MIN_LOCAL_ARRAY_RESIZE_AMOUNT
+  List`1 neighborRegions
+  OnHibernationStateChangedDelegate OnBeforeHibernationStateChanged
+  OnHibernationStateChangedDelegate OnHibernationStateChanged
+  Boolean OverrideBounds
+  Boolean Proxied
+  Boolean proxyCastsShadow
+  Il2CppReferenceArray`1 ProxyMaterials
+  Mesh ProxyMesh
+  GameObject ProxyPrefab
+  GameObject ProxyRoot
+  GameObject Root
+  SceneGroup SceneGroup
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void add_OnBeforeHibernationStateChanged(OnHibernationStateChangedDelegate value)
+  Void add_OnHibernationStateChanged(OnHibernationStateChangedDelegate value)
+  Void AddMember(RegionMember regionMember)
+  Void AddNonHibernateReference()
+  Void AddNonProxiedReference()
+  Void Awake()
+  Void CheckReferences()
+  Void CreateProxy()
+  Void CreateProxyHelper()
+  Void DeregisterAdjunct(RegionAdjunct adjunct)
+  String GetDebugHUDText()
+  IEnumerable`1 GetMembers()
+  GameObject GetProxyObj()
+  ZoneDefinition GetZoneId()
+  Void OnDisable()
+  Void OnEnable()
+  Void OnNeighborHibernationStateChanged(Boolean hibernated)
+  Void OnRegionSetDeactivated()
+  Void Proxy()
+  Void RegisterAdjunct(RegionAdjunct adjunct)
+  Void remove_OnBeforeHibernationStateChanged(OnHibernationStateChangedDelegate value)
+  Void remove_OnHibernationStateChanged(OnHibernationStateChangedDelegate value)
+  Void RemoveMember(RegionMember regionMember)
+  Void RemoveNonHibernateReference()
+  Void RemoveNonProxiedReference()
+  Void Start()
+  Void Unproxy()
+  Void UpdateMembersHibernationStates()
+-- TIPOS ANIDADOS --
+  OnHibernationStateChangedDelegate
+
+================ TimeDirector ================
+FullName: Il2Cpp.TimeDirector   Base: SRBehaviour
+-- CAMPOS --
+-- PROPIEDADES --
+  Sprite _dawnSprite
+  Sprite _daySprite
+  Sprite _duskSprite
+  Single _ffTimeFactor
+  Int32 _lastDay
+  Int32 _lastHour
+  Sprite _nightSprite
+  StaticGameEvent _onDayPassed
+  StaticGameEvent _onHourPassed
+  List`1 _passedTimeDelegates
+  Int32 _pauserCount
+  Single _savedTimeScale
+  Single _timeFactor
+  ScriptedFloat _timeOfDayValue
+  Boolean _wasUnpausedLastFrame
+  WorldModel _worldModel
+  Single DAYS_PER_SEC
+  Single FfSecsPerGameDay
+  Int32 HOUR_AFTERNOON
+  Int32 HOUR_MORNING
+  Int32 HOUR_NIGHT
+  Single HOURS_PER_DAY
+  Single HOURS_PER_MIN
+  Single HOURS_PER_SEC
+  Single MINS_PER_DAY
+  Single MINS_PER_HOUR
+  Single MINS_PER_SEC
+  OnFastForwardChangedDelegate OnFastForwardChanged
+  OnHourPassedDelegate OnHourPassedEvent
+  OnPausedChangedDelegate OnPausedChanged
+  Single SECS_PER_DAY
+  Single SECS_PER_HOUR
+  Single SECS_PER_MIN
+  Single SecsPerGameDay
+  Single START_HOUR
+  Boolean WasUnpausedLastFrame
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void add_OnFastForwardChanged(OnFastForwardChangedDelegate value)
+  Void add_OnHourPassedEvent(OnHourPassedDelegate value)
+  Void add_OnPausedChanged(OnPausedChangedDelegate value)
+  Void AddPassedTimeDelegate(Double time, Action action)
+  Void Awake()
+  Int32 CurrDay()
+  Int32 CurrDayAfterHour(Single hour)
+  Single CurrDayFraction()
+  Single CurrHour()
+  Single CurrHourOrStart()
+  Int32 CurrTime()
+  Sprite CurrTimeIcon()
+  IEnumerator DelayedUnpause()
+  Double DeltaWorldTime()
+  Boolean ExactlyOnePauser()
+  Void FastForwardTo(Double fastForwardUntil)
+  Boolean ForceFastForwardEnd()
+  LocalizedString FormatTime(Int32 totalMins, LocalizedString timeFormatString)
+  Double GameToRealSeconds(Double gameSeconds)
+  DayWindow GetDayWindow()
+  Double GetHourAfter(Int32 fullDays, Single hour)
+  Double GetHourAfter(Double fromTime, Int32 fullDays, Single hour)
+  Double GetNextDawn()
+  Double GetNextDawnAfterNextDusk()
+  Double GetNextDusk()
+  Double GetNextHour(Single hour)
+  Double GetNextHourAtLeastHalfDay(Single hour)
+  Boolean HasPauser()
+  Boolean HasReached(Double targetWorldTime)
+  Single HourAtTimeDelta(Single hour, Single deltaSeconds)
+  Double HoursFromNow(Single hours)
+  Double HoursFromNowOrStart(Single hours)
+  Double HoursFromStart(Double hours)
+  Double HoursFromTime(Single hours, Double time)
+  Double HoursUntil(Double targetWorldTime)
+  Void InitModel(WorldModel worldModel)
+  Boolean IsAtStart()
+  Boolean IsFastForwarding()
+  Boolean isPaused()
+  Void LateUpdate()
+  Boolean OnPassedHour(Single hour)
+  Boolean OnPassedTime(Double worldTime)
+  Void OnPassedTime(Double time, Action action)
+  Void Pause()
+  Double RealSecondsSince(Double targetWorldTime)
+  Double RealSecondsToGame(Double realSeconds)
+  Double RealSecondsUntil(Double targetWorldTime)
+  Void remove_OnFastForwardChanged(OnFastForwardChangedDelegate value)
+  Void remove_OnHourPassedEvent(OnHourPassedDelegate value)
+  Void remove_OnPausedChanged(OnPausedChangedDelegate value)
+  Void RemovePassedTimeDelegate(Action action)
+  Void ResetToStartTime(WorldModel worldModel)
+  Void SetModel(WorldModel worldModel)
+  Double TimeSince(Double time)
+  Void Unpause()
+  Void Update()
+  Double WorldTime()
+  Double WorldTimePlayed()
+  Double WorldTimeRealSecFromNowOrStart(Single realSeconds)
+-- TIPOS ANIDADOS --
+  OnFastForwardChangedDelegate
+  OnPausedChangedDelegate
+  OnHourPassedDelegate
+  DayWindow
+  PassedTimeDelegate
+  _DelayedUnpause_d__61
+
+================ RanchCellFastForwarder ================
+FullName: Il2Cpp.RanchCellFastForwarder   Base: IdHandler
+-- CAMPOS --
+-- PROPIEDADES --
+  List`1 _allSlimes
+  List`1 _collected
+  List`1 _hungrySlimes
+  RanchCellModel _model
+  RanchMetadata _network
+  List`1 _notCollected
+  Il2CppReferenceArray`1 _physicsCache
+  Dictionary`2 _plortLifetimes
+  List`1 _produced
+  Region _region
+  List`1 _sloomberSlimes
+  TimeDirector _timeDirector
+  List`1 _toys
+  IdentifiableTypeGroup AllSlimesTypeGroup
+  Single CATCH_UP_ACTION_DUR_LOW
+  Single CATCH_UP_ACTION_DUR_NOR
+  Single CATCH_UP_ACTION_DUR_OVR
+  IdentifiableTypeGroup EatersTypeGroup
+  Double FASTFORWARD_CHUNK_HOURS
+  Double FASTFORWARD_CHUNK_SECS
+  Double FASTFORWARD_MAX_CHUNKS
+  Double FASTFORWARD_MIN_HOURS
+  Double FASTFORWARD_MIN_SECS
+  IdentifiableType FireSlimeIdentifiableType
+  IdentifiableTypeGroup FoodTypeGroup
+  IdentifiableType PuddleSlimeIdentifiableType
+  IdentifiableTypeGroup SloomberSlimesTypeGroup
+  IdentifiableTypeGroup ToysTypeGroup
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Boolean AnyDronesActive(Double time)
+  Void Awake()
+  Void FastForwardCorrals(Double chunkStartTime, Double chunkEndTime, Double finalTime)
+  Void FastForwardDrones(Double startTime, Double endTime)
+  Void FastForwardEmotions(LandPlotMetadata metadata, Double chunkEndTime)
+  Void FastForwardGardens(Double startTime, Double endTime, Single endHour)
+  Void FastForwardIncinerators(Double chunkStartTime, Double chunkEndTime, Double finalTime)
+  Void FastForwardPonds(Double chunkStartTime, Double chunkEndTime, Double finalTime)
+  Void FastForwardSprinkleCanisters(Double startTime, Double chunkEndTime, Double endTime)
+  Boolean FeedSlime(LandPlotMetadata metadata, IdentifiableType fireSlimeIdentifiableType, IdentifiableType puddleSlimeIdentifiableType, GameObject slime, Il2CppReferenceArray`1 sources, Double chunkEndTime, Double finalTime)
+  Boolean FeedSlime(LandPlotMetadata metadata, SlimeEat eat, Il2CppReferenceArray`1 sources, Double chunkEndTime, Double finalTime)
+  Boolean FeedSlime(LandPlotMetadata metadata, SlimeEatWater eat, Il2CppReferenceArray`1 sources, Double chunkEndTime, Double finalTime)
+  Boolean FeedSlime(LandPlotMetadata metadata, SlimeEatAsh eat, Il2CppReferenceArray`1 sources, Double chunkEndTime, Double finalTime)
+  Int32 FeedSlimes(LandPlotMetadata metadata, Double chunkEndTime, Double finalTime, IdentifiableTypeGroup eatersTypeGroup, IdentifiableType fireSlimeIdentifiableType, IdentifiableType puddleSlimeIdentifiableType, Il2CppReferenceArray`1 sources)
+  Int32 FeedSlimes(LandPlotMetadata metadata, Double chunkEndTime, Double finalTime, IdentifiableTypeGroup eatersTypeGroup, IdentifiableType fireSlimeIdentifiableType, IdentifiableType puddleSlimeIdentifiableType, FeedingSource[] sources)
+  Single GetPlortLifetime(IdentifiableType plortType)
+  Void HandlePlortDespawn(List`1 handledIds, List`1 notHandledIds, Double plortSpawnTime, Double worldResumeTime)
+  String IdPrefix()
+  Void InitModel(RanchCellModel model)
+  Void NotifySlimesOfToys()
+  Void OnDestroy()
+  IEnumerator OnFastForward()
+  Void OnFastForwardChanged(Boolean isFastForwarding)
+  IEnumerator OnFastForwardChangedCoroutine()
+  Void OnHibernation()
+  Void OnHibernationStateChanged(Boolean hibernating)
+  Void SetModel(RanchCellModel model)
+  Void Start()
+  Void Update()
+-- TIPOS ANIDADOS --
+  FeedingSource
+  __c
+  __c__DisplayClass20_0
+  __c__DisplayClass35_0
+  _OnFastForward_d__18
+  _OnFastForwardChangedCoroutine_d__22
+
+############ SPAWNERS DE ACTORES / SLIMES ############
+  Il2Cpp.DirectedActorSpawner
+  Il2Cpp.DirectedAnimalSpawner
+  Il2Cpp.DirectedAuxItemSpawner
+  Il2Cpp.DirectedCrateSpawner
+  Il2Cpp.DirectedFeatureSpawner
+  Il2Cpp.DirectedSlimeSpawner
+  Il2Cpp.Identifiable+IdentifiableTypeComparer
+  Il2Cpp.IdentifiableType
+  Il2Cpp.IdentifiableTypeGroup
+  Il2Cpp.IdentifiableTypeGroupRuntimeObject
+  Il2Cpp.ISlimeAppearanceObjectProvider
+  Il2Cpp.PooledSlimeAppearanceObjectProvider
+  Il2Cpp.ResourceNodeSpawner
+  Il2Cpp.ResourceSpawnerDefinition
+  Il2Cpp.SlimeAppearance
+  Il2Cpp.SlimeAppearance+SlimeAppearanceStructureComparer
+  Il2Cpp.SlimeAppearanceApplicator
+  Il2Cpp.SlimeAppearanceDirector
+  Il2Cpp.SlimeAppearanceDirector+OnSlimeAppearanceChangedDelegate
+  Il2Cpp.SlimeAppearanceElement
+  Il2Cpp.SlimeAppearanceEqualityComparer
+  Il2Cpp.SlimeAppearanceMaterials
+  Il2Cpp.SlimeAppearanceObject
+  Il2Cpp.SlimeAppearanceObjectComparer
+  Il2Cpp.SlimeAppearanceObjectPool
+  Il2Cpp.SlimeAppearanceObjectPoolPreloader
+  Il2Cpp.SlimeAppearanceStructure
+  Il2Cpp.SlimeDefinition
+  Il2Cpp.SlimeDefinitionEqualityComparer
+  Il2Cpp.SlimeDefinitions
+  Il2Cpp.SlimeDefinitions+SlimeDefinitionPair
+  Il2Cpp.SpawnerTrigger
+  Il2Cpp.TrackContainedIdentifiables+MethodInfoStoreGeneric_GetTrackedItemsOfClass_Public_Void_HashSet_1_IdentifiableType_List_1_T_0`1
+  Il2Cpp.TrackContainedIdentifiables+MethodInfoStoreGeneric_GetTrackedItemsOfGroup_Public_Void_IdentifiableTypeGroup_List_1_T_0`1
+  Il2Cpp.TrackContainedIdentifiables+MethodInfoStoreGeneric_GetTrackedItemsOfType_Public_Void_IdentifiableType_List_1_T_0`1
+  Il2Cpp.VacSpawner
+  Il2CppMonomiPark.SlimeRancher.Caretaker.CaretakerSpawner
+  Il2CppMonomiPark.SlimeRancher.Caretaker.CaretakerSpawnerDirector
+  Il2CppMonomiPark.SlimeRancher.DataModel.CaretakerSpawnerModel
+  Il2CppMonomiPark.SlimeRancher.DataModel.DecoSpawnerModel
+  Il2CppMonomiPark.SlimeRancher.DataModel.DirectedAnimalSpawnerModel
+  Il2CppMonomiPark.SlimeRancher.DataModel.ResourceNodeSpawnerModel
+  Il2CppMonomiPark.SlimeRancher.DataModel.SpawnerTriggerModel
+  Il2CppMonomiPark.SlimeRancher.DataModel.StabilizingFieldSpawnerModel
+  Il2CppMonomiPark.SlimeRancher.DebugTool.SceneDebugDirectorHelper+IdentifiableTypeGroupEntry
+  Il2CppMonomiPark.SlimeRancher.DefaultDynamicObjectSpawner
+  Il2CppMonomiPark.SlimeRancher.DefaultDynamicObjectSpawnerAssetReference
+  Il2CppMonomiPark.SlimeRancher.Drone.ComponentAcqDroneSpawner
+  Il2CppMonomiPark.SlimeRancher.DynamicDecals.CharSpawner
+  Il2CppMonomiPark.SlimeRancher.DynamicDecals.SplatSpawner
+  Il2CppMonomiPark.SlimeRancher.DynamicDecals.SplatSpawnerSimple
+  Il2CppMonomiPark.SlimeRancher.Event.IdentifiableTypeGroupEventProducer
+  Il2CppMonomiPark.SlimeRancher.Event.Query.IdentifiableTypeGroupQueryComponent
+  Il2CppMonomiPark.SlimeRancher.IdentifiableTypeGroupList
+  Il2CppMonomiPark.SlimeRancher.IdentifiableTypePediaLinkMap
+  Il2CppMonomiPark.SlimeRancher.IdentifiableTypePediaLinkMap+IdentifiableTypePediaObject
+  Il2CppMonomiPark.SlimeRancher.Labyrinth.StabilizingFieldSpawner
+  Il2CppMonomiPark.SlimeRancher.Persist.DecoSpawnerV01
+  Il2CppMonomiPark.SlimeRancher.Persist.IdentifiableTypeIndexTableV01
+  Il2CppMonomiPark.SlimeRancher.Persist.StabilizingFieldSpawnerV01
+  Il2CppMonomiPark.SlimeRancher.RecipePinning.IIdentifiableTypeIngredient
+  Il2CppMonomiPark.SlimeRancher.Sanctuary.DecoSpawner
+  Il2CppMonomiPark.SlimeRancher.Sanctuary.DecoSpawnerConfig
+  Il2CppMonomiPark.SlimeRancher.Sanctuary.DecoSpawnerConfig+DecoSpawnerEntry
+  Il2CppMonomiPark.SlimeRancher.Script.World.DirectedRingtailStatueSpawner
+  Il2CppMonomiPark.SlimeRancher.Shop.ShopItemSpawner
+  Il2CppMonomiPark.SlimeRancher.StaticTornadoSpawner
+  Il2CppMonomiPark.SlimeRancher.UI.UISpawner
+  Il2CppMonomiPark.SlimeRancher.Util.IdentifiableTypeUtility
+  Il2CppMonomiPark.SlimeRancher.VFX.EnvironmentInteraction.EnvironmentInteractionParticleSpawner
+  Il2CppMonomiPark.SlimeRancher.World.PeriodicActorSpawner
+
+############ GALLINAS / NIDO ############
+  Il2Cpp.ChickenRandomMove
+  Il2Cpp.CoopRegion
+  Il2Cpp.DeluxeCoopUpgrader
+  Il2Cpp.DestroyAfterTime+_FizzleThenDestroy_d__17
+  Il2Cpp.DestroyAfterTime+_ScaleThenDestroy_d__18
+  Il2Cpp.GadgetChickenCloner
+  Il2Cpp.SRSingleton`1+Nested
+  Il2CppMonomiPark.SlimeRancher.Analytics.Event.DroneStatusAnalyticsEvent
+  Il2CppMonomiPark.SlimeRancher.ChickenFlapper
+  Il2CppMonomiPark.SlimeRancher.DataModel.DroneStationGadgetModel
+  Il2CppMonomiPark.SlimeRancher.Drone.DroneStation
+  Il2CppMonomiPark.SlimeRancher.Drone.DroneStationActivator
+  Il2CppMonomiPark.SlimeRancher.Drone.DroneStationAnimatorInitState
+  Il2CppMonomiPark.SlimeRancher.Drone.DroneStationAudioController
+  Il2CppMonomiPark.SlimeRancher.Drone.DroneStationAudioMetadata
+  Il2CppMonomiPark.SlimeRancher.Drone.DroneStationCloudExtractionController
+  Il2CppMonomiPark.SlimeRancher.Drone.DroneStationOutputPortVisualController
+  Il2CppMonomiPark.SlimeRancher.Drone.DroneStationTargetDisplay
+  Il2CppMonomiPark.SlimeRancher.Drone.IExplorerDroneInterface+ExplorerDroneState
+  Il2CppMonomiPark.SlimeRancher.Drone.IExplorerDroneInterface+ExplorerDroneStateChange
+  Il2CppMonomiPark.SlimeRancher.Drone.RanchDroneNavGraph+GraphEntry
+  Il2CppMonomiPark.SlimeRancher.Drone.RanchDroneSourceProgramCoop
+  Il2CppMonomiPark.SlimeRancher.Player.CharacterController.SRCharacterController+AnimationAirborneState
+  Il2CppMonomiPark.SlimeRancher.Slime.ChickenEggRelationships
+  Il2CppMonomiPark.SlimeRancher.Slime.ChickenEggRelationships+ChickenEggRelation
+  Il2CppMonomiPark.SlimeRancher.Slime.KeepEatingWhenFull
+  Il2CppMonomiPark.SlimeRancher.UI.EnableImageWhenSelected
+  Il2CppMonomiPark.SlimeRancher.UI.Map.DroneStationMapMarker
+  Il2CppMonomiPark.SlimeRancher.UI.StandaloneStartScreen
+  Il2CppMonomiPark.SlimeRancher.VFX.HenVelocityChangeFX
+  Il2CppMonomiPark.SlimeRancher.VFX.HideWhenNear
+  Il2CppMonomiPark.SlimeRancher.World.ResearchDrone.ResearchDroneController+DroneState
+  Il2CppRSG.IPromise`1+MethodInfoStoreGeneric_Then_Public_Abstract_Virtual_New_IPromise_1_ConvertedT_Func_2_PromisedT_ConvertedT_0`1
+  Il2CppRSG.IPromise`1+MethodInfoStoreGeneric_Then_Public_Abstract_Virtual_New_IPromise_1_ConvertedT_Func_2_PromisedT_IPromise_1_ConvertedT_0`1
+  Il2CppRSG.IPromise`1+MethodInfoStoreGeneric_Then_Public_Abstract_Virtual_New_IPromise_1_ConvertedT_Func_2_PromisedT_IPromise_1_ConvertedT_Func_2_Exception_IPromise_1_ConvertedT_0`1
+  Il2CppRSG.IPromise`1+MethodInfoStoreGeneric_Then_Public_Abstract_Virtual_New_IPromise_1_ConvertedT_Func_2_PromisedT_IPromise_1_ConvertedT_Func_2_Exception_IPromise_1_ConvertedT_Action_1_Single_0`1
+  Il2CppRSG.IPromise`1+MethodInfoStoreGeneric_ThenAll_Public_Abstract_Virtual_New_IPromise_1_IEnumerable_1_ConvertedT_Func_2_PromisedT_IEnumerable_1_IPromise_1_ConvertedT_0`1
+  Il2CppRSG.IPromise`1+MethodInfoStoreGeneric_ThenRace_Public_Abstract_Virtual_New_IPromise_1_ConvertedT_Func_2_PromisedT_IEnumerable_1_IPromise_1_ConvertedT_0`1
+  Il2CppRSG.IPromise+MethodInfoStoreGeneric_Then_Public_Abstract_Virtual_New_IPromise_1_ConvertedT_Func_1_IPromise_1_ConvertedT_0`1
+  Il2CppRSG.IPromise+MethodInfoStoreGeneric_Then_Public_Abstract_Virtual_New_IPromise_1_ConvertedT_Func_1_IPromise_1_ConvertedT_Func_2_Exception_IPromise_1_ConvertedT_0`1
+  Il2CppRSG.IPromise+MethodInfoStoreGeneric_Then_Public_Abstract_Virtual_New_IPromise_1_ConvertedT_Func_1_IPromise_1_ConvertedT_Func_2_Exception_IPromise_1_ConvertedT_Action_1_Single_0`1
+  Il2CppRSG.IPromise+MethodInfoStoreGeneric_ThenAll_Public_Abstract_Virtual_New_IPromise_1_IEnumerable_1_ConvertedT_Func_1_IEnumerable_1_IPromise_1_ConvertedT_0`1
+  Il2CppRSG.IPromise+MethodInfoStoreGeneric_ThenRace_Public_Abstract_Virtual_New_IPromise_1_ConvertedT_Func_1_IEnumerable_1_IPromise_1_ConvertedT_0`1
+  Il2CppRSG.Promise`1+MethodInfoStoreGeneric_Then_Public_Virtual_Final_New_IPromise_1_ConvertedT_Func_2_PromisedT_ConvertedT_0`1
+  Il2CppRSG.Promise`1+MethodInfoStoreGeneric_Then_Public_Virtual_Final_New_IPromise_1_ConvertedT_Func_2_PromisedT_IPromise_1_ConvertedT_0`1
+  Il2CppRSG.Promise`1+MethodInfoStoreGeneric_Then_Public_Virtual_Final_New_IPromise_1_ConvertedT_Func_2_PromisedT_IPromise_1_ConvertedT_Func_2_Exception_IPromise_1_ConvertedT_0`1
+  Il2CppRSG.Promise`1+MethodInfoStoreGeneric_Then_Public_Virtual_Final_New_IPromise_1_ConvertedT_Func_2_PromisedT_IPromise_1_ConvertedT_Func_2_Exception_IPromise_1_ConvertedT_Action_1_Single_0`1
+  Il2CppRSG.Promise`1+MethodInfoStoreGeneric_ThenAll_Public_Virtual_Final_New_IPromise_1_IEnumerable_1_ConvertedT_Func_2_PromisedT_IEnumerable_1_IPromise_1_ConvertedT_0`1
+  Il2CppRSG.Promise`1+MethodInfoStoreGeneric_ThenRace_Public_Virtual_Final_New_IPromise_1_ConvertedT_Func_2_PromisedT_IEnumerable_1_IPromise_1_ConvertedT_0`1
+  Il2CppRSG.Promise+MethodInfoStoreGeneric_Then_Public_Virtual_Final_New_IPromise_1_ConvertedT_Func_1_IPromise_1_ConvertedT_0`1
+  Il2CppRSG.Promise+MethodInfoStoreGeneric_Then_Public_Virtual_Final_New_IPromise_1_ConvertedT_Func_1_IPromise_1_ConvertedT_Func_2_Exception_IPromise_1_ConvertedT_0`1
+  Il2CppRSG.Promise+MethodInfoStoreGeneric_Then_Public_Virtual_Final_New_IPromise_1_ConvertedT_Func_1_IPromise_1_ConvertedT_Func_2_Exception_IPromise_1_ConvertedT_Action_1_Single_0`1
+  Il2CppRSG.Promise+MethodInfoStoreGeneric_ThenAll_Public_Virtual_Final_New_IPromise_1_IEnumerable_1_ConvertedT_Func_1_IEnumerable_1_IPromise_1_ConvertedT_0`1
+  Il2CppRSG.Promise+MethodInfoStoreGeneric_ThenRace_Public_Virtual_Final_New_IPromise_1_ConvertedT_Func_1_IEnumerable_1_IPromise_1_ConvertedT_0`1
+  Il2CppSony.NP.Core+OnlineStatus
+
+############ SDF / PASTO ############
+  Il2CppMonomiPark.SlimeRancher.Audio.Music.ZoneMusicController+ZonedSDFHandler
+  Il2CppMonomiPark.SlimeRancher.RegionSDFBaker
+  Il2CppMonomiPark.SlimeRancher.RegionSDFBaker+SDFCombineMode
+  Il2CppMonomiPark.SlimeRancher.Tools.GameTools.ActorSDFDebugDisplayTool.scripts.ActorSDFDebugDisplay
+  Il2CppMonomiPark.SlimeRancher.Tools.GameTools.ActorSDFDebugDisplayTool.scripts.ActorSDFDebugDisplayController
+  Il2CppMonomiPark.SlimeRancher.UI.SDFUI.SDFArrow
+  Il2CppMonomiPark.SlimeRancher.UI.SDFUI.SDFChevron
+  Il2CppMonomiPark.SlimeRancher.UI.SDFUI.SDFCircle
+  Il2CppMonomiPark.SlimeRancher.UI.SDFUI.SDFCross
+  Il2CppMonomiPark.SlimeRancher.UI.SDFUI.SDFDashes
+  Il2CppMonomiPark.SlimeRancher.UI.SDFUI.SDFDonut
+  Il2CppMonomiPark.SlimeRancher.UI.SDFUI.SDFGraphic
+  Il2CppMonomiPark.SlimeRancher.UI.SDFUI.SDFLiquidDrop
+  Il2CppMonomiPark.SlimeRancher.UI.SDFUI.SDFRoundedRectangle
+  Il2CppMonomiPark.SlimeRancher.UI.SDFUI.SDFRoundedTrapezoid
+  Il2CppMonomiPark.SlimeRancher.UI.SDFUI.SDFTriangle
+  Il2CppMonomiPark.SlimeRancher.UI.SDFUI.SDFWaves
+  Il2CppMonomiPark.SlimeRancher.VFX.DynamicSDF
+  Il2CppMonomiPark.SlimeRancher.VFX.DynamicSDFBrush
+  Il2CppMonomiPark.SlimeRancher.VFX.Labyrinth.MaterialBlendingSDFArea
+  Il2CppMonomiPark.SlimeRancher.VFX.PlayerSDFEntryHandler
+  Il2CppMonomiPark.SlimeRancher.VFX.VFXGraph.ZoneWeatherSDFStandaloneVFXBinder
+  Il2CppMonomiPark.SlimeRancher.World.SDF.MaskParticleForceBySDF
+  Il2CppMonomiPark.SlimeRancher.World.SDF.SDF
+  Il2CppMonomiPark.SlimeRancher.World.SDF.SDFVisibilityHelper
+  Il2CppMonomiPark.SlimeRancher.World.SDF.ZoneSDF
+  Il2CppMonomiPark.SlimeRancher.World.SDF.ZoneSDFMaterialBinder
+  Il2CppMonomiPark.SlimeRancher.World.SDF.ZoneSDFPropertyBinder
+
+############ INSTANCIAR ACTORES / ASPIRAR ############
+  Il2Cpp.GameObjectActorModelIdentifiableIndex
+  Il2Cpp.VacuumableDelauncher
+  Il2CppMonomiPark.SlimeRancher.DataModel.ActorModel
+  Il2CppMonomiPark.SlimeRancher.DataModel.BasicActorModel
+  Il2CppMonomiPark.SlimeRancher.Vacuumable
+  Il2CppMonomiPark.SlimeRancher.VacuumableSize
+
+================ DirectedActorSpawner ================
+FullName: Il2Cpp.DirectedActorSpawner   Base: IdHandler
+-- CAMPOS --
+-- PROPIEDADES --
+  Query _allowSpawnQuery
+  Boolean _blockRadiantSpawning
+  Boolean _onlySpawnRadiant
+  Single _radiantChanceOverride
+  RadiantSlimeDirector _radiantSlimeDir
+  Region _region
+  GameObject _spawnFX
+  StaticGameEvent ActorSpawnedEvent
+  Boolean AllowDirectedSpawns
+  Il2CppReferenceArray`1 Constraints
+  Single DirectedSpawnWeight
+  Boolean EnableToteming
+  Il2CppReferenceArray`1 local_overlappingColliders
+  Int32 MAX_OVERLAP_CHECKS_BEFORE_BAILING
+  Int32 OVERLAP_CHECK_MASK
+  Single POP_FORCE
+  Single POP_ROTATE_MAX
+  Single Radius
+  Single SpawnDelayFactor
+  Il2CppReferenceArray`1 SpawnLocs
+  TimeDirector TimeDir
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void Awake()
+  Boolean CanContinueSpawning()
+  Boolean CanSpawn(Nullable`1 forHour)
+  Boolean CanSpawnSomething()
+  List`1 GetEligibleConstraints(Nullable`1 forHour)
+  Vector3 GetSpawnOffset(Randoms rand)
+  String IdPrefix()
+  Boolean IsRadiantSpawnAllowed()
+  Boolean MoveForwardToResolveOverlaps(Vector3& pos, Vector3 normalizedSpawnDirection, Int32& overlapCount)
+  Void OnActorSpawned(GameObject spawnedObj, IdentifiableType id, Boolean skipRadiantRoll)
+  Void Register(CellDirector cellDir)
+  IEnumerator Spawn(Int32 count, Randoms rand)
+  Void SpawnFX(GameObject spawnedObj, Vector3 pos)
+  Void Start()
+-- TIPOS ANIDADOS --
+  TimeMode
+  TimeWindow
+  SpawnConstraint
+  __c
+  __c__DisplayClass30_0
+  _Spawn_d__30
+
+================ DirectedSlimeSpawner ================
+FullName: Il2Cpp.DirectedSlimeSpawner   Base: DirectedActorSpawner
+-- CAMPOS --
+-- PROPIEDADES --
+  GameObject SlimeSpawnFX
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void OnActorSpawned(GameObject spawnedObj, IdentifiableType id, Boolean skipRadiantRoll)
+  Void Register(CellDirector cellDir)
+  Void SpawnFX(GameObject spawnedObj, Vector3 pos)
+-- TIPOS ANIDADOS --
+
+================ DirectedAnimalSpawner ================
+FullName: Il2Cpp.DirectedAnimalSpawner   Base: DirectedActorSpawner
+-- CAMPOS --
+-- PROPIEDADES --
+  DirectedAnimalSpawnerModel _model
+  Single MaxSpawnIntervalGameHours
+  Single MinSpawnIntervalGameHours
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  IEnumerator __n__0(Int32 count, Randoms rand)
+  Void Awake()
+  Boolean CanSpawn(Nullable`1 forHour)
+  Void InitModel(DirectedAnimalSpawnerModel model)
+  Void Register(CellDirector cellDir)
+  Void SetModel(DirectedAnimalSpawnerModel model)
+  IEnumerator Spawn(Int32 count, Randoms rand)
+-- TIPOS ANIDADOS --
+  _Spawn_d__7
+
+================ SpawnerTrigger ================
+FullName: Il2Cpp.SpawnerTrigger   Base: MonoBehaviour
+-- CAMPOS --
+-- PROPIEDADES --
+  Single avgGameHoursBetweenTrigger
+  Single chanceOfTrigger
+  Int32 maxSpawn
+  Int32 minSpawn
+  SpawnerTriggerModel model
+  DirectedActorSpawner spawner
+  TimeDirector timeDir
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void Awake()
+  Void InitModel(SpawnerTriggerModel model)
+  Void OnTriggerEnter(Collider collider)
+  Void SetModel(SpawnerTriggerModel model)
+-- TIPOS ANIDADOS --
+
+================ SpawnerTriggerModel ================
+FullName: Il2CppMonomiPark.SlimeRancher.DataModel.SpawnerTriggerModel   Base: PositionalModel
+-- CAMPOS --
+-- PROPIEDADES --
+  Double nextTriggerTime
+  Participant part
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void Init()
+  Void NotifyParticipants()
+  Void Pull(Double& nextTriggerTime)
+  Void Push(Double nextTriggerTime)
+  Void SetParticipant(Participant part)
+-- TIPOS ANIDADOS --
+  Participant
+
+================ DirectedAnimalSpawnerModel ================
+FullName: Il2CppMonomiPark.SlimeRancher.DataModel.DirectedAnimalSpawnerModel   Base: PositionalModel
+-- CAMPOS --
+-- PROPIEDADES --
+  Double nextSpawnTime
+  Participant part
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void Init()
+  Void NotifyParticipants()
+  Void Pull(Double& nextSpawnTime)
+  Void Push(Double nextSpawnTime)
+  Void SetParticipant(Participant part)
+-- TIPOS ANIDADOS --
+  Participant
+
+================ PeriodicActorSpawner ================
+FullName: Il2CppMonomiPark.SlimeRancher.World.PeriodicActorSpawner   Base: SRBehaviour
+-- CAMPOS --
+-- PROPIEDADES --
+  SpawnOption _currentOption
+  Single _maxSpawnDelayGameHours
+  Single _minSpawnDelayGameHours
+  Double _nextBurstTime
+  Double _nextSpawnTime
+  Int32 _pendingSpawnsInBurst
+  GameObject _spawnFX
+  Transform _spawnLoc
+  List`1 _spawnOptions
+  Single POP_FORCE
+  Single POP_ROTATE_MAX
+  Single SPAWN_BLOCKED_DELAY_GAME_HOURS
+  Single SPAWN_BURST_DELAY_GAME_HOURS
+  LayerMask SPAWN_CHECK_LAYERMASK
+  Single SPAWN_CHECK_RADIUS
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void DoSpawn()
+  Void FixedUpdate()
+  Void Init(List`1 spawnOptions, GameObject spawnFX, Single minSpawnDelayGameHours, Single maxSpawnDelayGameHours)
+  Boolean IsBlockedFromSpawning()
+  Void QueueSpawn()
+  Void UpdateNextSpawnTime()
+-- TIPOS ANIDADOS --
+  SpawnOption
+  __c
+
+================ ResourceSpawnerDefinition ================
+FullName: Il2Cpp.ResourceSpawnerDefinition   Base: ScriptableObject
+-- CAMPOS --
+-- PROPIEDADES --
+  Int32 _maxResources
+  Int32 _minResources
+  String _nameKey
+  String _persistenceId
+  Il2CppReferenceArray`1 _resources
+  String ReferenceId
+  Il2CppReferenceArray`1 Resources
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  IdentifiableType _GetResourcesToSpawn_b__10_0(Int32 idx)
+  IdentifiableType _GetResourcesToSpawn_b__10_1(Int32 idx)
+  IdentifiableType GetRandomResourceId()
+  List`1 GetResourcesToSpawn(Boolean forceMaxCount)
+-- TIPOS ANIDADOS --
+  WeightedResourceEntry
+  __c
+
+================ SlimeDefinition ================
+FullName: Il2Cpp.SlimeDefinition   Base: IdentifiableType
+-- CAMPOS --
+-- PROPIEDADES --
+  IEnumerable`1 Appearances
+  Il2CppReferenceArray`1 AppearancesDefault
+  List`1 AppearancesDynamic
+  GameObject BaseModule
+  Il2CppReferenceArray`1 BaseSlimes
+  Boolean CanLargofy
+  SlimeDiet Diet
+  Il2CppReferenceArray`1 FavoriteToyIdents
+  Sprite Icon
+  Boolean IsLargo
+  String Name
+  Il2CppReferenceArray`1 NativeZones
+  Single PrefabScale
+  SlimeAppearance RadiantBase
+  SlimeAppearance RadiantLargo0
+  SlimeAppearance RadiantLargo1
+  Il2CppReferenceArray`1 SlimeModules
+  SlimeSounds Sounds
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  SlimeAppearance GetAppearanceForSet(AppearanceSaveSet appearanceSet)
+  IFullArtAndIconSource GetArtAndIconSource()
+  SlimeAppearance GetDefaultAppearance()
+  SlimeAppearance GetLargoAppearance(AppearanceSaveSet firstAppearanceSet, AppearanceSaveSet secondAppearanceSet)
+  SlimeAppearance GetRadiantAppearance(SlimeDefinition radiantBaseDef)
+  SlimeAppearance GetSlimeAppearance(AppearanceType appearType)
+  Boolean IsSlimeDefinition(IdentifiableType ident)
+  Boolean IsSlimeDefinition(Type identType)
+  Void LoadDietFromBaseSlimes()
+  Void LoadFavoriteToysFromBaseSlimes()
+  Void RegisterDynamicAppearance(SlimeAppearance appearance)
+  Void Validate(IValidatableIssueReporter issues)
+  Void ValidatePrefab(IValidatableIssueReporter issues)
+  Void ValidateSaveSets(IValidatableIssueReporter issues)
+-- TIPOS ANIDADOS --
+  __c__DisplayClass26_0
+  __c__DisplayClass27_0
+
+================ SlimeDefinitions ================
+FullName: Il2Cpp.SlimeDefinitions   Base: ScriptableObject
+-- CAMPOS --
+-- PROPIEDADES --
+  Dictionary`2 _largoDefinitionByBaseDefinitions
+  Dictionary`2 _largoDefinitionByBasePlorts
+  Dictionary`2 _slimeDefinitionsByIdentifiable
+  Il2CppReferenceArray`1 Slimes
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  SlimeDefinition GetLargoByBaseSlimes(SlimeDefinition slimeDefinition1, SlimeDefinition slimeDefinition2)
+  SlimeDefinition GetLargoByPlorts(IdentifiableType plort1, IdentifiableType plort2)
+  SlimeDefinition GetSlimeByIdentifiableId(IdentifiableType id)
+  Void RefreshDefinitions()
+  Void RefreshIndexes()
+-- TIPOS ANIDADOS --
+  PlortPair
+  SlimeDefinitionPair
+
+================ SlimeAppearance ================
+FullName: Il2Cpp.SlimeAppearance   Base: ScriptableObject
+-- CAMPOS --
+-- PROPIEDADES --
+  AppearanceType _appearType
+  AnimationClip _biteAnimationOverride
+  AnimatorOverrideController _cachedAnimatorOverrideController
+  Palette _colorPalette
+  CrystalAppearance _crystalAppearance
+  DeathAppearance _deathAppearance
+  Il2CppReferenceArray`1 _dependentAppearances
+  ExplosionAppearance _explosionAppearance
+  SlimeFace _face
+  AssetReferenceT`1 _fullArt
+  GlintAppearance _glintAppearance
+  Sprite _icon
+  AnimationClip _idleAnimationOverride
+  SlimeAppearance _qubitAppearance
+  Color _radiantColor
+  RoarAppearance _roarAppearance
+  SlimeAppearance _shockedAppearance
+  Color _splatColor
+  StoneFormAppearance _stoneFormAppearance
+  Il2CppReferenceArray`1 _structures
+  LocalizedString _title
+  TornadoAppearance _tornadoAppearance
+  VineAppearance _vineAppearance
+  AnimationClip _wingFlapAnimationOverride
+  AppearanceType AppearType
+  AnimationClip BiteAnimationOverride
+  Palette ColorPalette
+  Palette ColorPaletteNew
+  CrystalAppearance CrystalAppearance
+  CrystalAppearance CrystalAppearanceNew
+  DeathAppearance DeathAppearance
+  DeathAppearance DeathAppearanceNew
+  BoneComparer DefaultBoneComparer
+  SlimeAppearanceEqualityComparer DefaultComparer
+  Il2CppReferenceArray`1 DependentAppearances
+  Il2CppReferenceArray`1 DependentAppearancesNew
+  ExplosionAppearance ExplosionAppearance
+  ExplosionAppearance ExplosionAppearanceNew
+  SlimeFace Face
+  SlimeFace FaceNew
+  AssetReferenceT`1 FullArtReference
+  GlintAppearance GlintAppearance
+  GlintAppearance GlintAppearanceNew
+  Sprite Icon
+  Sprite IconNew
+  AnimationClip IdleAnimationOverride
+  SlimeAppearance QubitAppearance
+  Color RadiantColor
+  Boolean RequiresFullArt
+  RoarAppearance RoarAppearance
+  RoarAppearance RoarAppearanceNew
+  AppearanceSaveSet SaveSet
+  SlimeAppearance ShockedAppearance
+  Sprite SmallIcon
+  Color SplatColor
+  Color SplatColorGetSet
+  StoneFormAppearance StoneFormAppearance
+  StoneFormAppearance StoneFormAppearanceNew
+  Il2CppReferenceArray`1 Structures
+  LocalizedString Title
+  TornadoAppearance TornadoAppearance
+  TornadoAppearance TornadoAppearanceNew
+  VineAppearance VineAppearance
+  VineAppearance VineAppearanceNew
+  AnimationClip WingFlapAnimationOverride
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  SlimeAppearance CombineAppearances(SlimeAppearance appearance1, SlimeAppearance appearance2)
+  List`1 GetAnimationClipReplacements(RuntimeAnimatorController baseController)
+  RuntimeAnimatorController GetAnimatorController(RuntimeAnimatorController defaultController)
+  Il2CppReferenceArray`1 GetStructures()
+  Boolean IsSecretStyle()
+  Void MaybeShowPopupUI()
+  Void MonomiPark_SlimeRancher_Validation_IValidatable_Validate(IValidatableIssueReporter issues)
+  Void SetIconAndArt(Sprite icon, AssetReferenceT`1 fullArt)
+  Void SetRadiantColor()
+  Void SetSplatColor()
+-- TIPOS ANIDADOS --
+  AppearanceType
+  SlimeBone
+  AppearanceSaveSet
+  BoneComparer
+  SlimeAppearanceStructureComparer
+  Palette
+  __c
+
+================ IdentifiableType ================
+FullName: Il2Cpp.IdentifiableType   Base: ScriptableObject
+-- CAMPOS --
+-- PROPIEDADES --
+  AssetReferenceT`1 _fullArt
+  String _pediaPersistenceSuffix
+  Boolean _requiresFullArt
+  Int32 amountAcquiredPerVac
+  String AnalyticsName
+  List`1 Categories
+  Color color
+  Sprite debugIcon
+  List`1 defaultPropertyValues
+  Vector3 FashionParentOffset
+  AssetReferenceT`1 FullArtReference
+  GameObject gordoSnareBaitPrefab
+  IdentifiableTypeGroup groupType
+  Sprite icon
+  Sprite Icon
+  Boolean initializedHashId
+  Boolean IsAnimal
+  Boolean IsAvailable
+  Boolean IsPlayer
+  Boolean IsPlort
+  Boolean IsSceneObject
+  Boolean IsUnstable
+  LocalizedString localizedName
+  LocalizedString LocalizedName
+  LocalizedString MapDisplayName
+  Sprite MapIcon
+  LocalizedString MonomiPark.SlimeRancher.UI.Framework.Data.IUIDisplayData.DisplayName
+  Boolean needsInstantiation
+  String PediaPersistenceSuffix
+  GameObject prefab
+  PropertySet properties
+  String referenceId
+  String ReferenceId
+  Boolean RequiresFullArt
+  Il2CppReferenceArray`1 showForZones
+  Int32 stableHashedId
+  Int32 StableHashedId
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  AmmoMetadata CreateBlankAmmoMetadata()
+  LocalizedString MonomiPark_SlimeRancher_UI_Framework_Data_IUIDisplayData_get_DisplayName()
+  Void SetIconAndArt(Sprite newIcon, AssetReferenceT`1 fullArt)
+  Boolean TryGetId(GameObject gameObject, IdentifiableType& identType)
+  IdentifiableType TryGetId(GameObject gameObject, IdentifiableType defaultIdentType)
+  Void Validate(IValidatableIssueReporter issues)
+-- TIPOS ANIDADOS --
+
+================ IdentifiableTypeGroup ================
+FullName: Il2Cpp.IdentifiableTypeGroup   Base: ScriptableObjectWithGuid
+-- CAMPOS --
+-- PROPIEDADES --
+  Sprite _icon
+  Boolean _isFood
+  LocalizedString _localizedName
+  List`1 _memberGroups
+  List`1 _memberTypes
+  IdentifiableTypeGroupRuntimeObject _runtimeObject
+  List`1 AllowedCategories
+  Sprite Icon
+  List`1 ImmediateMemberTypes
+  Boolean IsFood
+  LocalizedString LocalizedName
+  List`1 MemberGroups
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Int32 FindMemberIndex(IdentifiableType identType)
+  IEnumerable`1 GetAllMembers()
+  IEnumerable`1 GetBaseMembers()
+  IEnumerator`1 GetEnumerator()
+  IdentifiableTypeGroupRuntimeObject GetRuntimeObject()
+  Boolean IsBaseMember(IdentifiableType identType)
+  Boolean IsMember(IdentifiableType identType)
+  IEnumerator System_Collections_IEnumerable_GetEnumerator()
+  Void Validate(IValidatableIssueReporter issues)
+-- TIPOS ANIDADOS --
+  __c__DisplayClass22_0
+  _GetEnumerator_d__24
+
+================ IdentifiableTypeUtility ================
+FullName: Il2CppMonomiPark.SlimeRancher.Util.IdentifiableTypeUtility   Base: Object
+-- CAMPOS --
+-- PROPIEDADES --
+-- CONSTRUCTORES --
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Color GetColor(IdentifiableType id, AppearanceSaveSet appearanceSaveSet)
+  Sprite GetIcon(IdentifiableType id, AppearanceSaveSet appearanceSaveSet)
+-- TIPOS ANIDADOS --
+
+================ LookupDirector ================
+FullName: Il2Cpp.LookupDirector   Base: SRBehaviour
+-- CAMPOS --
+-- PROPIEDADES --
+  IdentifiableTypeGroupList _allIdentifiableTypeGroups
+  List`1 _categories
+  LookupDirectorConfiguration _configuration
+  CurrencyList _currencyList
+  IdentifiableTypeGroup _gadgetDefinitions
+  PediaCategory _gadgetPediaCategory
+  Dictionary`2 _gordoDict
+  PrefabList _gordoEntries
+  Dictionary`2 _identifiableTypeByRefId
+  Dictionary`2 _identifiableTypeGroupMap
+  Boolean _initialized
+  Boolean _isAwake
+  GadgetDefinition _marketLink
+  PediaConfiguration _pediaConfiguration
+  Dictionary`2 _plotPrefabDict
+  PrefabList _plotPrefabs
+  GadgetDefinition _refineryLink
+  Dictionary`2 _sanctuaryRoomsByRefId
+  SlimeDefinitions _slimeDefinitions
+  Dictionary`2 _themesByRefId
+  IdentifiableTypeGroup _toyDefinitions
+  PediaCategory _toyPediaCategory
+  UpgradeDefinitionList _upgradeDefinitions
+  IReadOnlyList`1 AllSanctuaryThemes
+  CurrencyList CurrencyList
+  IEnumerable`1 GadgetDefinitions
+  IEnumerable`1 GordoEntries
+  Action`1 InstanceReady
+  GadgetDefinition MarketLink
+  IReadOnlyList`1 PediaCategories
+  Action`1 PediaCategoriesRegistered
+  Action`1 PediaEntriesRegistered
+  IEnumerable`1 PlotPrefabs
+  GadgetDefinition RefineryLink
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void add_InstanceReady(Action`1 value)
+  Void add_PediaCategoriesRegistered(Action`1 value)
+  Void add_PediaEntriesRegistered(Action`1 value)
+  Boolean AddGadget(GadgetDefinition gadget, PediaEntry gadgetPediaEntry)
+  Void AddIdentifiableTypeToGroup(IdentifiableType ident, IdentifiableTypeGroup group)
+  Boolean AddIdentifiableTypeToGroupByCategory(IdentifiableType ident, IdentifiableTypeGroup group)
+  Void AddPediaEntryToCategory(PediaEntry entry, PediaCategory category)
+  Void AddToy(ToyDefinition toy, PediaEntry toyPediaEntry)
+  Void Awake()
+  LookupDirector GetIfReady()
+  Boolean GetIfReady(LookupDirector& lookupDirector)
+  GameObject GetPlotPrefab(Id id)
+  Void InitializeLookups()
+  Void OnDestroy()
+  Void RegisterIdentifiableTypeGroup(IdentifiableTypeGroup group)
+  Void remove_InstanceReady(Action`1 value)
+  Void remove_PediaCategoriesRegistered(Action`1 value)
+  Void remove_PediaEntriesRegistered(Action`1 value)
+  IdentifiableTypeGroupRuntimeObject Resolve(IdentifiableTypeGroup group)
+  Void SetupCategories()
+  Boolean TryFindIdentifiableTypeByReferenceId(String referenceId, IdentifiableType& identifiable)
+  Boolean TryFindSanctuaryRoomByReferenceId(String referenceId, SanctuaryRoomDefinition& sanctuaryRoom)
+  Boolean TryFindThemeDefinitionByReferenceId(String referenceId, ThemeDefinition& themeDefinition)
+-- TIPOS ANIDADOS --
+  __c
+
+================ GameContext ================
+FullName: Il2Cpp.GameContext   Base: SRSingleton`1
+-- CAMPOS --
+-- PROPIEDADES --
+  AnalyticsDirector _AnalyticsDirector_k__BackingField
+  AutoSaveDirector _AutoSaveDirector_k__BackingField
+  FeatureFlagDirector _FeatureFlagDirector_k__BackingField
+  GameSettingsDirector _GameSettingsDirector_k__BackingField
+  InputDirector _InputDirector_k__BackingField
+  LookupDirector _LookupDirector_k__BackingField
+  OptionsDirector _OptionsDirector_k__BackingField
+  PopupErrorHandler _PopupErrorHandler_k__BackingField
+  Director _RichPresenceDirector_k__BackingField
+  SlimeShaders _SlimeShaders_k__BackingField
+  UIDirector _UIDirector_k__BackingField
+  UITemplates _UITemplates_k__BackingField
+  AnalyticsDirector AnalyticsDirector
+  AutoSaveDirector AutoSaveDirector
+  FeatureFlagDirector FeatureFlagDirector
+  GameSettingsDirector GameSettingsDirector
+  InputDirector InputDirector
+  Int32 LOG_MAX_CHARACTERS
+  Int32 LOG_TRUNCATE_AMOUNT
+  String LogText
+  LookupDirector LookupDirector
+  Int32 MAX_FRAME_RATE
+  MessageOfTheDayDirector MessageOfTheDayDirector
+  OptionsDirector OptionsDirector
+  StringBuilder partialLogText
+  PlortRelationships PlortRelationships
+  PopupErrorHandler PopupErrorHandler
+  Director RichPresenceDirector
+  SlimeDefinitions SlimeDefinitions
+  SlimeEmotionConfig SlimeEmotionConfig
+  SlimeShaders SlimeShaders
+  UIDirector UIDirector
+  UITemplates UITemplates
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void Awake()
+  Void InitializeForPlayInEditor()
+  Void LoadSaveFileFromCli(SceneGroup scenegroup, Action`1 onfail)
+  Void LogReceived(String message, String stacktrace, LogType type)
+  Void OnDestroy()
+  Void Start()
+  Boolean Truncate(StringBuilder sb, Int32 maxLength, Int32 amount)
+-- TIPOS ANIDADOS --
+
+================ SceneContext ================
+FullName: Il2Cpp.SceneContext   Base: SRSingleton`1
+-- CAMPOS --
+-- PROPIEDADES --
+  ActiveActorTracker _ActiveActorTracker_k__BackingField
+  ActorRegistry _ActorRegistry_k__BackingField
+  AmbianceDirector _AmbianceDirector_k__BackingField
+  CullingGroupManager _CullingGroupManager_k__BackingField
+  DroneDirector _DroneDirector_k__BackingField
+  EnergyBeamDirector _EnergyBeamDirector_k__BackingField
+  ExplorerDronePointDirector _ExplorerDronePointDirector_k__BackingField
+  FXDirector _FXDirector_k__BackingField
+  GadgetDirector _GadgetDirector_k__BackingField
+  GameModel _GameModel_k__BackingField
+  ScriptedBool _hudVisible
+  LiquidSourceRegistry _LiquidRegistry_k__BackingField
+  PaletteDirector _PaletteDirector_k__BackingField
+  PauseMenuDirector _PauseMenuDirector_k__BackingField
+  PediaDirector _PediaDirector_k__BackingField
+  PinnedRecipeDirector _pinnedRecipeDirector
+  PlayerState _PlayerState_k__BackingField
+  PlayerZoneTracker _PlayerZoneTracker_k__BackingField
+  PlortEconomyDirector _PlortEconomyDirector_k__BackingField
+  PopupDirector _PopupDirector_k__BackingField
+  PrismaDirector _PrismaDirector_k__BackingField
+  RadiantSlimeDirector _RadiantSlimeDirector_k__BackingField
+  RegionRegistry _RegionRegistry_k__BackingField
+  SanctuaryDirector _SanctuaryDirector_k__BackingField
+  SanctuaryRoomDirector _SanctuaryRoomDirector_k__BackingField
+  SceneAnalyticsSender _SceneAnalyticsSender_k__BackingField
+  SceneParticleDirector _SceneParticleDirector_k__BackingField
+  ShopDirector _ShopDirector_k__BackingField
+  SlimePlexerRaycastScheduler _SlimePlexerRaycastScheduler_k__BackingField
+  SpendableDirector _SpendableDirector_k__BackingField
+  TeleportNetwork _TeleportNetwork_k__BackingField
+  TimedEventDirector _TimedEventDirector_k__BackingField
+  TimeDirector _TimeDirector_k__BackingField
+  InputEvent _toggleHudVisible
+  InputEvent _toggleVacVisible
+  TutorialDirector _TutorialDirector_k__BackingField
+  ScriptedBool _vacVisible
+  WeatherRegistry _WeatherRegistry_k__BackingField
+  ActiveActorTracker ActiveActorTracker
+  ActorRegistry ActorRegistry
+  AmbianceDirector AmbianceDirector
+  ObjectPool appearanceObjectPool
+  AreaDirector areaDirector
+  SceneLoadDelegate beforeSceneContextLoaded
+  GameObject Camera
+  CullingGroupManager CullingGroupManager
+  DroneDirector DroneDirector
+  EnergyBeamDirector EnergyBeamDirector
+  EventDirector eventDirector
+  ExplorerDronePointDirector ExplorerDronePointDirector
+  FXDirector FXDirector
+  ObjectPool fxPool
+  GadgetDirector GadgetDirector
+  GameModel GameModel
+  ScriptedBool HudVisible
+  LiquidSourceRegistry LiquidRegistry
+  MapDirector mapDirector
+  MapDirector MapDirector
+  OnSessionChanged_Delegate onEarlySessionEnded
+  SceneLoadDelegate onNextSceneContextAwake
+  PlayerUpdatedDelegate OnPlayerUpdated
+  SceneLoadDelegate onSceneContextLoaded
+  OnSessionChanged_Delegate onSessionEnded
+  OnSessionChanged_Delegate onSessionStarted
+  PaletteDirector PaletteDirector
+  PauseMenuDirector PauseMenuDirector
+  PediaDirector PediaDirector
+  PinnedRecipeDirector PinnedRecipeDirector
+  GameObject player
+  GameObject Player
+  PlayerState PlayerState
+  PlayerZoneTracker PlayerZoneTracker
+  PlortEconomyDirector PlortEconomyDirector
+  PopupDirector PopupDirector
+  PrismaDirector PrismaDirector
+  RadiantSlimeDirector RadiantSlimeDirector
+  RegionRegistry RegionRegistry
+  SanctuaryDirector SanctuaryDirector
+  SanctuaryRoomDirector SanctuaryRoomDirector
+  SceneAnalyticsSender SceneAnalyticsSender
+  GameObject sceneCamera
+  SceneParticleDirector SceneParticleDirector
+  SECTRDirector SECTRDirector
+  ShopDirector ShopDirector
+  SlimeAppearanceDirector SlimeAppearanceDirector
+  SlimePlexerRaycastScheduler SlimePlexerRaycastScheduler
+  SpendableDirector SpendableDirector
+  TeleportNetwork TeleportNetwork
+  TimedEventDirector TimedEventDirector
+  TimeDirector TimeDirector
+  TutorialDirector TutorialDirector
+  ScriptedBool VacVisible
+  WeatherRegistry WeatherRegistry
+  ZoneEventProducer zoneUnlockEvent
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void add_onEarlySessionEnded(OnSessionChanged_Delegate value)
+  Void add_onSessionEnded(OnSessionChanged_Delegate value)
+  Void add_onSessionStarted(OnSessionChanged_Delegate value)
+  Void Awake()
+  Void InitializeForPlayInEditor()
+  Boolean IsZoneUnlocked(ZoneDefinition zone)
+  Void LateUpdate()
+  Void NoteGameFullyLoaded()
+  Void OnApplicationQuit()
+  Void OnDisable()
+  Void OnEnable()
+  Void OnSessionEnded()
+  Void OnSessionStarted()
+  Void PreloadObjectPoolOnState(ObjectPool pool, String poolName, StartupPoolMode startupPoolMode)
+  Void remove_onEarlySessionEnded(OnSessionChanged_Delegate value)
+  Void remove_onSessionEnded(OnSessionChanged_Delegate value)
+  Void remove_onSessionStarted(OnSessionChanged_Delegate value)
+  Void Start()
+  Void ToggleHudVisible(InputEventData obj)
+  Void ToggleVacVisible(InputEventData obj)
+-- TIPOS ANIDADOS --
+  SceneLoadDelegate
+  PlayerUpdatedDelegate
+  OnSessionChanged_Delegate
+
+================ GadgetChickenCloner ================
+FullName: Il2Cpp.GadgetChickenCloner   Base: SRBehaviour
+-- CAMPOS --
+-- PROPIEDADES --
+  Gadget _gadget
+  Int32 ANIMATION_ACTIVE
+  Animator animator
+  Double animatorDeactivateTime
+  SECTR_PointSource audioSource
+  HashSet`1 ignored
+  IdentifiableTypeGroup meatTypeGroup
+  Single MIN_BLUR_ROTATION_SPEED
+  SECTR_AudioCue onAnimationEndSFX
+  SECTR_AudioCue onAnimationRunSFX
+  SECTR_AudioCue onAnimationStartSFX
+  GameObject onFailureFX
+  GameObject onSuccessFX
+  GameObject spinner
+  GameObject spinnerBlur
+  Single spinnerRotationSpeed
+  TimeDirector timeDirector
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void Awake()
+  Void OnTriggerEnter(Collider collider)
+  Void OnTriggerExit(Collider collider)
+  Void Update()
+-- TIPOS ANIDADOS --
+  __c__DisplayClass20_0
+
+================ CoopRegion ================
+FullName: Il2Cpp.CoopRegion   Base: SRBehaviour
+-- CAMPOS --
+-- PROPIEDADES --
+  List`1 _allCoops
+  Boolean _isDeluxe
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void Awake()
+  Boolean IsWithin(Vector3 pos)
+  Boolean IsWithin(Vector3 pos, Boolean mustBeDeluxe)
+  Boolean IsWithinDeluxe(Vector3 pos)
+  Void OnDestroy()
+  Void SetDeluxe()
+-- TIPOS ANIDADOS --
+
+================ DeluxeCoopUpgrader ================
+FullName: Il2Cpp.DeluxeCoopUpgrader   Base: PlotUpgrader
+-- CAMPOS --
+-- PROPIEDADES --
+  Il2CppReferenceArray`1 CoopRegions
+  GameObject DeluxeStuff
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void Apply(Upgrade upgrade)
+-- TIPOS ANIDADOS --
+
+================ ChickenRandomMove ================
+FullName: Il2Cpp.ChickenRandomMove   Base: Subbehaviour
+-- CAMPOS --
+-- PROPIEDADES --
+  Animator _animator
+  Int32 _animGroundedId
+  Int32 _animPeckId
+  Int32 _animWalkId
+  AudioClipDefinition _flapClip
+  Boolean _isStuck
+  Single _maxSpeedBeforeStuck
+  Single _minSpeedBeforeUnstuck
+  Mode _mode
+  Double _nextModeChoice
+  SlimeAudio _slimeAudio
+  Single _stuckUpwardsAcceleration
+  Single _timeBeforeStuck
+  Single _timeWithoutMovement
+  SECTR_AudioCue FlapCue
+  Single JUMP_PROB
+  Single JUMP_TORQUE
+  Single MAX_VEL_TO_BOUNCE
+  Single MaxJump
+  Single SQR_MAX_VEL_TO_BOUNCE
+  Single WalkForwardForce
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void Action()
+  Void Awake()
+  Void Flap()
+  Void OnDestroy()
+  Single Relevancy(Boolean isGrounded)
+  Void Selected()
+  Void SelectMode()
+-- TIPOS ANIDADOS --
+  Mode
+
+================ GameModel ================
+FullName: Il2CppMonomiPark.SlimeRancher.DataModel.GameModel   Base: MonoBehaviour
+-- CAMPOS --
+-- PROPIEDADES --
+  ActorIdProvider _actorIdProvider
+  CaretakerSpawnerModel _caretakerSpawnerModel
+  DecoSpawnerModel _decoSpawnerModel
+  Dictionary`2 _prismaBarriers
+  RadiantSlimesModel _radiantSlimesModel
+  Dictionary`2 _sprinkleCanisterModels
+  Dictionary`2 _stabilizingFieldSpawners
+  IdentifiableTypeGroup animalGroup
+  Dictionary`2 animalSpawners
+  AppearancesModel appearances
+  IdentifiableTypeGroup craftGroup
+  GameModeSettings currGameMode
+  DecorizerModel decorizer
+  IdentifiableTypeGroup decorizerGroup
+  Dictionary`2 depositors
+  Dictionary`2 doors
+  DroneModel droneModel
+  IdentifiableTypeGroup echoGroup
+  EventRecordModel eventRecordModel
+  Boolean expectingPush
+  IdentifiableTypeGroup foodGroup
+  GadgetsModel gadgets
+  GadgetsModel GadgetsModel
+  GameSettingsModel gameSettings
+  IdentifiableTypeGroup giantEggGroup
+  Dictionary`2 gordos
+  Dictionary`2 identifiables
+  Dictionary`2 identifiablesByIdent
+  IdentifiableTypeGroup ignoreOnLoad
+  Dictionary`2 initialObjects
+  Boolean isInitialized
+  Dictionary`2 landPlots
+  MapDirector mapDirector
+  Single MAX_DIST_CLOSE_MATCH
+  Single MAX_DIST_CLOSE_MATCH_SQR
+  MetaGameDirectorModel metaGameDirectorModel
+  OptionsItemDefinitionList optionsItemDefinitions
+  List`1 participants
+  PediaModel pedia
+  IdentifiableType phaseLemonIdent
+  PlayerModel player
+  PropertyDefinition playerEnergyCapacityProperty
+  ResourceDefinition playerEnergyResource
+  PropertyDefinition playerHealthProperty
+  IdentifiableType playerIdent
+  PlayerModel PlayerModel
+  IdentifiableTypeGroup plortGroup
+  Dictionary`2 pods
+  IdentifiableType portableScarecrowIdentifiableType
+  PrismaDisruptionModel prismaDisruptionModel
+  RanchModel ranch
+  Dictionary`2 researchDrones
+  ResourceDefinitionSet resourceDefinitionSet
+  ListAsset`1 resourceNodeDefinitions
+  Dictionary`2 resourceNodeSpawnerModels
+  Dictionary`2 resourceSpawners
+  List`1 SANCTUARY_ROOM_PARTICIPANTS
+  Dictionary`2 sanctuaryRooms
+  IdentifiableType scarecrowIdentifiableType
+  SecretStyleDiscoveriesModel secretStyleDiscoveries
+  Single shinyChance
+  SlimeDefinitions slimeDefinitions
+  Dictionary`2 slots
+  Dictionary`2 spawnerTriggers
+  IdentifiableTypeGroup statueGroup
+  Dictionary`2 switches
+  IdentifiableTypeGroup tarrTypeGroup
+  Dictionary`2 teleporterNodes
+  Dictionary`2 teleporters
+  UpgradeComponentList upgradeComponents
+  UpgradeDefinitionList upgradeDefinitions
+  IdentifiableTypeGroup vineBulbGroup
+  WeatherModel weatherModel
+  WorldModel world
+  WorldSwitchDefinitionList worldSwitchDefinitions
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Dictionary`2 AllActors()
+  Dictionary`2 AllAnimalSpawners()
+  Dictionary`2 AllDepositors()
+  Dictionary`2 AllDoors()
+  IEnumerable`1 AllDroneStations(IdentifiableType stationType)
+  List`1 AllGadgets()
+  Dictionary`2 AllGordos()
+  Dictionary`2 AllInitialObjects()
+  Dictionary`2 AllLandPlots()
+  Dictionary`2 AllPods()
+  Dictionary`2 AllPrismaBarriers()
+  Dictionary`2 AllResearchDrones()
+  IEnumerable`1 AllResourceNodes()
+  IEnumerable`1 AllResourceSpawners()
+  Dictionary`2 AllSanctuaryRooms()
+  Dictionary`2 AllSlots()
+  Dictionary`2 AllSpawnerTriggers()
+  Dictionary`2 AllSprinkleCanisters()
+  Dictionary`2 AllStabilizingFieldSpawners()
+  Dictionary`2 AllSwitches()
+  Void Awake()
+  ActorModel CreateActorModel(ActorId actorId, IdentifiableType ident, SceneGroup sceneGroup, Vector3 position, Quaternion rotation)
+  GadgetModel CreateGadgetModel(GadgetDefinition definition, ActorId actorId, SceneGroup sceneGroup, Vector3 position, Boolean isPrePlaced)
+  ActorModel CreateSlimeActorModel(ActorId actorId, SlimeDefinition slimeDef, SceneGroup sceneGroup, Vector3 position, Quaternion rotation)
+  Void DebugSetWorldSwitchState(WorldSwitchDefinition switchDefinition, State newState)
+  Void DeinitializeTeleportNetwork()
+  Void DestroyGadgetModel(GameObject gameObj)
+  Void DestroyGadgetModel(GadgetModel model)
+  Void DestroyGadgetModel(ActorId actorId, GadgetDefinition definition)
+  Void DestroyGadgetTeleporterModel(GadgetDefinition definition, ActorId actorId)
+  Void DestroyGordoModel(String gordoId)
+  Void DestroyIdentifiableModel(GameObject gameObj)
+  Void DestroyIdentifiableModel(IdentifiableModel model)
+  Void DestroyIdentifiableModel(ActorId actorId, IdentifiableType ident)
+  Void DestroySpawnResourceModel(Vector3 pos)
+  Void FillActorsList(List`1 actorModels)
+  AppearancesModel GetAppearancesModel()
+  CaretakerSpawnerModel GetCaretakerSpawnerModel()
+  DecorizerModel GetDecorizerModel()
+  DecoSpawnerModel GetDecoSpawnerModel()
+  DroneModel GetDroneModel()
+  EventRecordModel GetEventRecordModel()
+  IEnumerable`1 GetGadgetsOfType(GadgetDefinition definition)
+  GameSettingsModel GetGameSettingsModel()
+  GordoModel GetGordoModel(String gordoId)
+  IdentifiableModel GetIdentifiableModel(ActorId actorId)
+  LandPlotModel GetLandPlotModel(String plotId)
+  MetaGameDirectorModel GetMetaGameDirectorModel()
+  TModel GetModelFromPosition(Vector3 pos, Dictionary`2 models)
+  TeleporterModel GetOrCreateGadgetTeleporterModel(IdentifiableType identType, ActorId actorId, SceneGroup sceneGroup)
+  TeleporterModel GetOrCreateStaticTeleporterModel(TeleportSystemDefinition definition)
+  TeleporterNodeModel GetOrCreateTeleporterNodeModel(String nodeId)
+  PediaModel GetPediaModel()
+  PrismaDisruptionModel GetPrismaDisruptionModel()
+  RadiantSlimesModel GetRadiantSlimesModel()
+  RanchModel GetRanchModel()
+  SecretStyleDiscoveriesModel GetSecretStyleDiscoveriesModel()
+  SceneGroup GetStartingActorSceneGroup(IdentifiableType identType, GameObject actorObj)
+  State GetSwitchState(WorldSwitchDefinition definition)
+  State GetSwitchState(String switchId)
+  WeatherModel GetWeatherModel()
+  WorldModel GetWorldModel()
+  Void Init(ActorIdProvider actorIdProvider)
+  Void Initialize(SceneGroup sceneGroupToInitialize)
+  DirectedAnimalSpawnerModel InitializeAnimalSpawnerModel(Vector3 pos)
+  AccessDoorModel InitializeDoorModel(String doorId, State state)
+  GordoModel InitializeGordoModel(String gordoId)
+  InitialDynamicObjectModel InitializeInitialObject(String initialObjectId)
+  LandPlotModel InitializeLandPlotModel(String plotId)
+  PlortDepositorModel InitializePlortDepositor(String depositorId)
+  PrismaBarrierModel InitializePrismaBarrierModel(String id)
+  PuzzleSlotModel InitializePuzzleSlot(String slotId)
+  ResearchDroneModel InitializeResearchDrone(String researchDroneId)
+  ResourceNodeSpawnerModel InitializeResourceNodeSpawnerModel(String id)
+  SanctuaryRoomModel InitializeSanctuaryRoomModel(String sanctuaryRoomId)
+  SpawnerTriggerModel InitializeSpawnerTriggerModel(Vector3 pos)
+  SpawnResourceModel InitializeSpawnResourceModel(Vector3 pos)
+  SprinkleCanisterModel InitializeSprinkleCanisterModel(String id, Double lastUpdatedTime)
+  StabilizingFieldSpawnerModel InitializeStabilizingFieldModel(String id)
+  WorldSwitchModel InitializeSwitchModel(String switchId)
+  TreasurePodModel InitializeTreasurePodModel(String podId)
+  ActorModel InstantiateActorModel(IdentifiableType ident, SceneGroup sceneGroup, Vector3 pos, Quaternion rot, Boolean nonActorOk)
+  ActorModel InstantiateActorModel(ActorId actorId, IdentifiableType ident, SceneGroup sceneGroup, Vector3 pos, Quaternion rot)
+  ActorModel InstantiateActorWithoutNotify(ActorId actorId, IdentifiableType ident, SceneGroup sceneGroup, Vector3 pos, Quaternion rot)
+  ComponentAcqDroneModel InstantiateComponentAcqDroneModel(String spawnerId, IdentifiableType ident, SceneGroup sceneGroup, Vector3 pos, Quaternion rot)
+  ExplorerDroneModel InstantiateExplorerDroneModel(ActorId stationId, IdentifiableType ident, SceneGroup sceneGroup, Vector3 pos, Quaternion rot)
+  Void InstantiateGadget(GadgetDefinition gadgetDefinition, SceneGroup sceneGroup, Vector3 position, Quaternion rotation, Boolean isPrePlaced, GameObject& gadgetGameObject, GadgetModel& gadgetModel)
+  GadgetModel InstantiateGadgetModel(GadgetDefinition gadgetDefinition, SceneGroup sceneGroup, Vector3 pos, Boolean isPrePlaced)
+  RanchDroneModel InstantiateRanchDroneModel(ActorId stationId, IdentifiableType ident, SceneGroup sceneGroup, Vector3 pos, Quaternion rot)
+  Void InstantiateTestActor(ActorId actorId, IdentifiableType ident, SceneGroup sceneGroup, GameObject testObj)
+  Boolean IsGameOver()
+  Void NotifyParticipants()
+  ActorModel RegisterActor(ActorId actorId, IdentifiableType ident, Vector3 position, Quaternion rotation, SceneGroup sceneGroup)
+  Void RegisterAnimalSpawner(Vector3 pos, Participant part)
+  Void RegisterAppearances(Participant participant)
+  Void RegisterCaretakerSpawnerModelParticipant(Participant participant)
+  Void RegisterDecorizer(Participant participant)
+  Void RegisterDecoSpawnerModelParticipant(Participant participant)
+  Void RegisterDepositor(String depositorId, GameObject slotObj)
+  Void RegisterDoor(String doorId, GameObject doorObj)
+  Void RegisterDrone(Participant participant)
+  Void RegisterEventRecordParticipant(Participant participant)
+  Void RegisterGadgets(Participant participant)
+  GordoModel RegisterGordo(String gordoId, GameObject gordoObj)
+  GordoModel RegisterGordo(String gordoId, IdentifiableType identifiableType)
+  Void RegisterIdentifiableModel(ActorId actorId, IdentifiableModel model)
+  Void RegisterInitialDynamicObject(String initialObjectId, GameObject initialObj)
+  Void RegisterLandPlot(String plotId, GameObject plotLocObj)
+  Void RegisterMetaGameDirector(MetaGameDirector metaGameDirector)
+  Void RegisterPedia(Participant participant)
+  Void RegisterPlayerParticipant(Participant participant)
+  Void RegisterPlayerUpgradeParticipant(Participant participant)
+  Void RegisterPod(String podId, GameObject podObj)
+  Void RegisterPrismaBarrier(String id, GameObject obj)
+  Void RegisterPrismaDisruptionParticipant(Participant participant)
+  Void RegisterRadiantSlimesModelParticipant(Participant participant)
+  Void RegisterRanch(IParticipant participant)
+  Void RegisterRanchCell(String cellId, Participant participant)
+  Void RegisterResearchDroneParticipant(String researchDroneId, IParticipant participant)
+  Void RegisterResourceNodeSpawner(ResourceNodeSpawner resourceNodeSpawner)
+  Void RegisterResourceSpawner(Vector3 pos, Participant part)
+  Void RegisterSanctuaryRoom(String roomId, GameObject roomGameObject)
+  Void RegisterSecretStyleDiscoveries(Participant participant)
+  Void RegisterSlot(String slotId, GameObject slotObj)
+  Void RegisterSpawnerTrigger(Vector3 pos, Participant part)
+  Void RegisterSprinkleCanister(String id, GameObject obj, Double lastUpdatedTime)
+  Void RegisterStabilizingField(String id, GameObject obj)
+  Void RegisterStartingActor(GameObject actorObj)
+  Void RegisterStartingActor(GameObject actorObj, SceneGroup sceneGroup)
+  Void RegisterStartingActor(GameObject actorObj, IdentifiableType identType, SceneGroup sceneGroup)
+  Void RegisterSwitch(String switchId, GameObject switchObj)
+  Void RegisterWeather(Participant participant)
+  Void RegisterWorldParticipant(Participant part)
+  Void ReplaceLandPlot(String plotId, GameObject plotLocObj)
+  Void ResetPlayerForGameMode(GameModeSettings modeSettings)
+  Void SetDrainModelParticipant(Participant participant)
+  Void SetGameSettingsModelForNewGame(GameSettingsModel settingsModel)
+  Boolean TryGetIdentifiableModel(ActorId actorId, IdentifiableModel& identModel)
+  Boolean TryGetIdentifiableModel(ActorId actorId, TModel& typedModel)
+  Void UnregisterDepositor(String depositorId)
+  Void UnregisterDoor(String doorId)
+  Void UnregisterGordo(String gordoId)
+  Void UnregisterInitialDynamicObject(String initialObjectId)
+  Void UnregisterLandPlot(String plotId)
+  Boolean UnregisterPlayerParticipant(Participant participant)
+  Void UnregisterPod(String podId)
+  Void UnregisterRanchCell(String cellId)
+  Void UnregisterResearchDroneParticipant(String researchDroneId, IParticipant participant)
+  Void UnregisterResourceSpawner(Vector3 pos)
+  Void UnregisterSlot(String slotId)
+  Void UnregisterSwitch(String switchId)
+-- TIPOS ANIDADOS --
+  Participant
+  __c
+  __c__DisplayClass144_0
+  MethodInfoStoreGeneric_TryGetIdentifiableModel_Public_Boolean_ActorId_byref_TModel_0`1
+  MethodInfoStoreGeneric_GetModelFromPosition_Private_TModel_Vector3_Dictionary_2_Vector3_TModel_0`1
+
+================ ActorModel ================
+FullName: Il2CppMonomiPark.SlimeRancher.DataModel.ActorModel   Base: IdentifiableModel
+-- CAMPOS --
+-- PROPIEDADES --
+  Double destroyTime
+  Quaternion lastRotation
+  Double LastSlimeEmotionsUpdateTime
+  UnitPropertyTracker propertyTracker
+  Dictionary`2 statusEffects
+  Transform transform
+  Transform Transform
+  Double unstableBurstTime
+-- CONSTRUCTORES --
+  .ctor(ActorId actorId, IdentifiableType ident, SceneGroup sceneGroup, Vector3 position, Quaternion rotation)
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Boolean ApplyStatusEffect(StatusEffectDefinition statusEffectDefinition, Double expirationTime, Boolean allowRefresh)
+  Void ClearStatusEffect(StatusEffectDefinition statusEffectDefinition)
+  Void CopyPositionAndRotation(Transform transform)
+  AmmoMetadata GetAmmoMetadata()
+  Vector3 GetPos()
+  Quaternion GetRot()
+  Double GetStatusEffectExpirationTime(StatusEffectDefinition statusEffectDefinition)
+  Boolean HasStatusEffect(StatusEffectDefinition statusEffectDefinition)
+  Void Init(GameObject gameObj)
+  Void NotifyParticipants(GameObject gameObj)
+  Void OnGameobjectCreated()
+  Void OnGameobjectDestroyed()
+  Void PullShared(List`1& statusEffects, Double& lastSlimeEmotionsUpdateTime, Double& destroyTime, Double& unstableBurstTime)
+  Void PushShared(IEnumerable`1 statusEffects, Double lastSlimeEmotionsUpdateTime, Double destroyTime, Double unstableBurstTime)
+  Void UpdateToTime(Double time, Boolean isCurrentTime)
+-- TIPOS ANIDADOS --
+  Participant
+  __c
+  __c__DisplayClass13_0
+
+================ Identifiable ================
+FullName: Il2Cpp.Identifiable   Base: RegisteredActorBehaviour
+-- CAMPOS --
+-- PROPIEDADES --
+  Boolean _isPhysicsInitialized_k__BackingField
+  AmmoMetadata AmmoMetadata
+  Boolean Edible
+  Dictionary`2 identifiableRegistry
+  IdentifiableTypeComparer identifiableTypeComparer
+  IdentifiableType identType
+  Boolean isPhysicsInitialized
+  OnDestroyListener NotifyOnDestroy
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void add_NotifyOnDestroy(OnDestroyListener value)
+  Void Awake()
+  ActorId GetActorId(GameObject gameObject)
+  ActorId GetActorId()
+  CellDirector GetDirector(Region region)
+  Boolean IsEdible(GameObject gameObject)
+  Void OnDestroy()
+  Void OnDisable()
+  Void OnEnable()
+  Void remove_NotifyOnDestroy(OnDestroyListener value)
+  IEnumerator SetPhysicsInitialized()
+  Boolean TryGetIdentifiable(GameObject gameObject, Identifiable& identifiable)
+-- TIPOS ANIDADOS --
+  IdentifiableTypeComparer
+  OnDestroyListener
+  _SetPhysicsInitialized_d__11
+
+================ Vacuumable ================
+FullName: Il2CppMonomiPark.SlimeRancher.Vacuumable   Base: SRBehaviour
+-- CAMPOS --
+-- PROPIEDADES --
+  Rigidbody _body
+  Joint _captiveToJoint
+  List`1 _colliderObjectsThatUpdateLayers
+  CollisionAggregator _collisionAggregator
+  Int32 _currentColliderLayer
+  Int32 _defaultLayer
+  VacDelaunchTrigger _delaunchTrigger
+  Boolean _destroyOnVac
+  Boolean _held
+  Int32 _heldShaderPropertyId
+  Identifiable _identifiable
+  Boolean _ignoresGravity
+  Boolean _isTornadoed
+  Nullable`1 _LastLaunchSource_k__BackingField
+  Double _lastPending
+  Boolean _launched
+  Double _launchEndedTime
+  Double _nextVacTime
+  Boolean _preventForcesFromWeaponVacuum
+  SlimeFaceAnimator _sfAnimator
+  Dictionary`2 _shadowCastingModeCache
+  SlimeAppearanceApplicator _slimeAppearanceApplicator
+  Int32 CAPTIVE_LAYER
+  CollisionAggregator collisionBehaviour
+  Int32 HELD_LAYER
+  Nullable`1 LastLaunchSource
+  Int32 LAUNCHED_LAYER
+  Int32 LAYERS_TO_IGNORE_MASK
+  SECTR_AudioCue OnLaunchCue
+  OnSetHeldDelegate OnSetHeld
+  OnSetLaunchedDelegate OnSetLaunched
+  Boolean Pending
+  Boolean PreventForcesFromWeaponVacuum
+  VacuumableSize Size
+  Int32 TORNADOED_LAYER
+  Single VAC_RELEASE_DELAY
+  Dictionary`2 VACUUMABLE_REGISTRY
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void add_OnSetHeld(OnSetHeldDelegate value)
+  Void add_OnSetLaunched(OnSetLaunchedDelegate value)
+  Void Awake()
+  Boolean CanCapture()
+  Void Capture(Joint toJoint)
+  Void ClearVelocity()
+  Boolean Delaunch()
+  Void DeregisterWithAggregator()
+  Boolean GetDestroyOnVac()
+  SlimeAppearance GetSlimeAppearance()
+  Void Hold()
+  Boolean IsCaptive()
+  Boolean IsHeld()
+  Boolean IsLaunched()
+  Boolean IsTornadoed()
+  Void Launch(LaunchSource source)
+  CollisionAggregator LocateAndCacheCollisionAggregator()
+  Void OnDestroy()
+  Void OnDisable()
+  Void OnEnable()
+  Void PreventCaptureFor(Single seconds)
+  Void ProcessCollisionEnter(Collision col)
+  Void RegisterWithAggregator()
+  Void Release()
+  Void remove_OnSetHeld(OnSetHeldDelegate value)
+  Void remove_OnSetLaunched(OnSetLaunchedDelegate value)
+  Void SetCaptive(Joint toJoint)
+  Void SetDestroyOnVac(Boolean destroy)
+  Void SetDontPushPlayer()
+  Void SetHeld(Boolean held)
+  Void SetLaunched(Boolean launched)
+  Void SetTornadoed(Boolean tornadoed)
+  Boolean TryConsume()
+  Boolean TryGetVacuumable(GameObject gameObject, Vacuumable& vacuumable)
+  Void UpdateColliderLayer()
+  Void UpdateMaterialsHeldState()
+  Boolean WasLaunched(Double launchedWindow)
+-- TIPOS ANIDADOS --
+  LaunchSource
+  OnSetHeldDelegate
+  OnSetLaunchedDelegate
+
+================ SRBehaviour ================
+FullName: Il2Cpp.SRBehaviour   Base: MonoBehaviour
+-- CAMPOS --
+-- PROPIEDADES --
+  IDestroyRequestHandler _destroyRequestHandler
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  T GetRequiredComponent()
+  T GetRequiredComponentInParent(Boolean includeInactive)
+  Void RequestDestroy(String source)
+-- TIPOS ANIDADOS --
+  MethodInfoStoreGeneric_GetRequiredComponent_Protected_T_0`1
+  MethodInfoStoreGeneric_GetRequiredComponentInParent_Protected_T_Boolean_0`1
+
+================ DynamicSDF ================
+FullName: Il2CppMonomiPark.SlimeRancher.VFX.DynamicSDF   Base: MonoBehaviour
+-- CAMPOS --
+-- PROPIEDADES --
+  List`1 _boundingSpheresToInclude
+  Bounds _bounds
+  Vector3 _boundsOffset
+  Vector3 _boundsScale
+  Single _clearValue
+  Int32 _maxResolution
+  Single _padding
+  SDF _sdf
+  Boolean _SDFInitialized_k__BackingField
+  Boolean _updateAlways
+  Int32 ClearValueID
+  Int32 DeltaTimeID
+  Int32 MaxBoundsSizeID
+  Int32 NumSpheresID
+  Boolean requiresUpdate
+  Int32 ResolutionID
+  Boolean SDFInitialized
+  String SDFPositionGlobalProperty
+  Int32 SDFPositionPropertyID
+  String SDFScaleGlobalProperty
+  Int32 SDFScalePropertyID
+  ComputeShader sdfShader
+  RenderTexture sdfTexture
+  String SDFTextureGlobalProperty
+  Int32 SDFTextureID
+  Int32 SDFTexturePropertyID
+  Int32 SpheresID
+  Int32 WorldBoundsMinID
+  Int32 WorldBoundsSizeID
+-- CONSTRUCTORES --
+  .ctor()
+  .ctor(IntPtr pointer)
+-- METODOS --
+  Void AddSphere(Vector3 addAtPosition, Single addRadius)
+  Void CreateRenderTexture()
+  Single GetDistance(Vector3 position)
+  Boolean IsInside(Vector3 position, Single offset)
+  Void LateUpdate()
+  Void OnDisable()
+  Void OnDrawGizmosSelected()
+  Void OnEnable()
+  Void RemoveSphere(Vector3 removeAtPosition, Single removeRadius)
+  Void UpdateSDFCompute(Il2CppStructArray`1 spheres, Bounds worldBounds, SDF sdf, RenderTexture sdfTexture, Int32 writeGlobalTexturePropertyID, Int32 maxResolution)
+-- TIPOS ANIDADOS --
+  __c__DisplayClass35_0
+  __c__DisplayClass39_0
+
+================ DynamicSDFSphere ================
+  (no encontrado)
+
+================ DynamicSDFEmitter ================
+  (no encontrado)

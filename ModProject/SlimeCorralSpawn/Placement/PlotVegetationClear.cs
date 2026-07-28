@@ -37,18 +37,53 @@ namespace SlimeCorralSpawn.Placement
             float minX = foot.center.x - foot.extents.x, maxX = foot.center.x + foot.extents.x;
             float minZ = foot.center.z - foot.extents.z, maxZ = foot.center.z + foot.extents.z;
 
-            // Elegir el SDF cuya área contiene la huella (si no se puede determinar, se usan todos).
+            int touched = 0;
             for (int si = 0; si < sdfs.Length; si++)
             {
                 var sdf = sdfs[si]; if (sdf == null) continue;
+
+                // El SDF cubre un ÁREA concreta (_bounds). Si la huella del plot cae fuera, meterle esferas no
+                // hace absolutamente nada — por eso "no desaparecía el pasto". Solo usamos los que la contienen.
+                try
+                {
+                    var bb = sdf._bounds;
+                    if (bb.size.sqrMagnitude > 0.001f)
+                    {
+                        var flatFoot = new Bounds(new Vector3(foot.center.x, bb.center.y, foot.center.z),
+                                                  new Vector3(foot.size.x, bb.size.y, foot.size.z));
+                        if (!bb.Intersects(flatFoot)) continue;
+                    }
+                }
+                catch { }
+
                 int added = 0;
                 for (float x = minX; x <= maxX + 0.01f && added < maxSpheres; x += step)
                     for (float z = minZ; z <= maxZ + 0.01f && added < maxSpheres; z += step)
                     {
-                        try { sdf.AddSphere(new Vector3(x, y, z), r); added++; } catch { }
+                        var p = new Vector3(x, y, z);
+                        // (a) Camino inmediato: la esfera de este frame.
+                        try { sdf.AddSphere(p, r); } catch { }
+                        // (b) Camino PERSISTENTE: `_boundingSpheresToInclude` es la lista con la que el SDF se
+                        //     reconstruye. AddSphere solo dura un frame; sin esto el pasto volvía enseguida.
+                        try { sdf._boundingSpheresToInclude.Add(new BoundingSphere(p, r)); } catch { }
+                        added++;
                     }
+
+                // Forzar el recálculo: si no, el campo no se regenera hasta que algo más lo pida.
+                try { sdf.requiresUpdate = true; } catch { }
+                try { sdf._updateAlways = true; } catch { }
+                if (added > 0) touched++;
+            }
+
+            if (_diag > 0)
+            {
+                _diag--;
+                try { ModEntry.LogInfo($"[Pasto] huella {foot.size.x:0.0}x{foot.size.z:0.0} → {touched}/{sdfs.Length} DynamicSDF alcanzados."); }
+                catch { }
             }
         }
+
+        private static int _diag = 3;
 
         private static bool TryGetBounds(GameObject go, out Bounds b)
         {

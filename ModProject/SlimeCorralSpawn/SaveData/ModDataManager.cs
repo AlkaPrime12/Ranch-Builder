@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
@@ -107,7 +107,7 @@ namespace SlimeCorralSpawn.SaveData
         {
             if (string.IsNullOrEmpty(slot)) return;
             if (slot != _currentSlotId)
-                MelonLogger.Msg($"[SlimeCorralSpawn] Slot resuelto → {slot}  (archivo: moddata_{slot}.json)");
+                MelonLogger.Msg($"[CustomRanchBuilder] Slot resuelto → {slot}  (archivo: moddata_{slot}.json)");
             _currentSlotId = slot;
             _lastKnownSlotId = slot;
             _slotResolved = true;
@@ -168,7 +168,7 @@ namespace SlimeCorralSpawn.SaveData
                         try { File.Delete(files[i]); } catch { }
                 }
             }
-            catch (Exception ex) { MelonLogger.Warning($"[SlimeCorralSpawn] backup falló: {ex.Message}"); }
+            catch (Exception ex) { MelonLogger.Warning($"[CustomRanchBuilder] backup falló: {ex.Message}"); }
         }
 
         /// <summary>Carga el backup VÁLIDO más reciente de este slot (para recuperar de un save corrupto).</summary>
@@ -188,7 +188,7 @@ namespace SlimeCorralSpawn.SaveData
                         var data = JsonSerializer.Deserialize<ModSaveData>(File.ReadAllText(f));
                         if (data != null)
                         {
-                            MelonLogger.Msg($"[SlimeCorralSpawn] Rancho RECUPERADO desde backup: {Path.GetFileName(f)}");
+                            MelonLogger.Msg($"[CustomRanchBuilder] Rancho RECUPERADO desde backup: {Path.GetFileName(f)}");
                             return data;
                         }
                     }
@@ -248,14 +248,14 @@ namespace SlimeCorralSpawn.SaveData
                 }
                 catch (Exception ex)
                 {
-                    MelonLogger.Warning($"[SlimeCorralSpawn] Failed to load slot save '{slotPath}': {ex.Message}");
+                    MelonLogger.Warning($"[CustomRanchBuilder] Failed to load slot save '{slotPath}': {ex.Message}");
                     // ANTES de descartar: intentar recuperar del backup válido más reciente (no perder el rancho).
                     currentData = TryLoadNewestBackup(slotPath);
                     try
                     {
                         string bak = slotPath + ".corrupt_" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".bak";
                         File.Move(slotPath, bak);
-                        MelonLogger.Msg($"[SlimeCorralSpawn] Save corrupto movido a: {bak}");
+                        MelonLogger.Msg($"[CustomRanchBuilder] Save corrupto movido a: {bak}");
                     }
                     catch { }
                 }
@@ -282,7 +282,7 @@ namespace SlimeCorralSpawn.SaveData
                 }
                 catch (Exception ex)
                 {
-                    MelonLogger.Warning($"[SlimeCorralSpawn] Failed to load legacy save: {ex.Message}");
+                    MelonLogger.Warning($"[CustomRanchBuilder] Failed to load legacy save: {ex.Message}");
                 }
             }
 
@@ -465,6 +465,48 @@ namespace SlimeCorralSpawn.SaveData
             Save();
         }
 
+        /// <summary>Borra del SAVE todo lo dibujado a mano: trazos (Free Draw), formas irregulares (Polygon) y las
+        /// estructuras internas "free_*" (Draw Floor). Sin esto, limpiar solo la memoria hacía que TODO VOLVIERA
+        /// al recargar la partida (las listas seguían en el archivo). Devuelve cuántas entradas se quitaron.</summary>
+        public static int WipeDrawnFromSave()
+        {
+            EnsureSlotLoaded();
+            if (currentData == null) return 0;
+            int n = 0;
+            try
+            {
+                if (currentData.Strokes != null) { n += currentData.Strokes.Count; currentData.Strokes.Clear(); }
+                if (currentData.Polygons != null) { n += currentData.Polygons.Count; currentData.Polygons.Clear(); }
+                if (currentData.Structures != null)
+                {
+                    int before = currentData.Structures.Count;
+                    currentData.Structures.RemoveAll(s =>
+                        s != null && !string.IsNullOrEmpty(s.DefinitionId) && s.DefinitionId.StartsWith("free_"));
+                    n += before - currentData.Structures.Count;
+                }
+            }
+            catch (Exception ex) { MelonLogger.Error($"[CustomRanchBuilder] WipeDrawnFromSave: {ex.Message}"); }
+            ForceSave();
+            return n;
+        }
+
+        /// <summary>Cuántas piezas DIBUJADAS quedan en el archivo del slot (verificación del "borrar dibujos").</summary>
+        public static int CountDrawnInSave()
+        {
+            if (currentData == null) return 0;
+            int n = 0;
+            try
+            {
+                if (currentData.Strokes != null) n += currentData.Strokes.Count;
+                if (currentData.Polygons != null) n += currentData.Polygons.Count;
+                if (currentData.Structures != null)
+                    foreach (var st in currentData.Structures)
+                        if (st != null && !string.IsNullOrEmpty(st.DefinitionId) && st.DefinitionId.StartsWith("free_")) n++;
+            }
+            catch { }
+            return n;
+        }
+
         public static void SavePolygon(PolygonSaveEntry poly)
         {
             EnsureSlotLoaded();
@@ -519,7 +561,7 @@ namespace SlimeCorralSpawn.SaveData
             }
             catch (Exception ex)
             {
-                MelonLogger.Error($"[SlimeCorralSpawn] FlushBeforeQuit failed: {ex.Message}");
+                MelonLogger.Error($"[CustomRanchBuilder] FlushBeforeQuit failed: {ex.Message}");
             }
         }
 
@@ -562,7 +604,7 @@ namespace SlimeCorralSpawn.SaveData
                 string path = GetSlotPath();
                 if (path == null)
                 {
-                    MelonLogger.Warning("[SlimeCorralSpawn] Cannot save: save slot not yet resolved.");
+                    MelonLogger.Warning("[CustomRanchBuilder] Cannot save: save slot not yet resolved.");
                     return;
                 }
 
@@ -578,7 +620,7 @@ namespace SlimeCorralSpawn.SaveData
             }
             catch (Exception ex)
             {
-                MelonLogger.Error($"[SlimeCorralSpawn] Failed to save: {ex.Message}");
+                MelonLogger.Error($"[CustomRanchBuilder] Failed to save: {ex.Message}");
             }
         }
 
@@ -663,6 +705,7 @@ namespace SlimeCorralSpawn.SaveData
         public List<PolygonSaveEntry> Polygons { get; set; } = new List<PolygonSaveEntry>();
         public List<SceneModelSaveEntry> SceneModels { get; set; } = new List<SceneModelSaveEntry>();
         public List<PurchasedPlotLicense> PurchasedLicenses { get; set; } = new List<PurchasedPlotLicense>();
+        public List<SpawnerSaveEntry> Spawners { get; set; } = new List<SpawnerSaveEntry>();
         public string LastSaveTime { get; set; }
         public int TotalPlotsPlaced { get; set; }
         public int TotalNewbucksSpent { get; set; }
@@ -671,6 +714,25 @@ namespace SlimeCorralSpawn.SaveData
         // (no se pierden datos si el jugador abre el save con una versión vieja y vuelve a la nueva).
         [System.Text.Json.Serialization.JsonExtensionData]
         public Dictionary<string, JsonElement> ExtraData { get; set; }
+    }
+
+    /// <summary>Un spawner de slimes/gallinas colocado por el jugador (feature SlimeSpawner).</summary>
+    [System.Serializable]
+    public class SpawnerSaveEntry
+    {
+        public string Id { get; set; }
+        public string Kind { get; set; }              // "Slime" | "Animal"
+        public float[] Position { get; set; }
+        public float IntervalSeconds { get; set; }
+        public int MaxAlive { get; set; }
+        public float Radius { get; set; }
+        public bool RespawnIfEmpty { get; set; }
+        public bool Enabled { get; set; }
+        public List<string> Ids { get; set; } = new List<string>();
+        public float Yaw { get; set; }
+        public float LaunchForce { get; set; }
+        public bool Radiant { get; set; }
+        public string LargoWith { get; set; }
     }
 
     [System.Serializable]

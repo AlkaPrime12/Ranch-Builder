@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
-    <AssemblyName>SlimeCorralSpawn</AssemblyName>
+    <AssemblyName>CustomRanchBuilder</AssemblyName>
     <RootNamespace>SlimeCorralSpawn</RootNamespace>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -10,7 +10,9 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <OutputPath>C:\Users\ALKA\Desktop\Slime corral Spawn\ModProject\bin\</OutputPath>
+    <!-- bin LOCAL a esta carpeta. Antes apuntaba al bin de la otra copia del proyecto, así que
+         ambas se pisaban el DLL y no se sabía cuál quedaba desplegado en Mods\. -->
+    <OutputPath>bin\</OutputPath>
     <DefaultItemExcludes>$(DefaultItemExcludes);ApiCheck\**</DefaultItemExcludes>
     <GameDir>C:\Games\Slime Rancher 2</GameDir>
   </PropertyGroup>

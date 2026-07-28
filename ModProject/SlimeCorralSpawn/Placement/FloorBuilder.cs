@@ -151,6 +151,58 @@ namespace SlimeCorralSpawn.Placement
 
         private static GUIStyle _style;
 
+        private static GUIStyle _hudTitle, _hudSmall, _hudChip;
+        private static void EnsureHudStyles()
+        {
+            if (_hudTitle != null) return;
+            _hudTitle = new GUIStyle { fontSize = 15, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
+            _hudSmall = new GUIStyle { fontSize = 12, alignment = TextAnchor.MiddleLeft };
+            _hudChip  = new GUIStyle { fontSize = 10, alignment = TextAnchor.LowerCenter };
+            _hudTitle.normal.textColor = _hudSmall.normal.textColor = _hudChip.normal.textColor = Color.white;
+        }
+
+        /// <summary>SELECTOR DE MATERIAL compartido por las herramientas de dibujo: muestra swatches clicables con
+        /// el color real del material y resalta el activo. Antes había que salir a PaintTool (F7) para cambiarlo.</summary>
+        internal static void DrawMaterialPicker(Rect area)
+        {
+            EnsureHudStyles();
+            var mats = PaintTool.QuickMats;
+            var cur = PaintTool.CurrentMaterial;
+
+            Color prev = GUI.color;
+            GUI.color = Themes.SlimeTheme.Themed(Themes.SlimeTheme.TextLightPink);
+            GUI.Label(new Rect(area.x + 2f, area.y - 2f, 200f, 16f), new GUIContent(Loc.T("mat_picker_title")), _hudSmall);
+            GUI.color = prev;
+
+            float top = area.y + 15f, size = Mathf.Min(30f, area.height - 16f);
+            float gap = 5f;
+            float totalW = mats.Length * (size + gap) - gap;
+            float sx = area.x + Mathf.Max(0f, (area.width - totalW) * 0.5f);
+
+            for (int i = 0; i < mats.Length; i++)
+            {
+                Rect r = new Rect(sx + i * (size + gap), top, size, size);
+                bool active = mats[i] == cur;
+                bool hover = r.Contains(Event.current.mousePosition);
+                Color sw = Themes.UICards.Swatch(mats[i].ToString());
+
+                Themes.UICards.RoundRect(new Rect(r.x + 1f, r.y + 2f, r.width, r.height), new Color(0f, 0f, 0f, 0.30f), 6f);
+                Themes.UICards.RoundRect(r, sw, 6f);
+                Themes.UICards.RoundRect(new Rect(r.x, r.y, r.width, r.height * 0.45f), Color.Lerp(sw, Color.white, 0.25f), 6f);
+                Themes.UICards.RoundBorder(r, active ? Themes.SlimeTheme.GlowCyan : (hover ? Color.white : new Color(0f, 0f, 0f, 0.5f)), 6f, active ? 2.5f : 1.2f);
+
+                if (hover)
+                {
+                    GUI.color = Color.white;
+                    GUI.Label(new Rect(r.x - 18f, r.yMax + 1f, r.width + 36f, 14f), new GUIContent(mats[i].ToString()), _hudChip);
+                    GUI.color = prev;
+                }
+                var e = Event.current;
+                if (hover && e.type == EventType.MouseDown && e.button == 0)
+                { PaintTool.SetMaterial(mats[i]); e.Use(); }
+            }
+        }
+
         public static void OnGUIStatic()
         {
             if (_state == St.Off) return;
@@ -173,19 +225,28 @@ namespace SlimeCorralSpawn.Placement
             int tilesX = Mathf.CeilToInt(w), tilesZ = Mathf.CeilToInt(d);
             int cost = StructureManager.FloorCost(w, d);
 
-            float pw = 560f, ph = 86f;
-            Rect panel = new Rect(cx - pw / 2f, Screen.height - ph - 28f, pw, ph);
-            GUI.color = new Color(0.08f, 0.05f, 0.11f, 0.86f);
-            GUI.DrawTexture(panel, Texture2D.whiteTexture);
-            GUI.color = new Color(0.4f, 1f, 0.55f, 0.95f);
-            GUI.DrawTexture(new Rect(panel.x, panel.y, panel.width, 3), Texture2D.whiteTexture);
+            // ── PANEL rediseñado: tarjeta con relieve + SELECTOR DE MATERIAL con muestra (antes: 3 líneas de texto
+            // sobre un rectángulo negro). El material es el MISMO que usan todas las herramientas (PaintTool).
+            float pw = 620f, ph = 132f;
+            Rect panel = new Rect(cx - pw / 2f, Screen.height - ph - 24f, pw, ph);
+            Themes.UICards.RoundRect(new Rect(panel.x + 3f, panel.y + 4f, panel.width, panel.height), new Color(0f, 0f, 0f, 0.35f), 12f);
+            Themes.UICards.RoundRect(panel, Themes.SlimeTheme.Themed(Themes.SlimeTheme.BackgroundDark), 12f);
+            Themes.UICards.RoundBorder(panel, Themes.SlimeTheme.Themed(Themes.SlimeTheme.GlowCyan), 12f, 2f);
+            try { Themes.SlimeDecor.Corner(panel); } catch { }
             GUI.color = prev;
 
+            // Título con icono
+            Themes.UICards.Icon(new Rect(panel.x + 14f, panel.y + 8f, 22f, 22f), "floor", Themes.SlimeTheme.GlowCyan);
+            EnsureHudStyles();
+            GUI.color = Themes.SlimeTheme.Themed(Themes.SlimeTheme.TextWhite);
+            GUI.Label(new Rect(panel.x + 42f, panel.y + 8f, panel.width - 60f, 22f), new GUIContent(Loc.T("floor_title")), _hudTitle);
             string step = _state == St.PickA ? Loc.T("floor_pick_a") : string.Format(Loc.T("floor_pick_b"), tilesX, tilesZ, cost);
-            GUI.Label(new Rect(panel.x, panel.y + 8, panel.width, 22), new GUIContent(Loc.T("floor_title")), _style);
-            GUI.Label(new Rect(panel.x, panel.y + 32, panel.width, 22), new GUIContent(step), _style);
-            GUI.Label(new Rect(panel.x, panel.y + 56, panel.width, 22),
-                new GUIContent(Loc.T("floor_hint")), _style);
+            GUI.color = Themes.SlimeTheme.Themed(Themes.SlimeTheme.TextLightPink);
+            GUI.Label(new Rect(panel.x + 42f, panel.y + 30f, panel.width - 60f, 20f), new GUIContent(step), _hudSmall);
+            GUI.Label(new Rect(panel.x + 42f, panel.y + 48f, panel.width - 60f, 20f), new GUIContent(Loc.T("floor_hint")), _hudSmall);
+            GUI.color = prev;
+
+            DrawMaterialPicker(new Rect(panel.x + 12f, panel.y + 72f, panel.width - 24f, 48f));
         }
     }
 }

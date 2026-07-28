@@ -96,6 +96,9 @@ namespace SlimeCorralSpawn.Placement
         public static void RestoreLinkedObjects() { foreach (var kv in _strokes) if (kv.Value.Go == null) BuildMesh(kv.Value); }
 
         /// <summary>CLEAR ALL: destruye las mallas de TODOS los trazos de pintura y vacía el registro.</summary>
+        /// <summary>Cuántos trazos hay guardados (para reportar cuántos borra "Borrar lo dibujado").</summary>
+        public static int CountAll() { try { return _strokes.Count; } catch { return 0; } }
+
         public static void DestroyAndClearAll()
         {
             foreach (var kv in _strokes)
@@ -106,6 +109,10 @@ namespace SlimeCorralSpawn.Placement
             _strokes.Clear();
             _dirty.Clear();
             _toRemove.Clear();
+            // ★ El trazo EN CURSO también: si no, `_cur` sobrevive al borrado y su SaveStroke posterior lo vuelve
+            //   a escribir en el save → "borro los dibujos y al guardar reaparecen".
+            DiscardCurrent();
+            _pendingCount = 0;
         }
 
         private static void RetryPending()

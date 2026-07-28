@@ -70,6 +70,9 @@ namespace SlimeCorralSpawn.Placement
         public static void RestoreLinkedObjects() { foreach (var kv in _polys) if (kv.Value.Go == null) Build(kv.Value); }
 
         /// <summary>CLEAR ALL: destruye TODOS los polígonos de piso/pintura y vacía el registro.</summary>
+        /// <summary>Cuántas formas irregulares hay guardadas (para el reporte de "Borrar lo dibujado").</summary>
+        public static int CountAll() { try { return _polys.Count; } catch { return 0; } }
+
         public static void DestroyAndClearAll()
         {
             foreach (var kv in _polys)
@@ -79,6 +82,8 @@ namespace SlimeCorralSpawn.Placement
             }
             _polys.Clear();
             _pts.Clear();
+            // Igual que en FreeDrawTool: cancelar el polígono a medio dibujar para que no se re-guarde después.
+            try { Cancel(); } catch { }
         }
 
         private static void RetryPending()
@@ -178,7 +183,7 @@ namespace SlimeCorralSpawn.Placement
             catch (Exception ex) { ModEntry.LogErrorOnce("Polygon.Save", ex); }
         }
 
-        private static GUIStyle _style;
+        private static GUIStyle _style, _styleSmall;
 
         public static void OnGUIStatic()
         {
@@ -190,14 +195,27 @@ namespace SlimeCorralSpawn.Placement
             GUI.DrawTexture(new Rect(cx - 1.5f, cy - 10, 3, 20), Texture2D.whiteTexture);
             GUI.color = prev;
 
-            if (_style == null) { _style = new GUIStyle { fontSize = 14, alignment = TextAnchor.MiddleCenter }; _style.normal.textColor = Color.white; }
-            float pw = 620f, ph = 64f;
-            Rect panel = new Rect(cx - pw / 2f, Screen.height - ph - 28f, pw, ph);
-            GUI.color = new Color(0.08f, 0.05f, 0.11f, 0.86f); GUI.DrawTexture(panel, Texture2D.whiteTexture);
-            GUI.color = new Color(0.4f, 0.9f, 1f, 0.95f); GUI.DrawTexture(new Rect(panel.x, panel.y, panel.width, 3), Texture2D.whiteTexture);
+            if (_style == null) { _style = new GUIStyle { fontSize = 14, alignment = TextAnchor.MiddleLeft }; _style.normal.textColor = Color.white; }
+            if (_styleSmall == null) { _styleSmall = new GUIStyle { fontSize = 12, alignment = TextAnchor.MiddleLeft }; _styleSmall.normal.textColor = Color.white; }
+
+            // Panel con el MISMO lenguaje visual que Draw Floor (tarjeta con relieve + selector de material).
+            float pw = 620f, ph = 128f;
+            Rect panel = new Rect(cx - pw / 2f, Screen.height - ph - 24f, pw, ph);
+            Themes.UICards.RoundRect(new Rect(panel.x + 3f, panel.y + 4f, panel.width, panel.height), new Color(0f, 0f, 0f, 0.35f), 12f);
+            Themes.UICards.RoundRect(panel, Themes.SlimeTheme.Themed(Themes.SlimeTheme.BackgroundDark), 12f);
+            Themes.UICards.RoundBorder(panel, Themes.SlimeTheme.Themed(new Color(0.62f, 0.55f, 0.92f)), 12f, 2f);
+            try { Themes.SlimeDecor.Corner(panel); } catch { }
             GUI.color = prev;
-            GUI.Label(new Rect(panel.x, panel.y + 8, panel.width, 22), new GUIContent(string.Format(Loc.T("poly_title"), _pts.Count, CostPerShape)), _style);
-            GUI.Label(new Rect(panel.x, panel.y + 34, panel.width, 22), new GUIContent(Loc.T("poly_hint")), _style);
+
+            Themes.UICards.Icon(new Rect(panel.x + 14f, panel.y + 8f, 22f, 22f), "shape", new Color(0.62f, 0.55f, 0.92f));
+            GUI.color = Themes.SlimeTheme.Themed(Themes.SlimeTheme.TextWhite);
+            GUI.Label(new Rect(panel.x + 42f, panel.y + 8f, panel.width - 60f, 22f),
+                new GUIContent(string.Format(Loc.T("poly_title"), _pts.Count, CostPerShape)), _style);
+            GUI.color = Themes.SlimeTheme.Themed(Themes.SlimeTheme.TextLightPink);
+            GUI.Label(new Rect(panel.x + 42f, panel.y + 32f, panel.width - 60f, 20f), new GUIContent(Loc.T("poly_hint")), _styleSmall);
+            GUI.color = prev;
+
+            FloorBuilder.DrawMaterialPicker(new Rect(panel.x + 12f, panel.y + 66f, panel.width - 24f, 48f));
         }
     }
 }

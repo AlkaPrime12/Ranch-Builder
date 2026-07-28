@@ -29,8 +29,17 @@ namespace SlimeCorralSpawn.SceneBuilder
         private static bool VersionOk(int v) => v == 3 || v == 4;
         private const uint MatMagic = 0x53434D54;   // "SCMT" (clon completo de material)
         private const int MatVersion = 2;
-        private const int MaxVertsPerModel = 250000;   // no hornear terrenos gigantes
-        private const int MaxTexSize = 512;             // downscale de albedo (memoria/disco/costo)
+        // Tope de vértices por modelo. Subido de 250k a 1.5M: con 250k los props GRANDES (montañas/acantilados)
+        // quedaban afuera y no se guardaban nunca. Igual siempre se guarda al menos la primera malla (ver BakeOne).
+        private const int MaxVertsPerModel = 1500000;
+        // Resolución máxima de las texturas horneadas. Estaba en 512 y el diagnóstico [MatCmp] probó que TODAS las
+        // texturas del juego son 1024 → se guardaban a la MITAD y por eso lo reconstruido se veía más borroso/plano
+        // que el vivo (shader y keywords eran idénticos; solo cambiaba el tamaño). 1024 = 1:1 con el original.
+        // SIN redimensionar: capturamos a la resolución NATIVA de cada textura. El [MatCmp] mostró diferencias en
+        // AMBAS direcciones (vivo 512 / disco 1024 y viceversa) → el problema no era "guardar chico" sino REDIMENSIONAR:
+        // las texturas del juego vienen en tamaños distintos y cualquier tope fijo las desalinea. 4096 = tope de
+        // seguridad (coincide con el límite que valida LoadTex); en la práctica nunca recorta.
+        private const int MaxTexSize = 4096;
 
         private static string Base => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
@@ -77,6 +86,10 @@ namespace SlimeCorralSpawn.SceneBuilder
         public static int WorkDone => _workDone;
 
         public static int BakedCount => _diskIndex.Count;
+        /// <summary>Ítems pendientes en la cola de trabajo (el auto-guardado la mantiene alimentada sin saturarla).</summary>
+        public static int WorkPending => _work.Count;
+        // Modelos cuyo horneado quedó VACÍO: se permiten unos reintentos (la malla puede volverse legible después).
+        private static readonly Dictionary<string, int> _bakeFails = new Dictionary<string, int>();
 
         // ─────────────────────────── util nombres/archivos ───────────────────────────
         private static string Safe(string s)
@@ -134,7 +147,7 @@ namespace SlimeCorralSpawn.SceneBuilder
 
             if (_work.Count == 0)
             {
-                ModEntry.LogInfo($"[Store] Trabajo terminado: {_workDone} ítems (en disco {_diskIndex.Count}).");
+                ModDiagnostics.Log($"[Store] Trabajo terminado: {_workDone} ítems (en disco {_diskIndex.Count}).");
                 _workTotal = 0; _workDone = 0;
                 if (_applyRefreshWhenDone) { _applyRefreshWhenDone = false; try { SceneModelLibrary.ApplyTextureRefresh(); } catch { } }
             }
@@ -146,6 +159,107 @@ namespace SlimeCorralSpawn.SceneBuilder
             if (_bakedModels.Contains(info.Zone + "/" + info.Key)) return;
             _work.Enqueue(new Job { Kind = 0, Info = info, Go = go });
             _workTotal++;
+        }
+
+        // ── Compat con el build nuevo (la GUI/manager nuevos los llaman) — NO-OP en el viejo, sin tocar la carga ──
+        public static void SetFrontLoadMode(bool on) { }                                       // tuning GPU de carga (nuevo)
+        /// <summary>FASE 6 — CARGA INSTANTÁNEA. Descomprime por adelantado (en 2do plano, presupuestado) las
+        /// texturas .scstex de los modelos que están por spawnear. Sin esto, la primera vez que aparece un modelo
+        /// hay que gunzipear + crear el Texture2D EN ESE FRAME → tirón. Al precargarlas, cuando el modelo se
+        /// spawnea la textura ya está en caché y aparece al instante.</summary>
+        private static readonly HashSet<string> _texPreScanned = new HashSet<string>();
+        private static readonly Queue<string> _texPreQ = new Queue<string>();
+
+        public static void PreloadTextureFor(System.Collections.Generic.IEnumerable<string> keys)
+        {
+            if (!Enabled || keys == null) return;
+            try
+            {
+                // 1) juntar las claves de textura de esos modelos (una sola vez por modelo; solo lee cabeceras).
+                foreach (var ck in keys)
+                {
+                    if (string.IsNullOrEmpty(ck) || !_texPreScanned.Add(ck)) continue;
+                    if (!_diskIndex.TryGetValue(ck, out var p) || !File.Exists(p)) continue;
+                    var mats = new HashSet<string>();
+                    try { CollectMatNames(p, mats); } catch { continue; }
+                    foreach (var mn in mats)
+                    {
+                        string mp = MatPath(mn);
+                        if (!File.Exists(mp)) continue;
+                        var tks = new HashSet<string>();
+                        try { CollectTexKeys(mp, tks); } catch { continue; }
+                        foreach (var tk in tks)
+                            if (!string.IsNullOrEmpty(tk) && !_texCache.ContainsKey(tk)) _texPreQ.Enqueue(tk);
+                    }
+                }
+                // 2) descomprimir unas pocas por llamada (crear Texture2D es caro → presupuesto chico).
+                int budget = 2;
+                while (_texPreQ.Count > 0 && budget-- > 0)
+                {
+                    string tk = _texPreQ.Dequeue();
+                    if (_texCache.ContainsKey(tk)) continue;
+                    try { LoadTex(tk); } catch { }   // queda cacheada → el spawn no paga el costo
+                }
+            }
+            catch (Exception ex) { ModEntry.LogErrorOnce("SceneModelStore.PreloadTextureFor", ex); }
+        }
+
+        /// <summary>FASE 3 — el shader REAL siempre. Antes de spawnear lo colocado, lee de sus .scmat los nombres
+        /// de shader y los cachea con FindShaderByName (que ESCANEA los shaders ya cargados; Shader.Find solo suele
+        /// fallar). Sin esto, reconstruir temprano caía a Unlit → el modelo se veía PLANO hasta recargar a mano.
+        /// Presupuestado: unos pocos por llamada, sin trabar el frame.</summary>
+        private static readonly HashSet<string> _shaderPrewarmDone = new HashSet<string>();
+        private static readonly Queue<string> _shaderPrewarmQ = new Queue<string>();
+        private static int _preShaderDiag = 3;
+
+        public static void PreloadShadersFor(System.Collections.Generic.IEnumerable<string> keys)
+        {
+            if (!Enabled || keys == null) return;
+            try
+            {
+                // 1) juntar los nombres de shader de los materiales de esos modelos (una sola vez por modelo).
+                foreach (var ck in keys)
+                {
+                    if (string.IsNullOrEmpty(ck) || !_shaderPrewarmDone.Add(ck)) continue;
+                    if (!_diskIndex.TryGetValue(ck, out var p) || !File.Exists(p)) continue;
+                    var mats = new HashSet<string>();
+                    try { CollectMatNames(p, mats); } catch { continue; }
+                    foreach (var mn in mats)
+                    {
+                        string mp = MatPath(mn);
+                        if (!File.Exists(mp)) continue;
+                        string sn = ReadShaderName(mp);
+                        if (!string.IsNullOrEmpty(sn) && !_shaderCache.ContainsKey(sn)) _shaderPrewarmQ.Enqueue(sn);
+                    }
+                }
+                // 2) resolver unos pocos por llamada (el escaneo de shaders cargados no es gratis).
+                int budget = 4;
+                while (_shaderPrewarmQ.Count > 0 && budget-- > 0)
+                {
+                    string sn = _shaderPrewarmQ.Dequeue();
+                    if (_shaderCache.ContainsKey(sn)) continue;
+                    var sh = FindShaderByName(sn);
+                    if (sh == null && _preShaderDiag > 0)
+                    { _preShaderDiag--; try { ModEntry.LogInfo($"[Pre] shader '{sn}' todavia no esta cargado (se re-armara solo al aparecer)."); } catch { } }
+                }
+            }
+            catch (Exception ex) { ModEntry.LogErrorOnce("SceneModelStore.PreloadShadersFor", ex); }
+        }
+
+        /// <summary>Lee SOLO el nombre del shader de la cabecera de un .scmat (barato, no reconstruye nada).</summary>
+        private static string ReadShaderName(string scmatPath)
+        {
+            try
+            {
+                using (var fs = File.OpenRead(scmatPath))
+                using (var br = new BinaryReader(fs))
+                {
+                    if (br.ReadUInt32() != MatMagic) return null;
+                    if (br.ReadInt32() != MatVersion) return null;
+                    return br.ReadString();
+                }
+            }
+            catch { return null; }
         }
 
         public static void QueueRefreshMaterialsOf(GameObject go)
@@ -418,6 +532,53 @@ namespace SlimeCorralSpawn.SceneBuilder
 
         /// <summary>Archivos que necesitan los modelos COLOCADOS (solo lo usado): su .scsm (geometría) → sus .scmat
         /// (materiales) → sus .scstex (texturas). Sirve para adjuntarlos a un backup y que restaure las escenas.</summary>
+        /// <summary>VERIFICACIÓN: para los modelos COLOCADOS, cuenta qué hay realmente en disco (geometría .scsm,
+        /// material .scmat con shader+props, textura .scstex). Responde sin ambigüedad si el problema es GUARDAR
+        /// (faltan archivos) o CARGAR (están todos pero se ven mal).</summary>
+        public static void VerifyPlacedAssets(System.Collections.Generic.IEnumerable<string> placedKeys)
+        {
+            try
+            {
+                int models = 0, modelsOk = 0;
+                var mats = new HashSet<string>();
+                foreach (var ck in placedKeys)
+                {
+                    if (string.IsNullOrEmpty(ck)) continue;
+                    models++;
+                    if (!_diskIndex.TryGetValue(ck, out var p) || !File.Exists(p)) continue;
+                    modelsOk++;
+                    try { CollectMatNames(p, mats); } catch { }
+                }
+                int matOk = 0; var texKeys = new HashSet<string>();
+                foreach (var mn in mats)
+                {
+                    string mp = MatPath(mn);
+                    if (!File.Exists(mp)) continue;
+                    matOk++;
+                    try { CollectTexKeys(mp, texKeys); } catch { }
+                }
+                int texOk = 0;
+                foreach (var tk in texKeys) if (File.Exists(TexPath(tk))) texOk++;
+
+                ModEntry.LogInfo($"[Verify] COLOCADOS={models} | geometria .scsm={modelsOk}/{models} | materiales .scmat={matOk}/{mats.Count} | texturas .scstex={texOk}/{texKeys.Count}");
+                // FASE 7: el menú debe listar TODO lo guardado (SeedFromDisk siembra el catálogo desde el
+                // manifiesto, aunque su zona no esté cargada). Si el catálogo < guardados, algo no se sembró.
+                try
+                {
+                    int cat = SceneModelLibrary.Count;
+                    ModEntry.LogInfo($"[Verify] MENU: catalogo={cat} | guardados en disco={_diskIndex.Count}" +
+                                     (cat < _diskIndex.Count ? "  → FALTAN sembrar en el menu" : "  → el menu muestra todo lo guardado"));
+                }
+                catch { }
+                if (modelsOk < models) ModEntry.LogInfo("[Verify] → FALTA GEOMETRIA en disco (no se guardó todo).");
+                if (matOk < mats.Count) ModEntry.LogInfo("[Verify] → FALTAN MATERIALES en disco (shader/props no guardados).");
+                if (texOk < texKeys.Count) ModEntry.LogInfo("[Verify] → FALTAN TEXTURAS en disco.");
+                if (modelsOk == models && matOk == mats.Count && texOk == texKeys.Count)
+                    ModEntry.LogInfo("[Verify] → TODO ESTA GUARDADO en disco. Si se ve mal, el problema es al RECONSTRUIR (no al guardar).");
+            }
+            catch (Exception ex) { ModEntry.LogErrorOnce("SceneModelStore.VerifyPlacedAssets", ex); }
+        }
+
         public static List<string> CollectAssetFilesFor(System.Collections.Generic.IEnumerable<string> placedKeys)
         {
             var files = new List<string>();
@@ -531,7 +692,8 @@ namespace SlimeCorralSpawn.SceneBuilder
 
         private static GameObject BuildFromFile(string path)
         {
-            using (var fs = File.OpenRead(path))
+            // Buffer grande (256 KB): la reconstrucción lee la malla entera de corrido → menos idas al disco.
+            using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 18))
             using (var br = new BinaryReader(fs))
             {
                 if (br.ReadUInt32() != Magic) return null;
@@ -601,25 +763,32 @@ namespace SlimeCorralSpawn.SceneBuilder
             // Leer a arrays MANEJADOS (rápido) y subirlos a Il2Cpp de UNA (copia en bloque). Antes se escribía
             // elemento-por-elemento en el array Il2Cpp → cada asignación cruzaba el marshaling: LENTÍSIMO en mallas
             // grandes y EL gran causante del lag al cargar lo colocado. Ahora es una copia por array.
+            // VELOCIDAD: leer los floats en BLOQUE (un ReadBytes + Buffer.BlockCopy) en vez de ReadSingle() uno por
+            // uno. Una malla de 100k vértices son 300.000 llamadas a ReadSingle: cada una con su chequeo de buffer.
+            // En bloque es una sola lectura + una copia de memoria → MUCHO más rápido y con menos GC.
             int vc = br.ReadInt32();
             var vertsM = new Vector3[vc];
-            for (int i = 0; i < vc; i++) vertsM[i] = new Vector3(br.ReadSingle(), br.ReadSingle(), br.ReadSingle());
+            { var f = ReadFloatBlock(br, vc * 3); for (int i = 0, k = 0; i < vc; i++, k += 3) vertsM[i] = new Vector3(f[k], f[k + 1], f[k + 2]); }
 
             Vector3[] normalsM = null;
             if (br.ReadByte() != 0)
-            { normalsM = new Vector3[vc]; for (int i = 0; i < vc; i++) normalsM[i] = new Vector3(br.ReadSingle(), br.ReadSingle(), br.ReadSingle()); }
+            { normalsM = new Vector3[vc]; var f = ReadFloatBlock(br, vc * 3); for (int i = 0, k = 0; i < vc; i++, k += 3) normalsM[i] = new Vector3(f[k], f[k + 1], f[k + 2]); }
 
             Vector2[] uvM = null;
             if (br.ReadByte() != 0)
-            { uvM = new Vector2[vc]; for (int i = 0; i < vc; i++) uvM[i] = new Vector2(br.ReadSingle(), br.ReadSingle()); }
+            { uvM = new Vector2[vc]; var f = ReadFloatBlock(br, vc * 2); for (int i = 0, k = 0; i < vc; i++, k += 2) uvM[i] = new Vector2(f[k], f[k + 1]); }
 
             Color32[] vcolsM = null;
             if (br.ReadByte() != 0)
-            { vcolsM = new Color32[vc]; for (int i = 0; i < vc; i++) vcolsM[i] = new Color32(br.ReadByte(), br.ReadByte(), br.ReadByte(), br.ReadByte()); }
+            {
+                vcolsM = new Color32[vc];
+                var raw = br.ReadBytes(vc * 4);
+                for (int i = 0, k = 0; i < vc; i++, k += 4) vcolsM[i] = new Color32(raw[k], raw[k + 1], raw[k + 2], raw[k + 3]);
+            }
 
             Vector2[] uv2M = null;
             if (br.ReadByte() != 0)
-            { uv2M = new Vector2[vc]; for (int i = 0; i < vc; i++) uv2M[i] = new Vector2(br.ReadSingle(), br.ReadSingle()); }
+            { uv2M = new Vector2[vc]; var f = ReadFloatBlock(br, vc * 2); for (int i = 0, k = 0; i < vc; i++, k += 2) uv2M[i] = new Vector2(f[k], f[k + 1]); }
 
             int subCount = br.ReadInt32();
             var mesh = new Mesh();
@@ -635,8 +804,7 @@ namespace SlimeCorralSpawn.SceneBuilder
             for (int s = 0; s < subCount; s++)
             {
                 int tc = br.ReadInt32();
-                var trisM = new int[tc];
-                for (int i = 0; i < tc; i++) trisM[i] = br.ReadInt32();
+                var trisM = ReadIntBlock(br, tc);   // en bloque (los índices son la parte más voluminosa)
                 mesh.SetTriangles(new Il2CppStructArray<int>(trisM), s);
                 string matName = br.ReadString();
                 mats[s] = ResolveMaterial(matName);
@@ -653,6 +821,26 @@ namespace SlimeCorralSpawn.SceneBuilder
             go.transform.localScale = scale;
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             go.AddComponent<MeshRenderer>().sharedMaterials = mats;
+        }
+
+        /// <summary>Lee N floats de una sola vez (ReadBytes + copia de memoria). Mucho más rápido que N ReadSingle().</summary>
+        private static float[] ReadFloatBlock(BinaryReader br, int count)
+        {
+            var f = new float[count];
+            if (count <= 0) return f;
+            var bytes = br.ReadBytes(count * 4);
+            Buffer.BlockCopy(bytes, 0, f, 0, Math.Min(bytes.Length, count * 4));
+            return f;
+        }
+
+        /// <summary>Idem para enteros (índices de triángulos).</summary>
+        private static int[] ReadIntBlock(BinaryReader br, int count)
+        {
+            var v = new int[count];
+            if (count <= 0) return v;
+            var bytes = br.ReadBytes(count * 4);
+            Buffer.BlockCopy(bytes, 0, v, 0, Math.Min(bytes.Length, count * 4));
+            return v;
         }
 
         // ─────────────────────────── horneado (bake) ───────────────────────────
@@ -693,7 +881,11 @@ namespace SlimeCorralSpawn.SceneBuilder
                             if (mesh == null) continue;
                             int vc = 0; try { vc = mesh.vertexCount; } catch { }
                             if (vc <= 0) continue;
-                            if (totalVerts + vc > MaxVertsPerModel) continue;
+                            // SIEMPRE incluir al menos la PRIMERA malla válida, por más grande que sea. Antes, si la
+                            // primera ya superaba el tope, parts quedaba VACÍO → el modelo se guardaba SIN geometría
+                            // y no se registraba nunca → los modelos GRANDES (montañas, rocas enormes) jamás se
+                            // guardaban (eran los que faltaban en el [Verify]).
+                            if (parts.Count > 0 && totalVerts + vc > MaxVertsPerModel) continue;
                             totalVerts += vc; parts.Add(mf);
                         }
 
@@ -728,8 +920,23 @@ namespace SlimeCorralSpawn.SceneBuilder
                 {
                     try { if (File.Exists(path)) File.Delete(path); } catch { }
                     _diskIndex.Remove(ckey); _entries.Remove(ckey);
+                    // REINTENTO: el horneado puede fallar por algo TEMPORAL (la malla todavía no era legible, el
+                    // LOD activo no tenía geometría, la zona recién cargaba). Antes quedaba en _bakedModels para
+                    // siempre → ese modelo NUNCA volvía a intentarse y se quedaba sin geometría en disco (los 44
+                    // faltantes del [Verify]). Ahora lo sacamos y permitimos unos reintentos espaciados.
+                    int fails; _bakeFails.TryGetValue(ckey, out fails);
+                    if (fails < 4) { _bakeFails[ckey] = fails + 1; _bakedModels.Remove(ckey); }
+                    else
+                    {
+                        // AGOTADOS los reintentos: esta malla NO se puede leer y nunca va a estar en disco (caso
+                        // típico: las VALLAS). Si no hacemos nada, al alejarse de la zona el modelo desaparece del
+                        // todo y clickearlo no da ningún ghost. Aparcamos una copia VIVA para que siga siendo
+                        // colocable el resto de la sesión.
+                        try { SceneModelLibrary.ParkFromLive(info.Zone, info.Key); } catch { }
+                    }
                     return;
                 }
+                _bakeFails.Remove(ckey);
 
                 string tmp = path + ".tmp";
                 File.WriteAllBytes(tmp, bytes);
@@ -932,8 +1139,15 @@ namespace SlimeCorralSpawn.SceneBuilder
                 foreach (var pn in texProps)
                 {
                     Texture t = null; try { t = mat.GetTexture(pn); } catch { }
+                    // NOTA: NO capturamos Shader.GetGlobalTexture(pn) acá. Se probó (TODO-14) y fue una REGRESIÓN:
+                    // como SR2 tiene varias zonas cargadas a la vez, la textura global vigente es la de la última
+                    // zona que la seteó → al re-hornear en otra zona quedaba pegado el "shader de zona" equivocado.
+                    // Solo guardamos las texturas LOCALES del material (deterministas). Las globales las setea el
+                    // juego por-zona en runtime, que es el comportamiento vanilla correcto.
                     if (t == null) continue;
-                    string tk = EnsureTexBaked(t, force);
+                    // Pasamos el NOMBRE de la propiedad: define si es mapa de color (sRGB) o de datos (LINEAL:
+                    // normales, máscaras, metallic/smoothness/AO) → se captura y se recarga en el espacio correcto.
+                    string tk = EnsureTexBaked(t, force, pn);
                     if (string.IsNullOrEmpty(tk)) continue;
                     Vector2 tsc = Vector2.one, toff = Vector2.zero;
                     try { tsc = mat.GetTextureScale(pn); toff = mat.GetTextureOffset(pn); } catch { }
@@ -1156,7 +1370,9 @@ namespace SlimeCorralSpawn.SceneBuilder
         }
 
         /// <summary>Captura la textura albedo a PNG (por cámara, sirve aunque no sea readable). force re-captura.</summary>
-        private static string EnsureTexBaked(Texture tex, bool force)
+        private static string EnsureTexBaked(Texture tex, bool force) => EnsureTexBaked(tex, force, null);
+
+        private static string EnsureTexBaked(Texture tex, bool force, string propName)
         {
             if (tex == null) return "";
             string key;
@@ -1168,9 +1384,13 @@ namespace SlimeCorralSpawn.SceneBuilder
             try
             {
                 if (!force && File.Exists(TexPath(key))) return key;
-                var readable = CaptureTexture(tex);
+                // FASE 4: primero COPIA GPU EXACTA (Blit). Los mapas de datos (normales/máscaras) se copian en
+                // espacio LINEAL. Si el Blit no da contenido válido, caemos a la captura por cámara de siempre.
+                bool linear = IsDataMapProp(propName);
+                var readable = CaptureTextureBlit(tex, linear);
+                if (readable == null) readable = CaptureTexture(tex);
                 if (readable == null) return "";
-                bool ok = SaveTexRaw(key, readable);
+                bool ok = SaveTexRaw(key, readable, linear);
                 try { UnityEngine.Object.Destroy(readable); } catch { }
                 if (!ok) return "";
             }
@@ -1247,6 +1467,78 @@ namespace SlimeCorralSpawn.SceneBuilder
 
         /// <summary>Captura los píxeles de una textura (aunque no sea readable) renderizándola con una cámara
         /// (método probado: el de las miniaturas). Devuelve un Texture2D legible o null.</summary>
+        // ── FASE 4: captura FIEL de texturas por BLIT DIRECTO (GPU) ──────────────────────────────────────────
+        // Investigado en los docs de Unity: Graphics.Blit SÍ funciona con texturas NO legibles (todo el trabajo es
+        // en GPU); lo que estaba roto históricamente era guardar el PNG (ImageConversion), no el Blit. Copiar los
+        // píxeles TAL CUAL es mucho más fiel que "fotografiar" la textura en un quad con una cámara y una luz
+        // (que mete exposición/tonemapping/color y arruina máscaras y normales).
+        //   - linear=true para mapas de DATOS (normales, máscaras, metallic/smoothness/AO): no llevan corrección
+        //     gamma. Unity asume que los normal maps están en espacio LINEAL.
+        //   - GL.sRGBWrite controla la conversión sRGB↔lineal al escribir en el RT.
+        // Si el resultado sale vacío/plano (todo un mismo color) caemos a la captura por cámara de siempre.
+        private static Texture2D CaptureTextureBlit(Texture src, bool linear)
+        {
+            RenderTexture rt = null; var prevActive = RenderTexture.active; bool prevSrgb = false; bool srgbSet = false;
+            try
+            {
+                int w = src.width, h = src.height;
+                if (w <= 0 || h <= 0) return null;
+                float sc = Mathf.Min(1f, (float)MaxTexSize / Mathf.Max(w, h));
+                int tw = Mathf.Max(1, Mathf.RoundToInt(w * sc));
+                int th = Mathf.Max(1, Mathf.RoundToInt(h * sc));
+
+                rt = RenderTexture.GetTemporary(tw, th, 0, RenderTextureFormat.ARGB32,
+                                                linear ? RenderTextureReadWrite.Linear : RenderTextureReadWrite.sRGB);
+                try { prevSrgb = GL.sRGBWrite; GL.sRGBWrite = !linear; srgbSet = true; } catch { }
+                Graphics.Blit(src, rt);                       // copia GPU pura: no necesita que la textura sea legible
+                RenderTexture.active = rt;
+                var tex = new Texture2D(tw, th, TextureFormat.RGBA32, false, linear);
+                tex.ReadPixels(new Rect(0, 0, tw, th), 0, 0);
+                tex.Apply(false, false);
+                tex.hideFlags = HideFlags.HideAndDontSave;
+                if (!HasVariation(tex)) { try { UnityEngine.Object.Destroy(tex); } catch { } return null; }
+                return tex;
+            }
+            catch { return null; }
+            finally
+            {
+                RenderTexture.active = prevActive;
+                if (srgbSet) { try { GL.sRGBWrite = prevSrgb; } catch { } }
+                if (rt != null) { try { RenderTexture.ReleaseTemporary(rt); } catch { } }
+            }
+        }
+
+        /// <summary>True si la textura capturada tiene contenido real (no es un color plano ni está vacía).
+        /// Muestrea unos pocos píxeles: barato y suficiente para detectar una captura fallida.</summary>
+        private static bool HasVariation(Texture2D t)
+        {
+            try
+            {
+                var px = t.GetPixels32();
+                if (px == null || px.Length == 0) return false;
+                int step = Mathf.Max(1, px.Length / 512);
+                Color32 f = px[0]; bool diff = false; int nonZero = 0;
+                for (int i = 0; i < px.Length; i += step)
+                {
+                    var c = px[i];
+                    if (c.r != f.r || c.g != f.g || c.b != f.b || c.a != f.a) diff = true;
+                    if (c.r > 4 || c.g > 4 || c.b > 4) nonZero++;
+                }
+                return diff && nonZero > 0;   // ni monocroma ni completamente negra
+            }
+            catch { return true; }   // ante la duda, aceptarla (mejor que descartar una buena)
+        }
+
+        /// <summary>True si la propiedad es un mapa de DATOS (no de color) → debe tratarse como LINEAL.</summary>
+        private static bool IsDataMapProp(string prop)
+        {
+            if (string.IsNullOrEmpty(prop)) return false;
+            string p = prop.ToLowerInvariant();
+            return p.Contains("normal") || p.Contains("bump") || p.Contains("mask") || p.Contains("metallic")
+                || p.Contains("smoothness") || p.Contains("roughness") || p.Contains("occlusion") || p.Contains("_ao")
+                || p.Contains("height") || p.Contains("detailmap") || p.Contains("data");
+        }
+
         private static Texture2D CaptureTexture(Texture src)
         {
             RenderTexture rt = null; var prev = RenderTexture.active;
@@ -1367,7 +1659,9 @@ namespace SlimeCorralSpawn.SceneBuilder
 
         /// <summary>Escribe la textura como píxeles CRUDOS RGBA gzip (formato propio .scstex). No usa el
         /// codificador/decodificador PNG de Unity (roto en este juego).</summary>
-        private static bool SaveTexRaw(string key, Texture2D tex)
+        private static bool SaveTexRaw(string key, Texture2D tex) => SaveTexRaw(key, tex, false);
+
+        private static bool SaveTexRaw(string key, Texture2D tex, bool linear)
         {
             try
             {
@@ -1381,8 +1675,11 @@ namespace SlimeCorralSpawn.SceneBuilder
                 using (var fs = File.Create(TexPath(key)))
                 using (var bw = new BinaryWriter(fs))
                 {
-                    bw.Write(0x53545831u);   // "STX1"
+                    // STX2 = STX1 + flag "lineal" (mapas de datos: normales/máscaras). Al recargar hay que crear el
+                    // Texture2D en el MISMO espacio o el sombreado sale mal. Los STX1 viejos se siguen leyendo.
+                    bw.Write(0x53545832u);   // "STX2"
                     bw.Write(w); bw.Write(h);
+                    bw.Write(linear);
                     bw.Flush();
                     using (var gz = new System.IO.Compression.GZipStream(fs, System.IO.Compression.CompressionLevel.Fastest, true))
                         gz.Write(raw, 0, raw.Length);
@@ -1497,12 +1794,14 @@ namespace SlimeCorralSpawn.SceneBuilder
             {
                 string p = TexPath(key);
                 if (!File.Exists(p)) return null;
-                int w, h; byte[] raw;
+                int w, h; byte[] raw; bool linear = false;
                 using (var fs = File.OpenRead(p))
                 using (var br = new BinaryReader(fs))
                 {
-                    if (br.ReadUInt32() != 0x53545831u) return null;
+                    uint magic = br.ReadUInt32();
+                    if (magic != 0x53545831u && magic != 0x53545832u) return null;   // STX1 (viejo) o STX2
                     w = br.ReadInt32(); h = br.ReadInt32();
+                    if (magic == 0x53545832u) linear = br.ReadBoolean();             // STX2: mapa de datos
                     if (w <= 0 || h <= 0 || w > 4096 || h > 4096) return null;
                     using (var gz = new System.IO.Compression.GZipStream(fs, System.IO.Compression.CompressionMode.Decompress))
                     using (var ms = new MemoryStream())
@@ -1510,7 +1809,8 @@ namespace SlimeCorralSpawn.SceneBuilder
                 }
                 if (raw == null || raw.Length < w * h * 4) return null;
 
-                var tex = new Texture2D(w, h, TextureFormat.RGBA32, true);
+                // linear=true para mapas de DATOS (normales/máscaras): si se cargan como sRGB, el sombreado sale mal.
+                var tex = new Texture2D(w, h, TextureFormat.RGBA32, true, linear);
                 tex.hideFlags = HideFlags.HideAndDontSave;
                 try { tex.wrapMode = TextureWrapMode.Repeat; } catch { }
                 int n = w * h;
@@ -1531,9 +1831,40 @@ namespace SlimeCorralSpawn.SceneBuilder
         private static Shader UnlitShader()
         {
             if (_unlitShader != null) return _unlitShader;
-            _unlitShader = Shader.Find("HDRP/Unlit") ?? Shader.Find("Universal Render Pipeline/Unlit")
-                        ?? Shader.Find("Unlit/Texture") ?? Shader.Find("HDRP/Lit") ?? Shader.Find("Sprites/Default");
+            // Shader.Find FALLA seguido en SR2 (el registro de shaders no está poblado) → antes esto devolvía null,
+            // NewOwnedMaterial devolvía null y el modelo se dibujaba MAGENTA (aunque la miniatura saliera perfecta).
+            // Ahora usamos FindShaderByName, que además ESCANEA los shaders ya cargados en memoria.
+            string[] cands = { "HDRP/Unlit", "Universal Render Pipeline/Unlit", "Unlit/Texture", "HDRP/Lit", "Sprites/Default" };
+            foreach (var c in cands) { var s = FindShaderByName(c); if (s != null) { _unlitShader = s; return _unlitShader; } }
+            // Último recurso 1: el shader del material Lit REAL del juego (el mismo que usan los plots del mod).
+            try { var lit = Placement.PlacementManager.FallbackLit(); if (lit != null && lit.shader != null) { _unlitShader = lit.shader; return _unlitShader; } } catch { }
+            // Último recurso 2: CUALQUIER shader cargado que sirva → nunca magenta.
+            _unlitShader = AnyLoadedShader();
             return _unlitShader;
+        }
+
+        /// <summary>Cualquier shader cargado que sirva para dibujar (preferimos Unlit/Lit). Red de seguridad para
+        /// que un material nunca quede sin shader (= magenta).</summary>
+        private static Shader AnyLoadedShader()
+        {
+            try
+            {
+                var all = Resources.FindObjectsOfTypeAll<Shader>();
+                if (all == null) return null;
+                Shader anyOk = null;
+                for (int i = 0; i < all.Length; i++)
+                {
+                    var s = all[i]; if (s == null) continue;
+                    bool sup = false; try { sup = s.isSupported; } catch { }
+                    if (!sup) continue;
+                    string n = null; try { n = s.name; } catch { }
+                    if (n == null) continue;
+                    if (n.IndexOf("Unlit", StringComparison.OrdinalIgnoreCase) >= 0) return s;   // ideal
+                    if (anyOk == null && n.IndexOf("Lit", StringComparison.OrdinalIgnoreCase) >= 0) anyOk = s;
+                }
+                return anyOk;
+            }
+            catch { return null; }
         }
         private static void SetColorSafe(Material m, string p, Color c) { try { if (m.HasProperty(p)) m.SetColor(p, c); } catch { } }
         private static void SetTexSafe(Material m, string p, Texture t) { try { if (m.HasProperty(p)) m.SetTexture(p, t); } catch { } }
@@ -1546,7 +1877,14 @@ namespace SlimeCorralSpawn.SceneBuilder
             try
             {
                 var sh = UnlitShader();
-                if (sh == null) return null;
+                if (sh == null)
+                {
+                    // NUNCA devolver null: un renderer con material null se dibuja MAGENTA. Clonamos el material
+                    // Lit real del juego como último recurso (siempre tiene shader válido).
+                    try { var lit = Placement.PlacementManager.FallbackLit(); if (lit != null) { var cm = new Material(lit); cm.hideFlags = HideFlags.HideAndDontSave; return cm; } } catch { }
+                    ModEntry.LogErrorOnce("SceneModelStore.NoShader", new Exception("Sin shader disponible para el material propio (saldría magenta)."));
+                    return null;
+                }
                 m = new Material(sh);
                 m.hideFlags = HideFlags.HideAndDontSave;
 

@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Slime Corral Spawn", "1.9.0", "SlimeRancherModder")]
+[assembly: MelonInfo(typeof(SlimeCorralSpawn.ModEntry), "Custom Ranch Builder", "2.0.0", "ALKA")]
 [assembly: MelonGame("MonomiPark", "SlimeRancher2")]
 
 namespace SlimeCorralSpawn
@@ -33,9 +33,14 @@ namespace SlimeCorralSpawn
         private static string _activeSlot;
         private static float _nextSlotCheck;
 
+        // Marca de build: si NO ves esta línea EXACTA en el log, estás corriendo un DLL VIEJO (el juego estaba
+        // abierto al copiar). Cambia el texto cada build importante para poder confirmar cuál está cargado.
+        public const string BuildTag = "Custom Ranch Builder 2.0 · El Scene Tool ya no pisa el cursor del spawner (fix al entrar desde el editor)";
+
         public override void OnInitializeMelon()
         {
             Instance = this;
+            try { LoggerInstance.Msg("======== [SCS] " + BuildTag + " ========"); } catch { }
 
             try { Themes.UITextures.Initialize(); }
             catch (Exception ex) { LogErrorOnce("UITextures.Initialize", ex); }
@@ -106,6 +111,11 @@ namespace SlimeCorralSpawn
                 try { if (!Placement.PlacementManager.LitTemplateReady) Placement.PlacementManager.WarmLitTemplate(); }
                 catch (Exception ex) { LogErrorOnce("WarmLitTemplate", ex); }
 
+                // Texturas de esquina de la GUI: se construían la primera vez que abrías el F5 (8 texturas con
+                // bucle por píxel en un solo frame = el tirón al abrir el menú). Se hacen acá, antes.
+                try { Themes.UICards.Prewarm(); }
+                catch (Exception ex) { LogErrorOnce("UICards.Prewarm", ex); }
+
                 // Prioridad 2: pre-cargar albedo de disco SOLO cuando ya no hay plots/estructuras pendientes.
                 try { Themes.TextureFactory.WarmStep(); }
                 catch (Exception ex) { LogErrorOnce("TextureFactory.WarmStep", ex); }
@@ -129,7 +139,7 @@ namespace SlimeCorralSpawn
                 catch (Exception ex) { LogErrorOnce("SceneForceLoader.Tick", ex); }
 
                 // Miniaturas: 1 render por frame, solo cuando el menú está abierto (lo pide DrawSceneBuilderTab).
-                try { if (UI.PlotsMenuUI.IsVisible) SceneBuilder.SceneThumbnailRenderer.Tick(); }
+                try { if (UI.PlotsMenuUI.IsVisible || SceneBuilder.SceneBuilderTool.ToolOpen) SceneBuilder.SceneThumbnailRenderer.Tick(); }
                 catch (Exception ex) { LogErrorOnce("SceneThumbnailRenderer.Tick", ex); }
             }
 
@@ -145,6 +155,15 @@ namespace SlimeCorralSpawn
             try { Placement.GardenDriver.Update(); }
             catch (Exception ex) { LogErrorOnce("GardenDriver.Update", ex); }
 
+            try { Spawners.SpawnerManager.Update(); }
+            catch (Exception ex) { LogErrorOnce("SpawnerManager.Update", ex); }
+
+            try { Spawners.SpawnerPlaceTool.Update(); }
+            catch (Exception ex) { LogErrorOnce("SpawnerPlaceTool.Update", ex); }
+
+            try { Placement.UndoStack.Update(); }
+            catch (Exception ex) { LogErrorOnce("UndoStack.Update", ex); }
+
             try { Placement.PlacementManager.UpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("PlacementManager.UpdateStatic", ex); }
 
@@ -153,6 +172,18 @@ namespace SlimeCorralSpawn
 
             try { Placement.PrefabTool.UpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("PrefabTool.UpdateStatic", ex); }
+
+            try { SceneBuilder.SceneBuilderTool.CheckGlobalHotkey(); }
+            catch (Exception ex) { LogErrorOnce("SceneBuilderTool.CheckGlobalHotkey", ex); }
+
+            // PRUEBA DIAGNÓSTICA F7: exagera el ramp (+40) de todo lo colocado y lo vuelve. Sirve para ver a simple
+            // vista si el ramp controla el aspecto de los props (montañas/mounds/corales) o si es un callejón.
+            try { if (InputHelper.GetKeyDown(KeyCode.F7)) SceneBuilder.SceneBuilderManager.DebugToggleExtremeRamp(); }
+            catch (Exception ex) { LogErrorOnce("DebugToggleExtremeRamp", ex); }
+
+            // F8 = FORZAR COSECHA en los jardines (prueba inmediata; un cultivo vanilla tarda ~18 min reales).
+            try { if (InputHelper.GetKeyDown(KeyCode.F8)) Placement.GardenDriver.DebugHarvestNow(); }
+            catch (Exception ex) { LogErrorOnce("DebugHarvestNow", ex); }
 
             try { SceneBuilder.SceneBuilderTool.UpdateStatic(); }
             catch (Exception ex) { LogErrorOnce("SceneBuilderTool.UpdateStatic", ex); }
@@ -219,6 +250,10 @@ namespace SlimeCorralSpawn
             try { Placement.CorralRegistrationHelper.ClearRegistrationState(); } catch { }
             try { Placement.StructureLightHelper.Reset(); } catch { }
             try { Placement.GardenDriver.Reset(); } catch { }
+            try { Spawners.SpawnerManager.Reset(); } catch { }
+            try { Spawners.SpawnerPlaceTool.Cancel(); } catch { }
+            try { UI.GameInputBlock.ReleaseAll(); } catch { }
+            try { Placement.UndoStack.Clear(); } catch { }
             try { Placement.PlacementManager.ResetLitTemplates(); } catch { }
             try { Placement.PlacementManager.ClearSharedMaterialCache(); } catch { }
             try { Plots.PlotData.ResetLoadState(); } catch { }      // _dataLoaded=false → recarga del slot nuevo
@@ -259,6 +294,9 @@ namespace SlimeCorralSpawn
                     Placement.PolygonTool.DestroyAndClearAll();       // vacía polígonos
                     Placement.StructureLightHelper.Reset();
                     Placement.GardenDriver.Reset();
+                    Spawners.SpawnerManager.Reset();
+                    Spawners.SpawnerPlaceTool.Cancel();
+                    Placement.UndoStack.Clear();
                     SaveData.ModDataManager.ClearSlot();
 
                     // Materiales: AHORA sí se pueden destruir (las estructuras ya no existen) → libera memoria y
@@ -311,6 +349,18 @@ namespace SlimeCorralSpawn
 
             try { SceneBuilder.SceneBuilderTool.OnGUIStatic(); }
             catch (Exception ex) { LogErrorOnce("SceneBuilderTool.OnGUIStatic", ex); }
+
+            try { SceneBuilder.SceneToolGUI.OnGUIStatic(); }
+            catch (Exception ex) { LogErrorOnce("SceneToolGUI.OnGUIStatic", ex); }
+
+            try { Spawners.SpawnerMenuUI.OnGUI(); }
+            catch (Exception ex) { LogErrorOnce("SpawnerMenuUI.OnGUI", ex); }
+
+            try { Spawners.SpawnerPlaceTool.OnGUI(); }
+            catch (Exception ex) { LogErrorOnce("SpawnerPlaceTool.OnGUI", ex); }
+
+            try { Placement.UndoStack.OnGUI(); }
+            catch (Exception ex) { LogErrorOnce("UndoStack.OnGUI", ex); }
 
             try { Placement.FreeDrawTool.OnGUIStatic(); }
             catch (Exception ex) { LogErrorOnce("FreeDrawTool.OnGUIStatic", ex); }

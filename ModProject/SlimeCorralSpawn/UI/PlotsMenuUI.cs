@@ -15,8 +15,35 @@ namespace SlimeCorralSpawn.UI
         public static bool IsVisible { get; private set; }
 
         private static float menuX = -400f;
-        private static float menuWidth = 420f;
         private static float menuY = 80f;
+
+        // ── ESCALA DEL MENÚ (botón de agrandar/achicar, abajo a la derecha) ──────────────────────────────────
+        // Multiplica el ancho del panel Y el cuerpo de letra de todos los estilos → el contenido se adapta.
+        // Persiste en PlayerPrefs como el resto de las opciones.
+        private const float BaseMenuWidth = 420f;
+        private static readonly float[] ScaleSteps = { 0.85f, 1.00f, 1.15f, 1.30f, 1.50f };
+        private static int _scaleIdx = -1;
+        public static float UiScale
+        {
+            get
+            {
+                if (_scaleIdx < 0)
+                {
+                    try { _scaleIdx = Mathf.Clamp(PlayerPrefs.GetInt("scs_ui_scale", 1), 0, ScaleSteps.Length - 1); }
+                    catch { _scaleIdx = 1; }
+                }
+                return ScaleSteps[_scaleIdx];
+            }
+        }
+        private static void CycleScale(int dir)
+        {
+            int n = ScaleSteps.Length;
+            _scaleIdx = ((_scaleIdx < 0 ? 1 : _scaleIdx) + dir % n + n) % n;
+            try { PlayerPrefs.SetInt("scs_ui_scale", _scaleIdx); PlayerPrefs.Save(); } catch { }
+            stylesReady = false;    // los estilos se reconstruyen con el nuevo cuerpo de letra
+        }
+
+        private static float menuWidth => BaseMenuWidth * UiScale;
 
         private static int selectedPlotIndex = -1;
         private static PlotSize selectedSize = PlotSize.Size1x1;
@@ -201,11 +228,112 @@ namespace SlimeCorralSpawn.UI
             if (IsVisible) SetCameraFrozen(true);
         }
 
+        private static int _stylesThemeVersion = -1;
+
+        /// <summary>Control de TAMAÑO del menú, abajo a la derecha del panel: [–] 100% [+]. Cambia el ancho y el
+        /// cuerpo de letra de todo el menú (los estilos se reconstruyen), y queda guardado entre sesiones.</summary>
+        /// <summary>Botoncito redondo con relieve para el control de tamaño (se apaga si no se puede seguir).</summary>
+        private static GUIStyle _scaleLabel;
+
+        private static void DrawRoundBtn(Rect r, bool hover, bool enabled)
+        {
+            float rad = r.width * 0.5f;
+            Color baseC = enabled
+                ? (hover ? Color.Lerp(SlimeTheme.BackgroundButtonHover, SlimeTheme.PrimaryPink, 0.30f) : SlimeTheme.BackgroundButton)
+                : Color.Lerp(SlimeTheme.BackgroundButton, SlimeTheme.BackgroundPanel, 0.6f);
+            Themes.UICards.RoundRect(new Rect(r.x, r.y + 1f, r.width, r.height), new Color(0f, 0f, 0f, 0.18f), rad);
+            Themes.UICards.RoundRect(r, baseC, rad);
+            Themes.UICards.TopSheen(r, Color.white, rad, 0.5f, SlimeTheme.DarkMode ? 0.05f : 0.30f);
+            Themes.UICards.RoundBorder(r, enabled ? Color.Lerp(baseC, Color.white, 0.45f) : Color.Lerp(baseC, Color.white, 0.2f), rad, 1f);
+        }
+
+        /// <summary>Firma del mod, abajo a la izquierda del panel. Se dibuja en el marco (no dentro de una
+        /// pestaña), así que se ve en TODAS: Plots, Scene, Prefabs, Struct, Free Build y Config.</summary>
+        private static GUIStyle _sigStyle, _sigVer;
+        private static void DrawSignature(Rect menuRect)
+        {
+            if (_sigStyle == null || _sigVersion != SlimeTheme.Version)
+            {
+                _sigVersion = SlimeTheme.Version;
+                _sigStyle = new GUIStyle { fontSize = 11, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
+                _sigStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.TextLightPink);
+                _sigVer = new GUIStyle { fontSize = 11, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
+                _sigVer.normal.textColor = SlimeTheme.Themed(SlimeTheme.PrimaryPink);
+            }
+            float y = menuRect.yMax - 20f;
+            GUI.Label(new Rect(menuRect.x + 12f, y, 140f, 16f), new GUIContent("Made by ALKA."), _sigStyle);
+            GUI.Label(new Rect(menuRect.x + 12f + 90f, y, 70f, 16f), new GUIContent("Ver 2.0"), _sigVer);
+        }
+        private static int _sigVersion = -1;
+
+        private static void DrawScaleWidget(Rect menuRect)
+        {
+            float h = 28f, w = 104f;
+            Rect box = new Rect(menuRect.xMax - w - 12f, menuRect.yMax - h - 10f, w, h);
+            float rad = h * 0.5f;
+
+            // Cápsula con el mismo lenguaje que el resto (sombra + relleno + sheen + borde fino)
+            Themes.UICards.RoundRect(new Rect(box.x + 1f, box.y + 2f, box.width, box.height), new Color(0f, 0f, 0f, 0.22f), rad);
+            Themes.UICards.RoundRect(box, Color.Lerp(SlimeTheme.BackgroundPanel, Color.white, SlimeTheme.DarkMode ? 0.10f : 0.55f), rad);
+            Themes.UICards.TopSheen(box, Color.white, rad, 0.55f, SlimeTheme.DarkMode ? 0.06f : 0.35f);
+            Themes.UICards.RoundBorder(box, Color.Lerp(SlimeTheme.GlowCyan, Color.white, 0.30f), rad, 1.3f);
+
+            float bs = h - 8f;
+            Rect minus = new Rect(box.x + 4f, box.center.y - bs * 0.5f, bs, bs);
+            Rect plus = new Rect(box.xMax - bs - 4f, box.center.y - bs * 0.5f, bs, bs);
+            bool hoverM = minus.Contains(Event.current.mousePosition);
+            bool hoverP = plus.Contains(Event.current.mousePosition);
+            bool canM = _scaleIdx > 0, canP = _scaleIdx < ScaleSteps.Length - 1;
+
+            // Botoncitos redondos con relieve (antes eran dos palitos sueltos)
+            DrawRoundBtn(minus, hoverM, canM);
+            DrawRoundBtn(plus, hoverP, canP);
+
+            Color prev = GUI.color;
+            Color sign = SlimeTheme.Themed(SlimeTheme.TextWhite);
+            GUI.color = canM ? (hoverM ? SlimeTheme.Themed(SlimeTheme.PrimaryPink) : sign) : new Color(sign.r, sign.g, sign.b, 0.35f);
+            GUI.DrawTexture(new Rect(minus.center.x - 5f, minus.center.y - 1.5f, 10f, 3f), Texture2D.whiteTexture);
+            GUI.color = canP ? (hoverP ? SlimeTheme.Themed(SlimeTheme.PrimaryPink) : sign) : new Color(sign.r, sign.g, sign.b, 0.35f);
+            GUI.DrawTexture(new Rect(plus.center.x - 5f, plus.center.y - 1.5f, 10f, 3f), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(plus.center.x - 1.5f, plus.center.y - 5f, 3f, 10f), Texture2D.whiteTexture);
+
+            // El % va CENTRADO con su propio estilo: smallLabelStyle está alineado a la izquierda y quedaba corrido.
+            if (_scaleLabel == null)
+                _scaleLabel = new GUIStyle { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
+            _scaleLabel.fontSize = Mathf.Max(9, Mathf.RoundToInt(11 * UiScale));
+            _scaleLabel.normal.textColor = SlimeTheme.Themed(SlimeTheme.TextWhite);
+            GUI.Label(new Rect(minus.xMax, box.y, plus.x - minus.xMax, box.height),
+                      new GUIContent(Mathf.RoundToInt(UiScale * 100f) + "%"), _scaleLabel);
+            GUI.color = prev;
+
+            var e = Event.current;
+            if (e.type == EventType.MouseDown && e.button == 0)
+            {
+                if (hoverM) { CycleScale(-1); e.Use(); }
+                else if (hoverP) { CycleScale(+1); e.Use(); }
+            }
+            if (box.Contains(e.mousePosition)) tooltipText = Loc.T("cfg_ui_scale_tip");
+        }
+
         private static void InitStyles()
         {
-            if (stylesReady) return;
+            if (stylesReady && _stylesThemeVersion == SlimeTheme.Version) return;
             stylesReady = true;
-            try { BuildStyles(); }
+            _stylesThemeVersion = SlimeTheme.Version;
+            try
+            {
+                BuildStyles();
+                // ESCALA DEL MENÚ: el cuerpo de letra acompaña al ancho del panel → el contenido se adecua al
+                // tamaño elegido con el botón de abajo a la derecha.
+                float k = UiScale;
+                if (k != 1f)
+                {
+                    GUIStyle[] all = { titleStyle, subtitleStyle, headerStyle, labelStyle, smallLabelStyle, tooltipStyle,
+                                       priceStyle, tabStyle, tabActiveStyle, buyStyle, bodyWrapStyle, cardNameStyle };
+                    foreach (var s in all)
+                        if (s != null && s.fontSize > 0) s.fontSize = Mathf.Max(8, Mathf.RoundToInt(s.fontSize * k));
+                }
+            }
             catch (Exception ex)
             {
                 ModEntry.LogErrorOnce("PlotsMenuUI.InitStyles", ex);
@@ -230,69 +358,69 @@ namespace SlimeCorralSpawn.UI
             titleStyle.fontSize = 21;
             titleStyle.fontStyle = FontStyle.Bold;
             titleStyle.alignment = TextAnchor.MiddleLeft;
-            titleStyle.normal.textColor = SlimeTheme.TextWhite;
+            titleStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.TextWhite);
 
             subtitleStyle = new GUIStyle();
             subtitleStyle.fontSize = 12;
             subtitleStyle.alignment = TextAnchor.MiddleLeft;
-            subtitleStyle.normal.textColor = SlimeTheme.TextLightPink;
+            subtitleStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.TextLightPink);
 
             headerStyle = new GUIStyle();
             headerStyle.fontSize = 14;
             headerStyle.fontStyle = FontStyle.Bold;
             headerStyle.alignment = TextAnchor.MiddleLeft;
-            headerStyle.normal.textColor = SlimeTheme.GlowCyan;
+            headerStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.GlowCyan);
 
             labelStyle = new GUIStyle();
             labelStyle.fontSize = 13;
-            labelStyle.normal.textColor = SlimeTheme.TextWhite;
+            labelStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.TextWhite);
 
             smallLabelStyle = new GUIStyle();
             smallLabelStyle.fontSize = 11;
-            smallLabelStyle.normal.textColor = SlimeTheme.TextLightPink;
+            smallLabelStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.TextLightPink);
 
             tooltipStyle = new GUIStyle();
             tooltipStyle.fontSize = 11;
-            tooltipStyle.normal.textColor = SlimeTheme.TextLightPink;
+            tooltipStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.TextLightPink);
 
             priceStyle = new GUIStyle();
             priceStyle.fontSize = 14;
             priceStyle.fontStyle = FontStyle.Bold;
             priceStyle.alignment = TextAnchor.MiddleRight;
-            priceStyle.normal.textColor = SlimeTheme.SlimeGreen;
+            priceStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.SlimeGreen);
 
             tabStyle = new GUIStyle();
             tabStyle.fontSize = 12;
             tabStyle.fontStyle = FontStyle.Bold;
             tabStyle.alignment = TextAnchor.MiddleCenter;
-            tabStyle.normal.textColor = SlimeTheme.TextLightPink;
+            tabStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.TextLightPink);
             tabStyle.padding = new RectOffset(8, 8, 6, 6);
 
             tabActiveStyle = new GUIStyle();
             tabActiveStyle.fontSize = 12;
             tabActiveStyle.fontStyle = FontStyle.Bold;
             tabActiveStyle.alignment = TextAnchor.MiddleCenter;
-            tabActiveStyle.normal.textColor = SlimeTheme.TextWhite;
+            tabActiveStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.TextWhite);
             tabActiveStyle.padding = new RectOffset(8, 8, 6, 6);
 
             buyStyle = new GUIStyle();
             buyStyle.fontSize = 16;
             buyStyle.fontStyle = FontStyle.Bold;
             buyStyle.alignment = TextAnchor.MiddleCenter;
-            buyStyle.normal.textColor = SlimeTheme.CreamText;
+            buyStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.CreamText);
 
             bodyWrapStyle = new GUIStyle();
             bodyWrapStyle.fontSize = 14;
             bodyWrapStyle.wordWrap = true;
             bodyWrapStyle.alignment = TextAnchor.UpperLeft;
-            bodyWrapStyle.normal.textColor = SlimeTheme.TextWhite;
+            bodyWrapStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.TextWhite);
 
             cardNameStyle = new GUIStyle();
             cardNameStyle.fontSize = 11;
             cardNameStyle.fontStyle = FontStyle.Bold;
             cardNameStyle.alignment = TextAnchor.MiddleCenter;
             cardNameStyle.clipping = TextClipping.Clip;
-            cardNameStyle.normal.textColor = SlimeTheme.CreamText;
+            cardNameStyle.normal.textColor = SlimeTheme.Themed(SlimeTheme.CreamText);
         }
 
         public static void OnGUIStatic()
@@ -326,6 +454,8 @@ namespace SlimeCorralSpawn.UI
             DrawBackground(menuRect);
             DrawTitleBar(menuRect);
             Fill(new Rect(menuRect.x + 10, menuRect.y + 63, menuRect.width - 20, 2), SlimeTheme.BorderSubtle);
+            DrawScaleWidget(menuRect);
+            DrawSignature(menuRect);
 
             float contentY = menuRect.y + 70f;
             float contentX = menuRect.x + 10f;
@@ -392,8 +522,20 @@ namespace SlimeCorralSpawn.UI
                 bool hover = tabRect.Contains(Event.current.mousePosition);
 
                 Color baseCol = active ? SlimeTheme.PrimaryPink : (hover ? SlimeTheme.BackgroundButtonHover : SlimeTheme.BackgroundButton);
-                FillVGradient(tabRect, Color.Lerp(baseCol, Color.white, 0.12f), Color.Lerp(baseCol, Color.black, 0.08f), 6);
-                Fill(new Rect(tabRect.x, tabRect.y, tabRect.width, 1), new Color(1f, 1f, 1f, 0.12f));
+                // La pestaña activa "sube" un poquito (rebote cute); el hover late suave.
+                float lift = active ? 3f : 0f;
+                Rect drawRect = new Rect(tabRect.x, tabRect.y - lift, tabRect.width, tabRect.height + lift);
+                if (active) Fill(new Rect(drawRect.x + 2, drawRect.y + 3, drawRect.width, drawRect.height), new Color(0f, 0f, 0f, 0.22f));
+                FillVGradient(drawRect, Color.Lerp(baseCol, Color.white, hover ? 0.20f : 0.12f), Color.Lerp(baseCol, Color.black, 0.08f), 6);
+                Fill(new Rect(drawRect.x, drawRect.y, drawRect.width, 1), new Color(1f, 1f, 1f, 0.14f));
+                if (active)
+                {
+                    // Gotita de slime cian que "gotea" desde arriba de la pestaña activa (latido suave).
+                    float pulse = 0.5f + 0.5f * Mathf.Sin(Time.realtimeSinceStartup * 3f);
+                    Themes.SlimeDecor.Drop(drawRect.center.x, drawRect.y + 2f, 6f + pulse * 1.5f,
+                        new Color(SlimeTheme.GlowCyan.r, SlimeTheme.GlowCyan.g, SlimeTheme.GlowCyan.b, 0.5f));
+                }
+                tabRect = drawRect;
 
                 bool clicked = false;
                 Event e = Event.current;
@@ -404,9 +546,25 @@ namespace SlimeCorralSpawn.UI
                 }
 
                 Color prev = GUI.color;
-                GUI.color = active ? SlimeTheme.CreamText : SlimeTheme.TextWhite;
+                GUI.color = SlimeTheme.Themed(active ? SlimeTheme.CreamText : SlimeTheme.TextWhite);
                 GUIStyle ts = active ? tabActiveStyle : tabStyle;
-                GUI.Label(tabRect, new GUIContent(labels[i]), ts);
+                // AUTO-AJUSTE del texto: las etiquetas cambian de largo según el IDIOMA y con ancho fijo se
+                // desbordaban y se PISABAN entre pestañas. Medimos el texto y bajamos el cuerpo de letra hasta
+                // que entre (con un mínimo legible); si aun así no entra, se recorta con "…".
+                var gc = new GUIContent(labels[i]);
+                int baseSize = ts.fontSize > 0 ? ts.fontSize : 12;
+                // Bajamos el cuerpo de letra hasta que ENTRE COMPLETO (sin cortar). Con 6 pestañas y textos largos
+                // en otros idiomas, recortar con "…" se veía feo ("FREE B..."); preferimos letra más chica.
+                int size = baseSize;
+                float avail = tabRect.width - 4f;
+                try
+                {
+                    ts.padding = new RectOffset(2, 2, 6, 6);
+                    while (size > 7 && ts.CalcSize(gc).x > avail) { size--; ts.fontSize = size; }
+                }
+                catch { }
+                GUI.Label(tabRect, gc, ts);
+                try { ts.fontSize = baseSize; ts.padding = new RectOffset(8, 8, 6, 6); } catch { }
                 GUI.color = prev;
 
                 if (clicked && !active)
@@ -455,6 +613,28 @@ namespace SlimeCorralSpawn.UI
             { Loc.Cycle(); }
             if (langRect.Contains(Event.current.mousePosition)) tooltipText = Loc.T("cfg_lang_hint");
             y += 56f;
+
+            // Modo oscuro: tiñe TODA la GUI del mod al instante (mismo frame), sin reiniciar.
+            Rect darkRect = new Rect(x, y, w, 36);
+            if (ClickableBox(darkRect, (SlimeTheme.DarkMode ? "[X] " : "[  ] ") + Loc.T("cfg_dark_mode"), SlimeTheme.BackgroundButton, labelStyle))
+                SlimeTheme.ToggleDarkMode();
+            y += 44f;
+
+            // Spawners visibles: los spawners no tienen modelo, así que sin esto no se ve dónde quedaron.
+            // Al activarlo se dibuja su posición, el radio de generación y la flecha de disparo.
+            Rect spwRect = new Rect(x, y, w, 36);
+            if (ClickableBox(spwRect, (Spawners.SpawnerManager.ShowMarkers ? "[X] " : "[  ] ") + Loc.T("spw_visible"),
+                SlimeTheme.BackgroundButton, labelStyle))
+                Spawners.SpawnerManager.ShowMarkers = !Spawners.SpawnerManager.ShowMarkers;
+            y += 44f;
+
+            // Diagnósticos: APAGADOS por defecto porque su verificación al entrar abre cientos de archivos y es
+            // parte del tirón de carga. Solo se encienden para depurar y pedir logs.
+            Rect diagRect = new Rect(x, y, w, 36);
+            if (ClickableBox(diagRect, (ModDiagnostics.Enabled ? "[X] " : "[  ] ") + Loc.T("cfg_diag"),
+                SlimeTheme.BackgroundButton, labelStyle))
+                ModDiagnostics.Enabled = !ModDiagnostics.Enabled;
+            y += 44f;
 
             GUI.Label(new Rect(x, y, w, 22), new GUIContent(Loc.T("cfg_options")), headerStyle);
             y += 30f;
@@ -667,7 +847,7 @@ namespace SlimeCorralSpawn.UI
                 y += 44f;
             }
 
-            foreach (ModAction action in new[] { ModAction.OpenMenu, ModAction.PaintTool, ModAction.RemoveTool, ModAction.ConfirmEdit })
+            foreach (ModAction action in new[] { ModAction.OpenMenu, ModAction.PaintTool, ModAction.RemoveTool, ModAction.ConfirmEdit, ModAction.DeleteSceneModel })
             {
                 string label = ModKeybinds.Label(action);
                 string key = _rebindAction == action ? "..." : ModKeybinds.KeyName(ModKeybinds.Get(action));
@@ -771,34 +951,55 @@ namespace SlimeCorralSpawn.UI
             return new ModPackManager.PackEntry { Path = path, FileName = System.IO.Path.GetFileName(path), Label = System.IO.Path.GetFileNameWithoutExtension(path) };
         }
 
+        /// <summary>Color de acento por tipo de plot → cada tarjeta se identifica de un vistazo.</summary>
+        private static Color PlotAccent(string icon)
+        {
+            // Paleta PASTEL (tipo Slimepedia): tonos suaves, nada chillón — los saturados rompían la estética cute.
+            switch (icon)
+            {
+                case "corral": return new Color(0.96f, 0.62f, 0.72f);
+                case "garden": return new Color(0.62f, 0.85f, 0.64f);
+                case "coop":   return new Color(0.98f, 0.82f, 0.55f);
+                case "silo":   return new Color(0.70f, 0.76f, 0.92f);
+                case "incin":  return new Color(0.96f, 0.66f, 0.56f);
+                case "pond":   return new Color(0.60f, 0.84f, 0.92f);
+                default:       return new Color(0.95f, 0.70f, 0.80f);
+            }
+        }
+
         private static void DrawPlotsTab(float x, ref float y, float w)
         {
             string balanceTxt = cachedBalance < 0 ? Loc.T("newbucks_nogame") : string.Format(Loc.T("newbucks_balance"), cachedBalance);
             GUI.Label(new Rect(x, y, w, 20), new GUIContent(balanceTxt), priceStyle);
             y += 26f;
 
-            GUI.Label(new Rect(x, y, w, 22), new GUIContent(Loc.T("hdr_plots_buy")), headerStyle);
-            y += 28f;
+            // Encabezado de sección con acento (antes era un texto suelto).
+            Themes.UICards.SectionHeader(new Rect(x, y, w, 24), Loc.T("hdr_plots_buy"), headerStyle, SlimeTheme.GlowCyan);
+            y += 30f;
 
+            // TARJETAS: icono del tipo de plot + nombre + tamaño + precio con moneda (antes: lista de botones planos).
             for (int i = 0; i < PlotDefinitions.AllPlots.Length; i++)
             {
                 var plot = PlotDefinitions.AllPlots[i];
                 if (plot.IsHouse) continue;
                 bool isSelected = selectedPlotIndex == i;
                 int cost = PlotDefinitions.GetCost(plot.Type, selectedSize);
-                string btnText = $"{Loc.PlotName(plot.Type)}  |  {cost} Newbucks";
+                string name = Loc.PlotName(plot.Type);
 
-                Rect btnRect = new Rect(x, y, w, 42);
-                if (ClickableBox(btnRect, btnText, isSelected ? SlimeTheme.BackgroundButtonHover : SlimeTheme.BackgroundButton, labelStyle))
+                Rect card = new Rect(x, y, w, 46);
+                string ic = Themes.UICards.GuessIcon(plot.Type.ToString() + " " + name);
+                Color accent = PlotAccent(ic);
+                if (Themes.UICards.Row(card, ic, name, selectedSize.ToString().Replace("Size", ""), cost.ToString(),
+                                       accent, isSelected, labelStyle, smallLabelStyle, priceStyle))
                 {
                     selectedPlotIndex = i;
                     showPurchasePanel = true;
                 }
 
-                if (btnRect.Contains(Event.current.mousePosition))
+                if (card.Contains(Event.current.mousePosition))
                     tooltipText = plot.Description;
 
-                y += 47f;
+                y += 51f;
             }
 
             y += 10f;
@@ -863,6 +1064,29 @@ namespace SlimeCorralSpawn.UI
         }
 
         /// <summary>Fila de botones de categoría (estilo Sims): Muros, Puertas, Ventanas, Pisos, etc.</summary>
+        /// <summary>Paleta por categoría de bloque: cada chip tiene su color → se distinguen de un vistazo.</summary>
+        private static Color CatColor(int i)
+        {
+            // PASTEL suave (misma familia que los plots): distinguen sin gritar ni ensuciar el panel crema.
+            Color[] pal = {
+                new Color(0.96f, 0.66f, 0.73f),   // Walls
+                new Color(0.94f, 0.76f, 0.63f),   // Half Walls
+                new Color(0.78f, 0.72f, 0.95f),   // Doors
+                new Color(0.64f, 0.85f, 0.95f),   // Windows
+                new Color(0.68f, 0.88f, 0.72f),   // Floors
+                new Color(0.97f, 0.80f, 0.56f),   // Roofs
+                new Color(0.74f, 0.82f, 0.96f),   // Stairs
+                new Color(0.86f, 0.79f, 0.65f),   // Fences
+                new Color(0.90f, 0.72f, 0.90f),   // Pillars
+                new Color(0.66f, 0.86f, 0.86f),   // Bridges
+                new Color(0.98f, 0.72f, 0.84f),   // Decoration
+            };
+            return pal[i % pal.Length];
+        }
+
+        // Borrar-lo-dibujado necesita confirmación (1er click arma, 2do borra).
+        private static bool _eraseArmed;
+
         private static void DrawStructCategoryRow(float x, ref float y, float w)
         {
             int perRow = 3;
@@ -871,15 +1095,13 @@ namespace SlimeCorralSpawn.UI
             {
                 int col = i % perRow;
                 if (i > 0 && col == 0) y += 28f;
-                Rect r = new Rect(x + col * (bw + 4f), y, bw, 25f);
+                Rect r = new Rect(x + col * (bw + 4f), y, bw, 26f);
                 bool active = structCat == CatOrder[i];
-                bool hover = r.Contains(Event.current.mousePosition);
-                Fill(r, active ? SlimeTheme.PrimaryPink : (hover ? SlimeTheme.BackgroundButtonHover : SlimeTheme.BackgroundButton));
-                Color prev = GUI.color; GUI.color = active ? SlimeTheme.CreamText : SlimeTheme.TextWhite;
-                GUI.Label(r, new GUIContent(CatName(i)), tabStyle);
-                GUI.color = prev;
-                if (hover && Event.current.type == EventType.MouseDown && Event.current.button == 0)
-                { structCat = CatOrder[i]; Event.current.Use(); }
+                // CHIP con color propio por categoría + icono → antes eran todos rectángulos beige iguales.
+                string cname = CatName(i);
+                if (Themes.UICards.Chip(r, cname, Themes.UICards.GuessIcon(CatOrder[i].ToString() + " " + cname),
+                                        CatColor(i), active, tabStyle))
+                { structCat = CatOrder[i]; }
             }
             y += 32f;
         }
@@ -926,10 +1148,18 @@ namespace SlimeCorralSpawn.UI
             }
         }
 
-        // Orden preferido de categorías (Suelos primero, como pediste).
+        // Orden preferido de subcategorías DENTRO de cada grupo grande.
         private static readonly string[] ScbCatOrder =
-            { "Suelos", "Caminos", "Piedras", "Cuevas", "Arcos", "Estructuras", "Ruinas",
-              "Arboles", "Vegetacion", "Hongos", "Vallas", "Luces", "Agua", "Props" };
+            { "Suelos", "Montanas", "Acantilados", "Cuevas", "Arena", "Agua",
+              "Arboles", "Arbustos", "Flores", "Pasto", "Hongos", "Musgo", "Enredaderas", "Coral",
+              "Piedras", "Rocas grandes", "Cristales",
+              "Muros", "Edificios", "Puentes", "Vallas", "Arcos", "Puertas",
+              "Escaleras", "Plataformas", "Techos", "Pilares", "Tuberias",
+              "Ruinas", "Estatuas", "Reliquias",
+              "Luces", "Caminos", "Props" };
+
+        /// <summary>Grupo grande seleccionado en el catálogo de 2 niveles del tab Scene Builder.</summary>
+        private static string scbGroup;
 
         /// <summary>Indicador de carga animado (3 puntos que laten) para las miniaturas que aún no se renderizaron.</summary>
         private static void DrawLoadingDots(Rect area)
@@ -951,13 +1181,16 @@ namespace SlimeCorralSpawn.UI
             return (string.IsNullOrEmpty(t) || t.StartsWith("scbcat_")) ? cat : t;
         }
 
-        private static string PrettyZone(string zone)
+        /// <summary>Nombre de grupo grande traducido (Terreno / Vegetación / Rocas / …).</summary>
+        private static string ScbGroupDisplay(string grp)
         {
-            if (string.IsNullOrEmpty(zone)) return zone;
-            string s = zone.StartsWith("zone") ? zone.Substring(4) : zone;
-            s = s.Replace("_", " ");
-            return s.Length == 0 ? zone : s;
+            string t = Loc.T("scbgrp_" + grp);
+            return (string.IsNullOrEmpty(t) || t.StartsWith("scbgrp_")) ? grp : t;
         }
+
+        // Nombres de zona legibles: compartidos con el Scene Tool vía SceneModelLibrary.PrettyZone
+        // (una sola fuente de verdad para el diccionario español, en vez de dos copias).
+        private static string PrettyZone(string zone) => SceneBuilder.SceneModelLibrary.PrettyZone(zone);
 
         private static void DrawSceneBuilderTab(float x, ref float y, float w)
         {
@@ -989,6 +1222,21 @@ namespace SlimeCorralSpawn.UI
             // Herramienta de escena: agarrar / mover / rotar / borrar lo YA colocado apuntando con la mira.
             if (ClickableBox(new Rect(x, y, w, 28), Loc.T("scb_tool_btn"), new Color(0.34f, 0.26f, 0.46f, 0.96f), labelStyle))
             { SceneBuilder.SceneBuilderTool.StartSceneTool(); CloseMenu(); }
+            y += 32f;
+
+            // SLIMESPAWNER: spawners de slimes y de gallinas. Cierra el menú para poder apuntar dónde colocarlo.
+            if (ClickableBox(new Rect(x, y, w, 28), $"{Loc.T("spw_btn")}  ({Spawners.SpawnerManager.Count})",
+                SlimeTheme.AccentPurple, labelStyle))
+            { CloseMenu(); Spawners.SpawnerMenuUI.Open(); }
+            y += 32f;
+
+            // Botón modo borrar escena: apuntás y click para borrar modelos colocados (mismo editor unificado).
+            if (ClickableBox(new Rect(x, y, w, 28), Loc.T("scb_del_tool_btn"), new Color(0.50f, 0.16f, 0.16f, 0.95f), labelStyle))
+            {
+                SceneBuilder.SceneBuilderTool.StartSceneTool();
+                SceneBuilder.SceneBuilderTool.SetToolMode(SceneBuilder.ToolMode.Delete);
+                CloseMenu();
+            }
             y += 32f;
             if (SceneBuilder.SceneModelStore.Working)
             {
@@ -1070,9 +1318,51 @@ namespace SlimeCorralSpawn.UI
             else
             {
                 var cats = SceneBuilder.SceneModelLibrary.GetCategories(scbZone);
+
+                // ── NIVEL 1: grupos grandes ──
+                var groupsHere = new List<string>();
+                foreach (var g in SceneBuilder.SceneModelLibrary.Groups)
+                    foreach (var c in cats) if (SceneBuilder.SceneModelLibrary.GroupOf(c) == g) { groupsHere.Add(g); break; }
+                if (groupsHere.Count == 0) { y += 6f; DrawSceneResetButton(x, ref y, w); return; }
+                if (string.IsNullOrEmpty(scbGroup) || !groupsHere.Contains(scbGroup)) scbGroup = groupsHere[0];
+
+                // El nivel 1 va dentro de su PROPIO panel (rótulo + barra lateral + fondo tenue) para que se
+                // distinga de un vistazo de la fila de subcategorías que va debajo.
+                int gRows = (groupsHere.Count + 2) / 3;
+                float gBoxH = 18f + gRows * 34f + 6f;
+                Rect gBox = new Rect(x - 4f, y - 3f, w + 8f, gBoxH);
+                Fill(gBox, new Color(SlimeTheme.GlowCyan.r, SlimeTheme.GlowCyan.g, SlimeTheme.GlowCyan.b, 0.10f));
+                Fill(new Rect(gBox.x, gBox.y, 3f, gBox.height), SlimeTheme.GlowCyan);
+
+                GUI.Label(new Rect(x + 4f, y, w - 8f, 16f), new GUIContent(Loc.T("st_group_hdr")), smallLabelStyle);
+                y += 18f;
+
+                int gPerRow = 3;
+                float gcw = (w - (gPerRow - 1) * 4f) / gPerRow;
+                for (int i = 0; i < groupsHere.Count; i++)
+                {
+                    int col = i % gPerRow;
+                    Rect gr = new Rect(x + col * (gcw + 4f), y, gcw, 30);
+                    bool gActive = groupsHere[i] == scbGroup;
+                    if (ClickableBox(gr, ScbGroupDisplay(groupsHere[i]),
+                        gActive ? SlimeTheme.GlowCyan : SlimeTheme.BackgroundButton, smallLabelStyle))
+                    { scbGroup = groupsHere[i]; scbCat = null; }
+                    if (col == gPerRow - 1 || i == groupsHere.Count - 1) y += 34f;
+                }
+                y += 8f;
+
+                // Flecha ▼ del grupo activo hacia sus subcategorías.
+                float arrowX = x + w * 0.5f;
+                for (int r = 0; r < 6; r++)
+                    Fill(new Rect(arrowX - (6 - r), y + r, (6 - r) * 2f, 1f), SlimeTheme.GlowCyan);
+                y += 10f;
+
+                // ── NIVEL 2: subcategorías del grupo elegido ──
                 var ordered = new List<string>();
-                foreach (var c in ScbCatOrder) if (cats.Contains(c)) ordered.Add(c);
-                foreach (var c in cats) if (!ordered.Contains(c)) ordered.Add(c);
+                foreach (var c in ScbCatOrder)
+                    if (cats.Contains(c) && SceneBuilder.SceneModelLibrary.GroupOf(c) == scbGroup) ordered.Add(c);
+                foreach (var c in cats)
+                    if (!ordered.Contains(c) && SceneBuilder.SceneModelLibrary.GroupOf(c) == scbGroup) ordered.Add(c);
                 if (ordered.Count == 0) { y += 6f; DrawSceneResetButton(x, ref y, w); return; }
                 if (string.IsNullOrEmpty(scbCat) || !ordered.Contains(scbCat)) scbCat = ordered[0];
 
@@ -1296,14 +1586,15 @@ namespace SlimeCorralSpawn.UI
 
         private static void DrawFreeBuildTab(float x, ref float y, float w)
         {
-            GUI.Label(new Rect(x, y, w, 22), new GUIContent(Loc.T("hdr_freebuild")), headerStyle);
-            y += 26f;
-            GUI.Label(new Rect(x + 4, y, w - 8, 36), new GUIContent(Loc.T("free_grid_scale")), tooltipStyle);
-            y += 40f;
+            Themes.UICards.SectionHeader(new Rect(x, y, w, 24), Loc.T("hdr_freebuild"), headerStyle, SlimeTheme.GlowCyan);
+            y += 28f;
+            GUI.Label(new Rect(x + 6, y, w - 10, 32), new GUIContent(Loc.T("free_grid_scale")), tooltipStyle);
+            y += 34f;
 
-            // Herramienta de dibujar suelo a mano (cobra por tamaño, ~25 NB la baldosa 1x1).
-            Rect floorRect = new Rect(x, y, w, 44);
-            if (ClickableBox(floorRect, Loc.T("btn_drawfloor"), SlimeTheme.BackgroundButtonActive, labelStyle))
+            // ── HERRAMIENTAS como tarjetas con icono (antes: 4 botones planos iguales) ──
+            Rect floorRect = new Rect(x, y, w, 46);
+            if (Themes.UICards.Row(floorRect, "floor", Loc.T("btn_drawfloor"), Loc.T("fb_sub_floor"), "",
+                                   new Color(0.35f, 0.75f, 0.88f), false, labelStyle, smallLabelStyle, priceStyle))
             {
                 PlacementManager.CancelIfPlacing();
                 FloorBuilder.Start();
@@ -1311,11 +1602,11 @@ namespace SlimeCorralSpawn.UI
             }
             if (floorRect.Contains(Event.current.mousePosition))
                 tooltipText = Loc.T("tip_floor", "Choose 2 corners with your aim; cost depends on area (1x1 ≈ 25 NB).");
-            y += 50f;
+            y += 51f;
 
-            // FREE DRAW: pincel a mano alzada — mantené click y barré para dejar bloques 1x1.
-            Rect drawRect = new Rect(x, y, w, 44);
-            if (ClickableBox(drawRect, Loc.T("btn_freedraw"), SlimeTheme.BackgroundButtonActive, labelStyle))
+            Rect drawRect = new Rect(x, y, w, 46);
+            if (Themes.UICards.Row(drawRect, "brush", Loc.T("btn_freedraw"), Loc.T("fb_sub_draw"), "",
+                                   new Color(0.55f, 0.72f, 0.95f), false, labelStyle, smallLabelStyle, priceStyle))
             {
                 PlacementManager.CancelIfPlacing();
                 FloorBuilder.Cancel();
@@ -1324,11 +1615,11 @@ namespace SlimeCorralSpawn.UI
             }
             if (drawRect.Contains(Event.current.mousePosition))
                 tooltipText = Loc.T("tip_freedraw", "Hold L-CLICK and sweep on a surface: leaves a flat stroke. Material = PaintTool's (F7).");
-            y += 50f;
+            y += 51f;
 
-            // FORMAS IRREGULARES: seleccionar puntos y rellenar el polígono.
-            Rect polyRect = new Rect(x, y, w, 44);
-            if (ClickableBox(polyRect, Loc.T("btn_polygon"), SlimeTheme.BackgroundButtonActive, labelStyle))
+            Rect polyRect = new Rect(x, y, w, 46);
+            if (Themes.UICards.Row(polyRect, "shape", Loc.T("btn_polygon"), Loc.T("fb_sub_shape"), "",
+                                   new Color(0.62f, 0.55f, 0.92f), false, labelStyle, smallLabelStyle, priceStyle))
             {
                 PlacementManager.CancelIfPlacing();
                 FloorBuilder.Cancel();
@@ -1337,11 +1628,27 @@ namespace SlimeCorralSpawn.UI
             }
             if (polyRect.Contains(Event.current.mousePosition))
                 tooltipText = Loc.T("tip_polygon", "Click points to outline any shape, ENTER to fill it. Material = PaintTool's.");
-            y += 50f;
+            y += 51f;
 
-            // Modo Quitar: apuntá y click para romper estructuras/suelos/plots (también con F9).
-            Rect rmRect = new Rect(x, y, w, 44);
-            if (ClickableBox(rmRect, Loc.T("btn_remove"), SlimeTheme.InvalidRed, labelStyle))
+            // BORRAR LO DIBUJADO: botón rojo con icono de papelera (pedido explícito).
+            Rect eraseRect = new Rect(x, y, w, 46);
+            if (Themes.UICards.Row(eraseRect, "trash", Loc.T("fb_erase_drawn"), Loc.T("fb_erase_sub"), "",
+                                   SlimeTheme.InvalidRed, _eraseArmed, labelStyle, smallLabelStyle, priceStyle))
+            {
+                if (!_eraseArmed) _eraseArmed = true;      // 1er click: arma (evita borrar sin querer)
+                else
+                {
+                    _eraseArmed = false;
+                    try { StructureManager.DeleteAllDrawn(); } catch (Exception ex) { ModEntry.LogErrorOnce("EraseDrawn", ex); }
+                }
+            }
+            if (eraseRect.Contains(Event.current.mousePosition))
+                tooltipText = _eraseArmed ? Loc.T("fb_erase_confirm") : Loc.T("fb_erase_tip");
+            y += 51f;
+
+            Rect rmRect = new Rect(x, y, w, 46);
+            if (Themes.UICards.Row(rmRect, "trash", Loc.T("btn_remove"), Loc.T("fb_sub_remove"), "",
+                                   new Color(0.92f, 0.45f, 0.32f), false, labelStyle, smallLabelStyle, priceStyle))
             {
                 PlacementManager.CancelIfPlacing();
                 FloorBuilder.Cancel();
@@ -1350,10 +1657,10 @@ namespace SlimeCorralSpawn.UI
             }
             if (rmRect.Contains(Event.current.mousePosition))
                 tooltipText = Loc.T("tip_remove", "Aim at a structure/floor/plot and click to break it. Esc/R-Click = exit.");
-            y += 50f;
+            y += 56f;
 
-            GUI.Label(new Rect(x, y, w, 22), new GUIContent(Loc.T("hdr_blocks")), headerStyle);
-            y += 28f;
+            Themes.UICards.SectionHeader(new Rect(x, y, w, 24), Loc.T("hdr_blocks"), headerStyle, SlimeTheme.PrimaryPink);
+            y += 30f;
 
             DrawStructCategoryRow(x, ref y, w);
 
@@ -1363,15 +1670,20 @@ namespace SlimeCorralSpawn.UI
                 var s = defs[i];
                 if (s.Category != structCat) continue;
                 if (s.Id != null && s.Id.StartsWith("free_")) continue;   // defs internas (free_floor/free_cube)
-                Rect btnRect = new Rect(x, y, w, 40);
-                if (ClickableBox(btnRect, $"{Loc.StructName(s.Id)}  |  {StructureManager.GetCost(s)} NB", SlimeTheme.BackgroundButton, labelStyle))
+                Rect btnRect = new Rect(x, y, w, 44);
+                string sname = Loc.StructName(s.Id);
+                // MUESTRA del material: el icono se tiñe con el color real del material (madera/piedra/mármol…)
+                // → se distinguen de un vistazo en vez de ser todas filas beige iguales.
+                Color sw = Themes.UICards.Swatch(s.Id + " " + sname);
+                if (Themes.UICards.Row(btnRect, Themes.UICards.GuessIcon(s.Id + " " + sname), sname, s.Category.ToString(),
+                                       StructureManager.GetCost(s).ToString(), sw, false, labelStyle, smallLabelStyle, priceStyle))
                 {
                     StructureManager.StartPlacement(s, true);   // freeMode = true
                     PlacementManager.StartPlacement(0, PlotType.Empty, PlotSize.Size1x1, StructureManager.GetCost(s));
                     CloseMenu();
                 }
                 if (btnRect.Contains(Event.current.mousePosition)) tooltipText = s.Description;
-                y += 44f;
+                y += 49f;
             }
 
             // Editor: lista de lo construido con borrar.
@@ -1409,11 +1721,9 @@ namespace SlimeCorralSpawn.UI
 
         private static void DrawPlacedPlotsList(float x, ref float y, float w)
         {
-            Fill(new Rect(x, y, w, 2), SlimeTheme.BorderSubtle);
-            y += 10f;
-
-            GUI.Label(new Rect(x, y, w, 22), new GUIContent(Loc.T("hdr_your_plots")), headerStyle);
-            y += 28f;
+            y += 6f;
+            Themes.UICards.SectionHeader(new Rect(x, y, w, 24), Loc.T("hdr_your_plots"), headerStyle, SlimeTheme.PrimaryPink);
+            y += 30f;
 
             var placedPlots = ModDataManager.GetAllPlots();
             if (placedPlots.Count == 0)
@@ -1432,13 +1742,16 @@ namespace SlimeCorralSpawn.UI
                     string typeName = def != null ? Loc.PlotName(def.Type) : entry.PlotType;
                     string sizeLabel = entry.PlotSize.Replace("Size", "");
 
-                    Rect plotRect = new Rect(x, y, w, 38);
-                    if (ClickableBox(plotRect, $"{typeName} ({sizeLabel}) Lv.{entry.UpgradeLevel}", SlimeTheme.BackgroundButton, labelStyle))
+                    Rect plotRect = new Rect(x, y, w, 44);
+                    string ic2 = Themes.UICards.GuessIcon(entry.PlotType + " " + typeName);
+                    // Tarjeta con icono + nombre + "tamaño · nivel". El nivel se muestra como subtítulo legible.
+                    if (Themes.UICards.Row(plotRect, ic2, typeName, $"{sizeLabel}  ·  Lv.{entry.UpgradeLevel}", "",
+                                           PlotAccent(ic2), false, labelStyle, smallLabelStyle, priceStyle))
                     {
                         editingPlotUniqueId = entry.UniqueId;
                         showEditPanel = true;
                     }
-                    y += 43f;
+                    y += 49f;
                 }
             }
 
@@ -1659,7 +1972,7 @@ namespace SlimeCorralSpawn.UI
             Fill(tr, new Color(0.18f, 0.24f, 0.35f, 0.97f));               // navy
             Fill(new Rect(tr.x, tr.y, 3, tr.height), SlimeTheme.BackgroundButtonActive); // teal accent
             Color prev = GUI.color;
-            GUI.color = SlimeTheme.CreamText;
+            GUI.color = SlimeTheme.Themed(SlimeTheme.CreamText);
             GUI.Label(new Rect(tr.x + 10, tr.y + 4, tr.width - 16, 22), new GUIContent(tooltipText), tooltipStyle);
             GUI.color = prev;
         }
@@ -1667,7 +1980,7 @@ namespace SlimeCorralSpawn.UI
         private static void Fill(Rect rect, Color color)
         {
             Color prev = GUI.color;
-            GUI.color = color;
+            GUI.color = SlimeTheme.Themed(color);
             GUI.DrawTexture(rect, Texture2D.whiteTexture);
             GUI.color = prev;
         }
@@ -1715,6 +2028,9 @@ namespace SlimeCorralSpawn.UI
             Color bottom = Color.Lerp(Color.Lerp(SlimeTheme.BackgroundDark, Color.black, 0.05f), SlimeTheme.GlowCyan, 0.06f);
             FillVGradient(rect, top, bottom, 28);
 
+            // Manchas de slime decorativas (detrás del contenido, muy sutiles) → look Slime Rancher sin molestar.
+            Themes.SlimeDecor.Corner(rect);
+
             // Borde rosa + realce interior claro arriba (bisel suave).
             Color border = SlimeTheme.PrimaryPink;
             Fill(new Rect(rect.x, rect.y, rect.width, 3), border);
@@ -1735,15 +2051,16 @@ namespace SlimeCorralSpawn.UI
 
         private static Texture2D GradTex(Color top, Color bottom)
         {
-            string key = ColKey(top) + "|" + ColKey(bottom);
+            string key = SlimeTheme.Version + "|" + ColKey(top) + "|" + ColKey(bottom);
             if (_gradCache.TryGetValue(key, out var t) && t != null) return t;
+            Color themedTop = SlimeTheme.Themed(top), themedBottom = SlimeTheme.Themed(bottom);
             const int H = 64;
             t = new Texture2D(1, H, TextureFormat.RGBA32, false);
             t.wrapMode = TextureWrapMode.Clamp;
             t.filterMode = FilterMode.Bilinear;
             t.hideFlags = HideFlags.HideAndDontSave;
             var cols = new Color[H];
-            for (int y = 0; y < H; y++) cols[y] = Color.Lerp(bottom, top, y / (float)(H - 1));   // y=0 abajo, y=H-1 arriba
+            for (int y = 0; y < H; y++) cols[y] = Color.Lerp(themedBottom, themedTop, y / (float)(H - 1));   // y=0 abajo, y=H-1 arriba
             t.SetPixels(cols);
             t.Apply(false, false);
             _gradCache[key] = t;
@@ -1767,6 +2084,9 @@ namespace SlimeCorralSpawn.UI
             FillVGradient(titleRect, SlimeTheme.BackgroundPanel, Color.Lerp(SlimeTheme.BackgroundPanel, SlimeTheme.PrimaryPink, 0.14f), 10);
             Fill(new Rect(titleRect.x, titleRect.y, 6, titleRect.height), SlimeTheme.PrimaryPink);
             Fill(new Rect(titleRect.x, titleRect.yMax - 4, titleRect.width, 4), SlimeTheme.BackgroundButtonActive);
+            // Gotitas de slime decorativas a la derecha del banner (detrás del texto, sutiles).
+            Themes.SlimeDecor.Drop(titleRect.xMax - 34f, titleRect.y + 20f, 16f, new Color(SlimeTheme.PrimaryPink.r, SlimeTheme.PrimaryPink.g, SlimeTheme.PrimaryPink.b, 0.16f));
+            Themes.SlimeDecor.Drop(titleRect.xMax - 60f, titleRect.y + 40f, 9f, new Color(SlimeTheme.GlowCyan.r, SlimeTheme.GlowCyan.g, SlimeTheme.GlowCyan.b, 0.14f));
             // Sheen: una banda de luz suave recorre el banner lentamente (efecto sutil, se siente "vivo").
             float sx = titleRect.x + Mathf.Repeat(Time.realtimeSinceStartup * 45f, titleRect.width + 140f) - 70f;
             for (int i = 0; i < 4; i++)
@@ -1799,11 +2119,13 @@ namespace SlimeCorralSpawn.UI
             return clicked;
         }
 
-        /// <summary>Texto navy sobre fondos claros (crema), crema sobre fondos oscuros (rosa/teal).</summary>
+        /// <summary>Texto navy sobre fondos claros (crema), crema sobre fondos oscuros (rosa/teal). Calcula el
+        /// contraste contra el color YA temateado (lo que realmente se va a pintar), no el original.</summary>
         private static Color AutoText(Color bg)
         {
-            float lum = bg.r * 0.299f + bg.g * 0.587f + bg.b * 0.114f;
-            return lum < 0.55f ? SlimeTheme.CreamText : SlimeTheme.TextWhite;
+            Color themedBg = SlimeTheme.Themed(bg);
+            float lum = themedBg.r * 0.299f + themedBg.g * 0.587f + themedBg.b * 0.114f;
+            return lum < 0.55f ? SlimeTheme.Themed(SlimeTheme.CreamText) : SlimeTheme.Themed(SlimeTheme.TextWhite);
         }
 
         private static bool ClickableBoxSmall(Rect rect, string text, bool active)
@@ -1819,7 +2141,7 @@ namespace SlimeCorralSpawn.UI
             if (e.type == EventType.MouseDown && e.button == 0 && hover) { clicked = true; e.Use(); }
 
             Color prev = GUI.color;
-            GUI.color = active ? SlimeTheme.CreamText : SlimeTheme.TextWhite;
+            GUI.color = SlimeTheme.Themed(active ? SlimeTheme.CreamText : SlimeTheme.TextWhite);
             GUI.Label(rect, new GUIContent(text), smallLabelStyle);
             GUI.color = prev;
             return clicked;

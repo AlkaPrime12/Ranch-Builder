@@ -21,11 +21,36 @@ namespace SlimeCorralSpawn.SceneBuilder
         private static readonly Vector3 Stage = new Vector3(0f, 6000f, 0f);
 
         // Throttle: no renderizar en CADA frame (ReadPixels es un stall GPU→CPU caro). Cada N frames.
-        private static int _frameGate;
+
+        // VERSIÓN del caché de miniaturas: al subirla, las .sct viejas se borran UNA vez y se re-renderizan.
+        // v2 = se fuerza LOD0 al clonar (antes el LODGroup dejaba DOS niveles visibles y la miniatura mostraba
+        // "2 modelos superpuestos"). Las guardadas con el bug hay que rehacerlas.
+        // v3 = fix del clon diferido (las v2 quedaron con DOS modelos superpuestos por foto) → se regeneran.
+        private const int ThumbCacheVersion = 3;
+        private static bool _cachePurged;
 
         private static string Dir => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
             "SlimeRancher2", "SlimeCorralSpawn", "scenebuilder_thumbs");
+
+        /// <summary>Borra UNA sola vez las miniaturas de una versión anterior (marcador en la propia carpeta).</summary>
+        private static void PurgeOldCacheOnce()
+        {
+            if (_cachePurged) return;
+            _cachePurged = true;
+            try
+            {
+                if (!Directory.Exists(Dir)) return;
+                string stamp = Path.Combine(Dir, "cache_v" + ThumbCacheVersion + ".marker");
+                if (File.Exists(stamp)) return;                       // ya purgado para esta versión
+                foreach (var old in Directory.GetFiles(Dir, "*.marker")) { try { File.Delete(old); } catch { } }
+                int n = 0;
+                foreach (var f in Directory.GetFiles(Dir, "*.sct")) { try { File.Delete(f); n++; } catch { } }
+                try { File.WriteAllText(stamp, "ok"); } catch { }
+                if (n > 0) ModEntry.LogInfo($"[Thumbs] Caché v{ThumbCacheVersion}: {n} miniatura(s) vieja(s) borradas → se regeneran con LOD0.");
+            }
+            catch { }
+        }
 
         private static readonly Dictionary<string, Texture2D> _cache = new Dictionary<string, Texture2D>();
         private static readonly HashSet<string> _failed = new HashSet<string>();
@@ -51,6 +76,7 @@ namespace SlimeCorralSpawn.SceneBuilder
         public static Texture2D Get(SceneModelInfo m)
         {
             if (m == null) return null;
+            PurgeOldCacheOnce();   // 1ª vez: tira las miniaturas de versiones viejas (p.ej. las del doble modelo)
             string key = KeyOf(m);
             if (_cache.TryGetValue(key, out var t)) return t;
             if (_failed.Contains(key)) return null;
@@ -63,16 +89,19 @@ namespace SlimeCorralSpawn.SceneBuilder
             return null;
         }
 
-        /// <summary>Procesar como mucho 1 render cada 3 frames (ReadPixels es caro). Solo con el menú abierto.</summary>
+        /// <summary>Renderiza hasta 2 miniaturas por frame (ReadPixels es caro pero llena mucho más rápido el
+        /// catálogo). Solo con el menú F5 o el Scene Tool abiertos.</summary>
         public static void Tick()
         {
             if (_queue.Count == 0) return;
-            if (++_frameGate < 2) return;   // ~1 miniatura cada 2 frames → llena rápido pero suave
-            _frameGate = 0;
-            var m = _queue.Dequeue();
-            _queued.Remove(KeyOf(m));
-            try { RenderOne(m); }
-            catch (Exception ex) { _failed.Add(KeyOf(m)); ModEntry.LogErrorOnce("Thumb.RenderOne:" + m?.Key, ex); }
+            int budget = 2;
+            while (_queue.Count > 0 && budget-- > 0)
+            {
+                var m = _queue.Dequeue();
+                _queued.Remove(KeyOf(m));
+                try { RenderOne(m); }
+                catch (Exception ex) { _failed.Add(KeyOf(m)); ModEntry.LogErrorOnce("Thumb.RenderOne:" + m?.Key, ex); }
+            }
         }
 
         public static bool HasWork => _queue.Count > 0;
@@ -167,17 +196,23 @@ namespace SlimeCorralSpawn.SceneBuilder
                 _cam.targetTexture = null;
                 RenderTexture.ReleaseTemporary(rt);
 
-                // ¿Salió (casi) vacía? El modelo pudo estar sin materiales listos → reintentar un par de veces.
-                if (IsMostlyEmpty(tex))
+                // ¿Salió (casi) vacía o CORRUPTA (magenta = shader roto)? El modelo pudo no tener materiales listos
+                // → reintentar unas veces sin cachear la mala. Una miniatura corrupta NO se guarda a disco (así se
+                // regenera la próxima vez que la fuente esté bien, en vez de quedar pegada rota).
+                if (IsMostlyEmpty(tex) || IsCorrupt(tex))
                 {
                     _attempts.TryGetValue(key, out int at);
-                    if (at < 3)
+                    if (at < 4)
                     {
                         _attempts[key] = at + 1;
                         try { UnityEngine.Object.Destroy(tex); } catch { }
                         if (_queued.Add(key)) _queue.Enqueue(m);   // reintentar más tarde
                         return;
                     }
+                    // Se agotaron los reintentos → la mostramos igual (mejor algo que nada) pero NO la persistimos
+                    // a disco corrupta (para que un futuro intento la regenere).
+                    _cache[key] = tex;
+                    return;
                 }
 
                 _cache[key] = tex;
@@ -185,8 +220,34 @@ namespace SlimeCorralSpawn.SceneBuilder
             }
             finally
             {
-                try { UnityEngine.Object.Destroy(clone); } catch { }
+                // DestroyImmediate, NO Destroy: Destroy() es DIFERIDO al final del frame, así que el modelo de la
+                // miniatura anterior seguía VIVO en el escenario cuando se fotografiaba el siguiente → salían DOS
+                // modelos superpuestos en la misma foto (y por eso muchas miniaturas se parecían entre sí).
+                try { UnityEngine.Object.DestroyImmediate(clone); } catch { try { UnityEngine.Object.Destroy(clone); } catch { } }
+                ClearStage();
             }
+        }
+
+        /// <summary>Red de seguridad: borra CUALQUIER resto que haya quedado en el escenario de fotos. Si un clon
+        /// sobrevive (excepción, destrucción diferida), contaminaría todas las miniaturas siguientes.</summary>
+        private static void ClearStage()
+        {
+            try
+            {
+                var all = UnityEngine.Object.FindObjectsOfType<Renderer>();
+                if (all == null) return;
+                for (int i = 0; i < all.Length; i++)
+                {
+                    var r = all[i]; if (r == null) continue;
+                    var go = r.gameObject; if (go == null) continue;
+                    if (go.layer != ThumbLayer) continue;                       // solo la capa aislada del thumb
+                    if ((go.transform.position - Stage).sqrMagnitude > 250000f) continue;
+                    var root = go.transform.root != null ? go.transform.root.gameObject : go;
+                    if (root == _rig) continue;                                  // el rig de la cámara/luz se queda
+                    try { UnityEngine.Object.DestroyImmediate(root); } catch { }
+                }
+            }
+            catch { }
         }
 
         private static void EnsureRig()
@@ -260,6 +321,35 @@ namespace SlimeCorralSpawn.SceneBuilder
             catch { return false; }
         }
 
+        /// <summary>True si la miniatura está CORRUPTA: mayormente MAGENTA (shader roto en HDRP) o un único color
+        /// plano sin ningún detalle (material no resuelto). Solo detecta casos claros (para no descartar buenas).</summary>
+        private static bool IsCorrupt(Texture2D tex)
+        {
+            try
+            {
+                var px = tex.GetPixels32();
+                if (px == null || px.Length == 0) return true;
+                int op = 0, magenta = 0;
+                long sr = 0, sg = 0, sb = 0;
+                // varianza aprox: acumular min/max por canal sobre los opacos
+                int rmin = 255, rmax = 0, gmin = 255, gmax = 0, bmin = 255, bmax = 0;
+                for (int i = 0; i < px.Length; i += 5)
+                {
+                    var p = px[i]; if (p.a <= 20) continue;
+                    op++; sr += p.r; sg += p.g; sb += p.b;
+                    if (p.r > 180 && p.b > 180 && p.g < 120) magenta++;   // magenta = R y B altos, G bajo
+                    if (p.r < rmin) rmin = p.r; if (p.r > rmax) rmax = p.r;
+                    if (p.g < gmin) gmin = p.g; if (p.g > gmax) gmax = p.g;
+                    if (p.b < bmin) bmin = p.b; if (p.b > bmax) bmax = p.b;
+                }
+                if (op < 8) return false;   // casi vacía → lo maneja IsMostlyEmpty
+                if (magenta / (float)op > 0.5f) return true;   // shader roto
+                int spread = (rmax - rmin) + (gmax - gmin) + (bmax - bmin);
+                return spread < 12;   // un solo color plano sin detalle → material no resuelto
+            }
+            catch { return false; }
+        }
+
         /// <summary>True si la miniatura quedó casi transparente (fondo solo) → render fallido.</summary>
         private static bool IsMostlyEmpty(Texture2D tex)
         {
@@ -293,6 +383,25 @@ namespace SlimeCorralSpawn.SceneBuilder
 
         /// <summary>Invalida TODAS las miniaturas (memoria + PNG en disco) para que se regeneren con las texturas
         /// nuevas. Lo usa el botón "Actualizar texturas".</summary>
+        /// <summary>Invalida SOLO las miniaturas de esas claves "zona/key" (las de la zona del jugador tras
+        /// "Actualizar texturas"). Antes se borraban TODAS y había que re-renderizar miles sin necesidad.</summary>
+        public static void InvalidateMatching(System.Collections.Generic.HashSet<string> keys)
+        {
+            if (keys == null || keys.Count == 0) { InvalidateAll(); return; }
+            try
+            {
+                foreach (var ck in keys)
+                {
+                    if (string.IsNullOrEmpty(ck)) continue;
+                    if (_cache.TryGetValue(ck, out var t))
+                    { if (t != null) { try { UnityEngine.Object.Destroy(t); } catch { } } _cache.Remove(ck); }
+                    _failed.Remove(ck); _queued.Remove(ck); _attempts.Remove(ck); _notReady.Remove(ck);
+                    try { string f = Path.Combine(Dir, SafeFile(ck)); if (File.Exists(f)) File.Delete(f); } catch { }
+                }
+            }
+            catch (Exception ex) { ModEntry.LogErrorOnce("SceneThumbnailRenderer.InvalidateMatching", ex); }
+        }
+
         public static void InvalidateAll()
         {
             try
@@ -339,6 +448,14 @@ namespace SlimeCorralSpawn.SceneBuilder
                 for (int i = 0; i < n; i++) { int o = i * 4; colsM[i] = new Color32(raw[o], raw[o + 1], raw[o + 2], raw[o + 3]); }
                 tex.SetPixels32(new Il2CppStructArray<Color32>(colsM));
                 tex.Apply();
+                // Si la miniatura guardada quedó corrupta (magenta/plana de una versión vieja), la descartamos y
+                // borramos el archivo → se regenera con la fuente actual.
+                if (IsCorrupt(tex))
+                {
+                    try { UnityEngine.Object.Destroy(tex); } catch { }
+                    try { File.Delete(path); } catch { }
+                    return null;
+                }
                 return tex;
             }
             catch { return null; }

@@ -52,7 +52,7 @@ namespace SlimeCorralSpawn.Placement
                         CorralRegistrationHelper.RegisterPlotForInit(lp, pd.UniqueId);
                 }
 
-                var pcu = lp.GetComponent<Il2Cpp.PlortCollectorUpgrader>();
+                var pcu = CorralRegistrationHelper.ResolveUpgrader(lp);   // tolerante: corral Y estanque
                 var pc = CorralRegistrationHelper.ResolvePlortCollector(pcu, lp);
                 if (pc == null) continue;
 

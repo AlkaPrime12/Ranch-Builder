@@ -19,6 +19,18 @@ namespace SlimeCorralSpawn
         /// <summary>Material actualmente seleccionado (lo usa Free Draw para el bloque).</summary>
         public static Themes.MatKind CurrentMaterial => _mat;
 
+        /// <summary>Cambia el material activo desde otra herramienta (el selector del HUD de Draw Floor /
+        /// Irregular Shape). Es el MISMO material que usan todas las herramientas de construcción.</summary>
+        public static void SetMaterial(Themes.MatKind m) { _mat = m; }
+
+        /// <summary>Materiales ofrecidos en el selector rápido de los HUD de dibujo (los más usados para suelos).</summary>
+        public static readonly Themes.MatKind[] QuickMats =
+        {
+            Themes.MatKind.Wood, Themes.MatKind.Planks, Themes.MatKind.Stone, Themes.MatKind.Cobblestone,
+            Themes.MatKind.Brick, Themes.MatKind.Marble, Themes.MatKind.Sandstone, Themes.MatKind.Concrete,
+            Themes.MatKind.Slate, Themes.MatKind.Grass, Themes.MatKind.Dirt, Themes.MatKind.Snow,
+        };
+
         /// <summary>Color actualmente seleccionado (lo usa Free Draw como color del trazo).</summary>
         public static Color CurrentColor => _color;
 

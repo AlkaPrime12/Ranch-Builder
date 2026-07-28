@@ -62,6 +62,23 @@ namespace SlimeCorralSpawn.SceneBuilder
 
         private static void MarkAggDirty() => _aggDirty = true;
 
+        /// <summary>"Firma" del modelo para deduplicar: el nombre SIN números finales, sufijos de variante
+        /// (a/b/c), "_lod", "(1)", etc. Así 'lightPost01', 'lightPost02b' y 'lightPost_03' cuentan como el MISMO.</summary>
+        private static string BaseSignature(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return "";
+            string s = key;
+            int par = s.IndexOf('('); if (par > 0) s = s.Substring(0, par);        // " (3)"
+            s = s.Replace("_LOD", "").Replace("_lod", "");
+            s = s.TrimEnd(' ', '_', '-');
+            // Quitar sufijo de variante: dígitos finales y una letra suelta detrás de ellos ("02b" → "")
+            int end = s.Length;
+            while (end > 0 && char.IsLetter(s[end - 1]) && end >= 2 && char.IsDigit(s[end - 2])) end--;  // letra tras dígito
+            while (end > 0 && char.IsDigit(s[end - 1])) end--;                                            // dígitos
+            s = s.Substring(0, end).TrimEnd(' ', '_', '-');
+            return s.Length == 0 ? key : s.ToLowerInvariant();
+        }
+
         private static void RebuildAggIfNeeded()
         {
             if (!_aggDirty) return;
@@ -71,14 +88,245 @@ namespace SlimeCorralSpawn.SceneBuilder
             foreach (var m in _catalog.Values)
             {
                 if (m == null) continue;
-                if (!_agg.TryGetValue(m.Zone, out var cats))
-                { cats = new SortedDictionary<string, List<SceneModelInfo>>(StringComparer.OrdinalIgnoreCase); _agg[m.Zone] = cats; }
+                string gz = ZoneGroupId(m.Zone);   // unificar sub-zonas (george1-5, gully, etc.) → zona real
+                if (!_agg.TryGetValue(gz, out var cats))
+                { cats = new SortedDictionary<string, List<SceneModelInfo>>(StringComparer.OrdinalIgnoreCase); _agg[gz] = cats; }
                 if (!cats.TryGetValue(m.Category, out var list)) { list = new List<SceneModelInfo>(); cats[m.Category] = list; }
                 list.Add(m);
             }
-            foreach (var cats in _agg.Values) foreach (var l in cats.Values) l.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
+            // DEDUPE: el juego repite el MISMO prop con nombres distintos (p.ej. decenas de luces idénticas en
+            // Starlight Strand, cada una con su sufijo). En el catálogo eso es ruido: mostramos UNA sola por
+            // "firma" (nombre base sin números/sufijos + su categoría). Se conserva la de nombre más corto/limpio.
+            foreach (var cats in _agg.Values)
+            {
+                foreach (var kv in cats)
+                {
+                    var l = kv.Value;
+                    l.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
+                    var seen = new Dictionary<string, SceneModelInfo>(StringComparer.OrdinalIgnoreCase);
+                    for (int i = 0; i < l.Count; i++)
+                    {
+                        var m = l[i]; if (m == null) continue;
+                        // Firma por GEOMETRÍA, no por nombre. Los nombres del juego mienten: "rock01" y "rock02"
+                        // suelen ser EXACTAMENTE la misma malla con el mismo material, y aparecían como dos
+                        // entradas distintas. Comparando vértices/triángulos/tamaño/materiales, dos props
+                        // idénticos colapsan en uno aunque sus nombres no se parezcan en nada.
+                        string sig = GeometrySignature(m) ?? BaseSignature(m.Key);
+                        if (!seen.TryGetValue(sig, out var prev)) seen[sig] = m;
+                        else if (m.Key.Length < prev.Key.Length) seen[sig] = m;   // preferimos el nombre más limpio
+                    }
+                    if (seen.Count < l.Count)
+                    {
+                        var deduped = new List<SceneModelInfo>(seen.Values);
+                        deduped.Sort((a, b) => string.CompareOrdinal(a.Key, b.Key));
+                        l.Clear(); l.AddRange(deduped);
+                    }
+                }
+            }
             _aggZones = new List<string>(_agg.Keys);
         }
+
+        // Firma de geometría cacheada por modelo (calcularla es caro: se hace una vez).
+        private static readonly Dictionary<string, string> _geoSig = new Dictionary<string, string>();
+
+        /// <summary>Huella de la GEOMETRÍA de un modelo: cantidad de mallas, vértices y triángulos totales, tamaño
+        /// del bounding box redondeado y nombres de material. Dos props que compartan todo eso son el MISMO prop
+        /// aunque se llamen distinto. Devuelve null si el modelo no está vivo (ahí se cae al nombre).</summary>
+        private static string GeometrySignature(SceneModelInfo m)
+        {
+            if (m == null) return null;
+            string ck = m.Zone + "/" + m.Key;
+            if (_geoSig.TryGetValue(ck, out var cached)) return cached;
+            if (!Alive(m.Sample)) return null;      // sin instancia viva no se puede medir: no cachear
+
+            string sig = null;
+            try
+            {
+                var mfs = m.Sample.GetComponentsInChildren<MeshFilter>(true);
+                if (mfs != null && mfs.Length > 0)
+                {
+                    int meshes = 0; long verts = 0, tris = 0;
+                    Bounds b = default; bool hasB = false;
+                    for (int i = 0; i < mfs.Length; i++)
+                    {
+                        var mesh = mfs[i] != null ? mfs[i].sharedMesh : null;
+                        if (mesh == null) continue;
+                        meshes++;
+                        verts += mesh.vertexCount;
+                        try { tris += mesh.triangles != null ? mesh.triangles.Length : 0; } catch { }
+                        if (!hasB) { b = mesh.bounds; hasB = true; } else b.Encapsulate(mesh.bounds);
+                    }
+                    if (meshes > 0)
+                    {
+                        var sb = new System.Text.StringBuilder(64);
+                        sb.Append(meshes).Append('|').Append(verts).Append('|').Append(tris).Append('|')
+                          .Append(b.size.x.ToString("0.0")).Append(',')
+                          .Append(b.size.y.ToString("0.0")).Append(',')
+                          .Append(b.size.z.ToString("0.0"));
+                        // Material: dos mallas iguales con materiales distintos SON props distintos (p.ej. la
+                        // misma roca en versión nevada) → el material entra en la firma.
+                        try
+                        {
+                            var rends = m.Sample.GetComponentsInChildren<MeshRenderer>(true);
+                            if (rends != null && rends.Length > 0)
+                            {
+                                var mat = rends[0].sharedMaterial;
+                                if (mat != null) sb.Append('|').Append(CleanName(mat.name));
+                            }
+                        }
+                        catch { }
+                        sig = sb.ToString();
+                    }
+                }
+            }
+            catch { }
+
+            if (sig != null) _geoSig[ck] = sig;
+            return sig;
+        }
+
+        private static string CleanName(string n)
+        {
+            if (string.IsNullOrEmpty(n)) return n;
+            int i = n.IndexOf(" (Instance)", StringComparison.Ordinal);
+            return i >= 0 ? n.Substring(0, i) : n;
+        }
+
+        // ── Unificación de zonas (display) ── mapea las raíces internas del juego (gully, george, gorge, etc.) a
+        // las 7 zonas REALES. Solo afecta el MENÚ (agregación + nombres visibles); la identidad de cada modelo y la
+        // carga a disco siguen usando su Zone cruda. Portado del build nuevo, funciones puras (no tocan la carga).
+        private static readonly (string id, string[] keys)[] ZoneMap =
+        {
+            ("conservatory", new[]{ "gully", "conservat", "hobsonranch", "playerranch", "ranch" }),
+            ("fields",       new[]{ "fields", "rainbow" }),
+            ("ember",        new[]{ "gorge", "ember" }),
+            ("starlight",    new[]{ "starlight", "strand", "beach", "coast" }),
+            ("bluffs",       new[]{ "bluffs", "powderfall", "powder", "tundra", "snow", "frost" }),
+            ("labyrinth",    new[]{ "labyrinth", "grey", "gray", "maze" }),
+            ("dreamland",    new[]{ "dreamland", "dream", "sanctuary", "nimble", "slumber" }),
+        };
+
+        public static string ZoneGroupId(string zone)
+        {
+            if (string.IsNullOrEmpty(zone)) return "other";
+            string z = zone.ToLowerInvariant();
+            foreach (var (id, keys) in ZoneMap)
+                foreach (var k in keys)
+                    if (z.Contains(k)) return id;
+            return zone;
+        }
+
+        public static string ZoneDisplay(string groupId)
+        {
+            switch (groupId)
+            {
+                case "conservatory": return Loc.T("zone_conservatory");
+                case "fields":       return Loc.T("zone_fields");
+                case "ember":        return Loc.T("zone_ember");
+                case "starlight":    return Loc.T("zone_starlight");
+                case "bluffs":       return Loc.T("zone_bluffs");
+                case "labyrinth":    return Loc.T("zone_labyrinth");
+                case "dreamland":    return Loc.T("zone_dreamland");
+                default:             return PrettyInternal(groupId);
+            }
+        }
+
+        private static string PrettyInternal(string zone)
+        {
+            if (string.IsNullOrEmpty(zone)) return zone;
+            string s = zone.StartsWith("zone", StringComparison.OrdinalIgnoreCase) ? zone.Substring(4) : zone;
+            s = s.Replace("_", " ").Trim();
+            if (s.IndexOf("Transition", StringComparison.OrdinalIgnoreCase) >= 0) return Loc.T("zone_transitions");
+            return s.Length == 0 ? zone : s;
+        }
+
+        /// <summary>Nombre de zona legible (traducido) para el menú. Acepta id de grupo o raíz interna legacy.</summary>
+        public static string PrettyZone(string zone) => ZoneDisplay(ZoneGroupId(zone));
+
+        // ── Compat con el build nuevo (la GUI/manager nuevos los llaman) sin cambiar la carga de modelos VIEJA ──
+        // LastSpawnOwned queda false → el manager nuevo no dispara el swap disco→vivo (el viejo no lo tenía).
+        /// <summary>True si el ÚLTIMO Spawn salió de la copia PROPIA de disco (aproximada) en vez de la instancia
+        /// VIVA del juego. El manager lo usa para marcar BuiltFromDisk y cambiarla sola al material VIVO cuando la
+        /// zona cargue → es lo que antes había que forzar a mano con "Actualizar texturas".</summary>
+        public static bool LastSpawnOwned { get; private set; }
+        // ── DIAG [MatCmp]: compara el MATERIAL del clon VIVO contra el RECONSTRUIDO de disco ────────────────────
+        // Se llama en el swap disco→vivo, el único instante en que ambos existen a la vez. Como el [Verify] ya
+        // probó que los .scmat/.scstex están TODOS en disco, el problema tiene que estar en cómo se RE-APLICAN al
+        // reconstruir. Esto vuelca, propiedad por propiedad, qué textura/valor difiere → fix dirigido, sin adivinar.
+        private static int _matCmpDiag = 4;
+        private static readonly HashSet<string> _matCmpDone = new HashSet<string>();
+
+        internal static void CompareLiveVsDisk(GameObject live, GameObject disk)
+        {
+            if (_matCmpDiag <= 0 || live == null || disk == null) return;
+            try
+            {
+                string k = null; try { k = live.name; } catch { }
+                if (k != null) { if (_matCmpDone.Contains(k)) return; _matCmpDone.Add(k); }
+
+                Renderer lr = null, dr = null;
+                try { var a = live.GetComponentsInChildren<Renderer>(true); if (a != null && a.Length > 0) lr = a[0]; } catch { }
+                try { var b = disk.GetComponentsInChildren<Renderer>(true); if (b != null && b.Length > 0) dr = b[0]; } catch { }
+                if (lr == null || dr == null) return;
+                Material lm = null, dm = null;
+                try { lm = lr.sharedMaterial; } catch { }
+                try { dm = dr.sharedMaterial; } catch { }
+                if (lm == null || dm == null) return;
+                _matCmpDiag--;
+
+                string ls = "?", ds = "?";
+                try { ls = lm.shader != null ? lm.shader.name : "null"; } catch { }
+                try { ds = dm.shader != null ? dm.shader.name : "null"; } catch { }
+                ModEntry.LogInfo($"[MatCmp] '{k}' shader vivo='{ls}' disco='{ds}' {(ls == ds ? "IGUAL" : "¡DISTINTO!")}");
+
+                // TEXTURAS: recorrer las propiedades de textura del shader vivo y comparar una por una.
+                try
+                {
+                    var names = lm.GetTexturePropertyNames();
+                    int same = 0, missing = 0, sizeDiff = 0;
+                    foreach (var pn in names)
+                    {
+                        Texture lt = null, dt = null;
+                        try { lt = lm.GetTexture(pn); } catch { }
+                        try { if (dm.HasProperty(pn)) dt = dm.GetTexture(pn); } catch { }
+                        if (lt == null && dt == null) continue;
+                        if (lt != null && dt == null)
+                        {
+                            missing++;
+                            if (missing <= 4) ModEntry.LogInfo($"[MatCmp]   FALTA textura en disco: {pn} (vivo {lt.width}x{lt.height})");
+                            continue;
+                        }
+                        if (lt != null && dt != null)
+                        {
+                            if (lt.width != dt.width || lt.height != dt.height)
+                            { sizeDiff++; if (sizeDiff <= 4) ModEntry.LogInfo($"[MatCmp]   tamano distinto: {pn} vivo={lt.width}x{lt.height} disco={dt.width}x{dt.height}"); }
+                            else same++;
+                        }
+                    }
+                    ModEntry.LogInfo($"[MatCmp]   texturas: iguales={same} faltantes={missing} tamanoDistinto={sizeDiff}");
+                }
+                catch { }
+
+                // Keywords: si difieren, el shader toma otro camino (features prendidas/apagadas) → se ve distinto.
+                try
+                {
+                    string lk = string.Join("|", lm.shaderKeywords), dk = string.Join("|", dm.shaderKeywords);
+                    if (lk != dk)
+                    {
+                        ModEntry.LogInfo($"[MatCmp]   keywords VIVO =[{lk}]");
+                        ModEntry.LogInfo($"[MatCmp]   keywords DISCO=[{dk}]  ¡DISTINTO!");
+                    }
+                    else ModEntry.LogInfo("[MatCmp]   keywords IGUALES");
+                }
+                catch { }
+
+                // renderQueue: si no coincide, puede dibujarse en el orden equivocado (transparencias raras).
+                try { if (lm.renderQueue != dm.renderQueue) ModEntry.LogInfo($"[MatCmp]   renderQueue vivo={lm.renderQueue} disco={dm.renderQueue}  ¡DISTINTO!"); } catch { }
+            }
+            catch (Exception ex) { ModEntry.LogErrorOnce("SceneModelLibrary.CompareLiveVsDisk", ex); }
+        }
+        // Compensación de ramp por altura del build nuevo: NO-OP → los modelos se ven EXACTAMENTE como en el viejo.
+        internal static void ApplyHeightRampOffset(GameObject go, float deltaY) { }
 
         public static List<string> GetZones()
         {
@@ -181,6 +429,22 @@ namespace SlimeCorralSpawn.SceneBuilder
             catch (Exception ex) { ModEntry.LogErrorOnce("SceneModelLibrary.EnsureParked", ex); }
         }
 
+        /// <summary>Aparca una copia viva de un modelo que NO se puede hornear a disco (malla no legible: vallas y
+        /// similares). Lo llama el store cuando agota los reintentos de horneado. Así el modelo sigue siendo
+        /// colocable el resto de la sesión aunque te alejes de su zona.</summary>
+        internal static void ParkFromLive(string zone, string key)
+        {
+            var info = FindModel(zone, key);
+            if (info == null) return;
+            if (!Alive(info.Sample))
+            {
+                var live = FindLiveByKey(zone, key);
+                if (live == null) return;
+                info.Sample = live.transform;
+            }
+            EnsureParked(info);
+        }
+
         // ─────────────────── hooks para persistencia en disco (SceneModelStore) ───────────────────
         /// <summary>Raíz inactiva DontDestroyOnLoad donde el store reconstruye los modelos horneados.</summary>
         public static Transform StagingRoot() => Staging();
@@ -196,7 +460,11 @@ namespace SlimeCorralSpawn.SceneBuilder
             {
                 Key = key,
                 Zone = zone,
-                Category = string.IsNullOrEmpty(category) ? Classify(key) : category,
+                // La categoría persistida en index.dat/.scsm se IGNORA a propósito: es puramente
+                // organizativa (se deriva del nombre) y quedó congelada con la clasificación vieja,
+                // donde p.ej. las montañas caían en "Suelos". Reclasificar acá hace que las
+                // subcategorías nuevas apliquen a todo lo ya guardado sin re-hornear nada.
+                Category = Classify(key),
                 Count = 0,
                 Sample = null,
                 SamplePath = null,
@@ -276,14 +544,26 @@ namespace SlimeCorralSpawn.SceneBuilder
             {
                 // SOLO re-armar lo que se RE-CAPTURÓ (modelos CARGADOS: Sample vivo). Lo de zonas NO cargadas se
                 // deja intacto: su copia propia y su .scmat/.scstex en disco no cambiaron → no se rompe ni degrada.
+                // ACOTADO A LA ZONA DEL JUGADOR: antes tocaba TODO lo cargado (SR2 tiene varias zonas cargadas a la
+                // vez → 1500+ modelos re-spawneados y TODAS las miniaturas invalidadas, aunque no hiciera falta).
+                // Ahora solo la zona donde está parado el jugador: más rápido y sin efectos colaterales.
+                string myZone = null;
+                try { myZone = ZoneGroupId(SceneBuilderManager.PlayerZoneHint() ?? MostPopulatedZone()); } catch { }
+
                 var refreshed = new HashSet<string>();
                 foreach (var kv in _catalog)
-                    if (kv.Value != null && Alive(kv.Value.Sample)) refreshed.Add(kv.Key);   // "zona/key" (solo lo cargado)
+                {
+                    var v = kv.Value;
+                    if (v == null || !Alive(v.Sample)) continue;                     // su zona debe estar cargada
+                    if (myZone != null && ZoneGroupId(v.Zone) != myZone) continue;   // ...y ser la del jugador
+                    refreshed.Add(kv.Key);
+                }
 
                 ClearParkedCopies(refreshed);
                 SceneBuilderManager.RespawnMatching(refreshed);
-                SceneThumbnailRenderer.InvalidateAll();
-                ModEntry.LogInfo($"[Store] Texturas nuevas aplicadas a {refreshed.Count} modelo(s) cargado(s).");
+                SceneThumbnailRenderer.InvalidateMatching(refreshed);   // solo las miniaturas de esa zona
+                ModEntry.LogInfo($"[Store] Texturas nuevas aplicadas a {refreshed.Count} modelo(s) de la zona actual" +
+                                 (myZone != null ? $" ({ZoneDisplay(myZone)})" : "") + ".");
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("SceneModelLibrary.ApplyTextureRefresh", ex); }
         }
@@ -348,15 +628,99 @@ namespace SlimeCorralSpawn.SceneBuilder
         /// material con el shader real reconstruido).</summary>
         private static GameObject SourceFor(SceneModelInfo info)
         {
+            LastSpawnOwned = false;
             if (info == null) return null;
             if (Alive(info.Sample)) return info.Sample.gameObject;   // material REAL del juego (perfecto)
             string ck = ParkKey(info);
-            if (_parked.TryGetValue(ck, out var owned) && owned != null) return owned;
+            // A partir de acá es una copia PROPIA (de disco): se ve aproximada. Marcamos LastSpawnOwned=true para
+            // que el manager la registre como BuiltFromDisk y la CAMBIE SOLA al material VIVO cuando su zona
+            // cargue. Antes esto quedaba fijo en false → el swap nunca corría y había que apretar "Actualizar
+            // texturas" a mano para que se vieran bien.
+            if (_parked.TryGetValue(ck, out var owned) && owned != null) { LastSpawnOwned = true; return owned; }
             if (SceneModelStore.HasBaked(info.Zone, info.Key))
             {
                 var r = SceneModelStore.ReconstructNow(info.Zone, info.Key);
-                if (r != null) { _parked[ck] = r; return r; }
+                if (r != null) { _parked[ck] = r; LastSpawnOwned = true; return r; }
             }
+            // ÚLTIMO RECURSO: el modelo figura como disponible (tiene miniatura y CanSpawn=true) pero no se pudo
+            // reconstruir de disco — típico de mallas NO LEGIBLES, p.ej. las VALLAS: se veía la preview pero al
+            // clickearlas no aparecía ningún ghost. Si su zona está cargada, clonamos la instancia viva aunque el
+            // Sample haya muerto, buscándola de nuevo por nombre en la escena.
+            var live = FindLiveByKey(info.Zone, info.Key);
+            if (live != null)
+            {
+                info.Sample = live.transform;    // re-vincular para las próximas veces
+                EnsureParked(info);              // y aparcarlo YA, para que no se pierda al descargar la zona
+                LastSpawnOwned = false;
+                return live;
+            }
+            DumpGhostFailure(info, ck);
+            return null;
+        }
+
+        // Modelos cuyo fallo de ghost ya se reportó (una línea por modelo, no spam por frame).
+        private static readonly HashSet<string> _ghostReported = new HashSet<string>();
+
+        /// <summary>Cuando NO se puede dar un ghost, decir EXACTAMENTE en qué eslabón se cortó. Sin esto, clickear
+        /// una valla simplemente no hacía nada y no había forma de saber por qué.</summary>
+        private static void DumpGhostFailure(SceneModelInfo info, string ck)
+        {
+            try
+            {
+                if (!_ghostReported.Add(ck)) return;
+                bool baked = SceneModelStore.HasBaked(info.Zone, info.Key);
+                bool zoneLoaded = false;
+                try
+                {
+                    for (int i = 0; i < SceneManager.sceneCount; i++)
+                    {
+                        var sc = SceneManager.GetSceneAt(i);
+                        if (sc.isLoaded && ZoneGroupId(sc.name) == ZoneGroupId(info.Zone)) { zoneLoaded = true; break; }
+                    }
+                }
+                catch { }
+                ModEntry.LogInfo($"[Ghost] SIN FUENTE para '{info.Zone}/{info.Key}' (cat={info.Category}) → " +
+                                 $"sampleVivo=false aparcado=false enDisco={baked} vivoEncontrado=false zonaCargada={zoneLoaded}. " +
+                                 (baked ? "Está en disco pero la reconstrucción falló."
+                                        : "NO está en disco (malla no legible: típico de vallas) y su zona no está cargada → visitá esa zona una vez para que quede disponible."));
+            }
+            catch { }
+        }
+
+        /// <summary>Busca en la escena una instancia VIVA del modelo por su clave (cuando el Sample murió por un
+        /// re-stream de la zona). Presupuestado: solo mira los renderers activos, y cachea el resultado en Sample.</summary>
+        private static GameObject FindLiveByKey(string zone, string key)
+        {
+            if (string.IsNullOrEmpty(key)) return null;
+            try
+            {
+                // includeInactive=true: las vallas y otros props suelen colgar de un LODGroup que los DESACTIVA a
+                // distancia. Con el barrido de solo-activos no aparecían nunca y el ghost quedaba en null.
+                var rends = UnityEngine.Object.FindObjectsOfType<MeshRenderer>(true);
+                if (rends == null) return null;
+                string sig = BaseSignature(key);
+                GameObject porFirma = null;   // coincidencia aproximada: solo si no hay una exacta
+                for (int i = 0; i < rends.Length; i++)
+                {
+                    var r = rends[i]; if (r == null) continue;
+                    var go = r.gameObject; if (go == null) continue;
+                    string n = go.name;
+                    if (string.IsNullOrEmpty(n) || n.StartsWith("SCS")) continue;    // no re-capturar lo del mod
+                    string bk = BaseKey(n);
+
+                    // Preferimos la raíz del LODGroup si la hay (el prop entero, no una pieza suelta)
+                    var lodT = go.transform;
+                    try { var lg = go.GetComponentInParent<LODGroup>(); if (lg != null) lodT = lg.transform; } catch { }
+
+                    if (string.Equals(bk, key, StringComparison.OrdinalIgnoreCase)) return lodT.gameObject;
+                    // 2ª oportunidad: misma FIRMA base (mismo prop, otra variante numérica). Tras el dedupe del
+                    // catálogo, la clave guardada puede no ser la de la instancia que quedó viva en la escena.
+                    if (porFirma == null && string.Equals(BaseSignature(bk), sig, StringComparison.OrdinalIgnoreCase))
+                        porFirma = lodT.gameObject;
+                }
+                if (porFirma != null) return porFirma;
+            }
+            catch (Exception ex) { ModEntry.LogErrorOnce("SceneModelLibrary.FindLiveByKey", ex); }
             return null;
         }
 
@@ -392,14 +756,17 @@ namespace SlimeCorralSpawn.SceneBuilder
             return SceneModelStore.HasBaked(info.Zone, info.Key);
         }
 
-        // Categorías que NO deben tener colisión al colocarse (plantas/vegetación/agua): atravesables, como en el
-        // juego base. Las ESTRUCTURAS, suelos, piedras, etc. SÍ llevan colisión (podés caminarlas/chocarlas).
+        // Categorías que NO deben tener colisión al colocarse (plantas/agua): atravesables, como en el juego base.
+        // Las ESTRUCTURAS, suelos, piedras, etc. SÍ llevan colisión (podés caminarlas/chocarlas).
+        // OJO: al subdividir la vegetación en Arboles/Arbustos/Flores/Pasto/… la categoría "Vegetacion" dejó de
+        // existir como subcategoría (ahora es un GRUPO), así que esto se resuelve por GRUPO — si no, todas las
+        // plantas nuevas pasarían a tener colisión.
         private static readonly HashSet<string> NoCollisionCategories = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        { "Vegetacion", "Arboles", "Hongos", "Agua" };
+        { "Agua" };
 
         // Categorías de PISO/SUELO: cargan PRIMERO (para poder pararse encima y que los slimes no se caigan).
         private static readonly HashSet<string> FloorCategories = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        { "Suelos", "Caminos" };
+        { "Suelos", "Caminos", "Plataformas", "Arena" };
 
         /// <summary>True si el modelo es de categoría PISO/SUELO (para priorizar su carga).</summary>
         public static bool IsFloorCategory(SceneModelInfo info)
@@ -414,7 +781,9 @@ namespace SlimeCorralSpawn.SceneBuilder
         {
             if (info == null) return true;
             string cat = string.IsNullOrEmpty(info.Category) ? Classify(info.Key) : info.Category;
-            return !NoCollisionCategories.Contains(cat);
+            if (NoCollisionCategories.Contains(cat)) return false;
+            // Toda la VEGETACIÓN es atravesable, sea cual sea su subcategoría.
+            return !string.Equals(GroupOf(cat), "Vegetacion", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>Clona el modelo en pos/rot, sin lógica de juego. Devuelve el clon o null.
@@ -481,6 +850,23 @@ namespace SlimeCorralSpawn.SceneBuilder
         {
             try
             {
+                // FORZAR LOD0: sin esto el LODGroup deja VISIBLES DOS niveles de detalle a la vez (crossfade
+                // dithering) → en las miniaturas se veían "2 modelos superpuestos" y en el mundo un patrón de
+                // puntos. Con ForceLOD(0) el prop queda siempre en máximo detalle, sin transiciones.
+                try
+                {
+                    var lods = clone.GetComponentsInChildren<LODGroup>(true);
+                    if (lods != null)
+                        foreach (var lg in lods)
+                        {
+                            if (lg == null) continue;
+                            try { lg.fadeMode = LODFadeMode.None; } catch { }
+                            try { lg.animateCrossFading = false; } catch { }
+                            try { lg.ForceLOD(0); } catch { }
+                        }
+                }
+                catch { }
+
                 var behaviours = clone.GetComponentsInChildren<MonoBehaviour>(true);
                 if (behaviours != null)
                     foreach (var b in behaviours)
@@ -530,10 +916,56 @@ namespace SlimeCorralSpawn.SceneBuilder
                     }
                 }
 
+                // AUTO-GUARDADO DE ZONA (en 2do plano, presupuestado): a medida que caminás por una zona, todo lo
+                // que se detecta con muestra VIVA se hornea a disco solo. Así los modelos de zonas que el jugador
+                // "no tenía guardadas" quedan guardados y NO desaparecen al irse / reiniciar, y se pueden colocar
+                // desde cualquier otra zona. Sin esto solo persistía lo colocado a mano o el botón "Guardar zonas".
+                if (!heavy) AutoBakeStep();
+
                 // Persistencia en disco: indexar lo guardado + avanzar el trabajo en segundo plano (presupuestado).
                 SceneModelStore.Tick();
             }
             catch (Exception ex) { ModEntry.LogErrorOnce("SceneModelLibrary.Tick", ex); }
+        }
+
+        // ── Auto-guardado de la zona actual (background, sin lag) ──────────────────────────────────────────────
+        // Recorre el catálogo de a poco (cursor incremental) y encola el horneado de lo que tiene Sample VIVO y
+        // todavía no está en disco. Usa la MISMA cola presupuestada del store (7 ms/frame) → no traba el juego.
+        private static readonly List<string> _autoBakeKeys = new List<string>();
+        private static int _autoBakeCursor;
+        private static float _autoBakeThrottle;
+        private static float _autoBakeCalm;   // segundos de calma tras terminar de colocar (el bake espera)
+        public static bool AutoBakeEnabled = true;
+
+        private static void AutoBakeStep()
+        {
+            if (!AutoBakeEnabled) return;
+            // PRIORIDAD ABSOLUTA: primero aparece TODO lo que colocó el jugador. El horneado del resto de la zona
+            // NO arranca hasta que no quede ni un solo pendiente Y hayan pasado unos segundos de calma (si no, el
+            // bake le robaba tiempo al spawn y se sentía "carga lenta y después hornea").
+            if (SceneBuilderManager.PendingSpawns > 0) { _autoBakeCalm = 0f; return; }
+            if ((_autoBakeCalm += Time.deltaTime) < 8f) return;   // 8 s de calma tras terminar de colocar
+            // Y tampoco mientras el juego va con tirones: el horneado es trabajo de fondo, nunca prioritario.
+            if (Time.deltaTime > 0.033f) { _autoBakeCalm = 4f; return; }
+            // Mantener la cola ALIMENTADA (antes esperábamos a que se vaciara del todo → guardaba lentísimo y
+            // muchos modelos detectados nunca llegaban a disco). El store igual la procesa con su presupuesto.
+            if (SceneModelStore.WorkPending > 60) return;
+            if ((_autoBakeThrottle += Time.deltaTime) < 0.25f) return;  // ~4 revisiones/seg
+            _autoBakeThrottle = 0f;
+
+            if (_autoBakeCursor >= _autoBakeKeys.Count)
+            { _autoBakeKeys.Clear(); _autoBakeKeys.AddRange(_catalog.Keys); _autoBakeCursor = 0; }
+
+            int checkBudget = 600;   // revisar bastantes por pasada (barato: HasBaked es un lookup en memoria)
+            int queued = 0;
+            while (_autoBakeCursor < _autoBakeKeys.Count && checkBudget-- > 0 && queued < 40)
+            {
+                var k = _autoBakeKeys[_autoBakeCursor++];
+                if (!_catalog.TryGetValue(k, out var info) || info == null) continue;
+                if (SceneModelStore.HasBaked(info.Zone, info.Key)) continue;   // ya guardado
+                if (!Alive(info.Sample)) continue;                              // su zona no está cargada → no se puede
+                try { SceneModelStore.QueueBake(info, info.Sample.gameObject); queued++; } catch { }
+            }
         }
 
         private static void BeginScan()
@@ -768,9 +1200,54 @@ namespace SlimeCorralSpawn.SceneBuilder
         }
 
         /// <summary>Categoría por palabra clave. Orden = específico → general (el orden importa MUCHO).</summary>
+        // ── CATEGORÍAS EN DOS NIVELES ──────────────────────────────────────────────────────────────────────
+        // Antes había una sola lista y "Suelos" se tragaba TODO lo que empezara con "area" o tuviera "hill":
+        // las montañas terminaban mezcladas con los pisos. Ahora Classify devuelve una SUBcategoría específica
+        // y GroupOf la mete en uno de 6 grupos grandes → el catálogo se navega Grupo → Subcategoría.
+        public static readonly string[] Groups =
+        { "Terreno", "Vegetacion", "Rocas", "Estructuras", "Ruinas", "Decoracion" };
+
+        private static readonly Dictionary<string, string> _subToGroup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            // Terreno
+            { "Suelos", "Terreno" }, { "Montanas", "Terreno" }, { "Acantilados", "Terreno" },
+            { "Cuevas", "Terreno" }, { "Arena", "Terreno" }, { "Agua", "Terreno" },
+            // Vegetación
+            { "Arboles", "Vegetacion" }, { "Arbustos", "Vegetacion" }, { "Flores", "Vegetacion" },
+            { "Pasto", "Vegetacion" }, { "Hongos", "Vegetacion" }, { "Coral", "Vegetacion" },
+            { "Musgo", "Vegetacion" }, { "Enredaderas", "Vegetacion" },
+            // Rocas
+            { "Piedras", "Rocas" }, { "Rocas grandes", "Rocas" }, { "Cristales", "Rocas" },
+            // Estructuras
+            { "Muros", "Estructuras" }, { "Puentes", "Estructuras" }, { "Vallas", "Estructuras" },
+            { "Arcos", "Estructuras" }, { "Puertas", "Estructuras" }, { "Escaleras", "Estructuras" },
+            { "Plataformas", "Estructuras" }, { "Techos", "Estructuras" }, { "Pilares", "Estructuras" },
+            { "Edificios", "Estructuras" }, { "Tuberias", "Estructuras" },
+            // Ruinas
+            { "Ruinas", "Ruinas" }, { "Estatuas", "Ruinas" }, { "Reliquias", "Ruinas" },
+            // Decoración
+            { "Luces", "Decoracion" }, { "Caminos", "Decoracion" }, { "Props", "Decoracion" },
+        };
+
+        /// <summary>Grupo grande al que pertenece una subcategoría (para el catálogo de 2 niveles).</summary>
+        public static string GroupOf(string subCategory)
+        {
+            if (string.IsNullOrEmpty(subCategory)) return "Decoracion";
+            return _subToGroup.TryGetValue(subCategory, out var g) ? g : "Decoracion";
+        }
+
         public static string Classify(string key)
         {
             string s = key.ToLowerInvariant();
+
+            // ── ESTRUCTURAS (lo más específico primero) ──
+            if (s.Contains("bridge")) return "Puentes";
+            if (s.Contains("stair") || s.Contains("step") || s.Contains("ramp")) return "Escaleras";
+            if (s.Contains("roof")) return "Techos";
+            if (s.Contains("door") || s.Contains("gate")) return "Puertas";
+            if (s.Contains("pillar") || s.Contains("column") || s.Contains("beam") || s.Contains("drum")) return "Pilares";
+            if (s.Contains("platform") || s.Contains("deck")) return "Plataformas";
+            if (s.Contains("pipe") || s.Contains("tube")) return "Tuberias";
 
             // Vallas / cercas.
             if (s.Contains("fence")) return "Vallas";
@@ -786,48 +1263,46 @@ namespace SlimeCorralSpawn.SceneBuilder
             // Arcos.
             if (s.Contains("arch")) return "Arcos";
 
-            // Ruinas / laberinto.
-            if (s.Contains("ruin") || s.Contains("laby") || s.Contains("statue") ||
-                s.Contains("relic") || s.Contains("monument") || s.Contains("pillardrum") ||
-                s.Contains("shrine") || s.Contains("temple")) return "Ruinas";
+            // Ruinas / laberinto (subdividido: estatuas y reliquias van aparte).
+            if (s.Contains("statue") || s.Contains("monument") || s.Contains("idol") ||
+                s.Contains("effigy") || s.Contains("obelisk")) return "Estatuas";
+            if (s.Contains("relic") || s.Contains("shrine") || s.Contains("altar") ||
+                s.Contains("totem") || s.Contains("artifact")) return "Reliquias";
+            if (s.Contains("ruin") || s.Contains("laby") || s.Contains("pillardrum") ||
+                s.Contains("temple")) return "Ruinas";
 
-            // Árboles.
-            if (s.Contains("tree") || s.Contains("trunk") || s.Contains("stump") ||
-                s.Contains("palm")) return "Arboles";
-
-            // Hongos.
+            // ── VEGETACIÓN (subdividida) ──
+            if (s.Contains("tree") || s.Contains("trunk") || s.Contains("stump") || s.Contains("palm")) return "Arboles";
             if (s.Contains("mushroom") || s.Contains("shroom")) return "Hongos";
+            if (s.Contains("flower") || s.Contains("bloom") || s.Contains("petal")) return "Flores";
+            if (s.Contains("grass") || s.Contains("weed") || s.Contains("lilypad")) return "Pasto";
+            if (s.Contains("moss") || s.Contains("lichen")) return "Musgo";
+            if (s.Contains("vine") || s.Contains("ivy") || s.Contains("root") || s.Contains("overgrown")) return "Enredaderas";
+            if (s.Contains("coral") || s.Contains("reef") || s.Contains("seaweed") || s.Contains("kelp") ||
+                s.Contains("shell") || s.Contains("anemone")) return "Coral";
+            if (s.Contains("bush") || s.Contains("fern") || s.Contains("shrub") || s.Contains("plant") ||
+                s.Contains("foliage") || s.Contains("leaf") || s.Contains("flora") || s.Contains("pop")) return "Arbustos";
 
-            // Piedras (incluye caveRock por el keyword rock, antes que Cuevas).
-            if (s.Contains("rock") || s.Contains("cliff") || s.Contains("boulder") ||
-                s.Contains("stone") || s.Contains("crag") || s.Contains("mtn") ||
-                s.Contains("geyser") || s.Contains("pebble")) return "Piedras";
+            // ── TERRENO: montañas y acantilados van APARTE de los suelos ──
+            if (s.Contains("mtn") || s.Contains("mountain") || s.Contains("magmahill") ||
+                s.Contains("hill") || s.Contains("mound") || s.Contains("peak")) return "Montanas";
+            if (s.Contains("cliff") || s.Contains("crag") || s.Contains("ledge")) return "Acantilados";
+            if (s.Contains("cave") || s.Contains("stal") || s.Contains("tunnel")) return "Cuevas";
 
-            // Cuevas (estalactitas, paredes/pilares/puertas/techos de caverna).
-            if (s.Contains("cave") || s.Contains("stal") || s.Contains("caveroof")) return "Cuevas";
+            // ── ROCAS ──
+            if (s.Contains("crystal") || s.Contains("gem") || s.Contains("quartz")) return "Cristales";
+            if (s.Contains("boulder") || s.Contains("bigrock")) return "Rocas grandes";
+            if (s.Contains("rock") || s.Contains("stone") || s.Contains("geyser") || s.Contains("pebble")) return "Piedras";
 
-            // Vegetación (pasto, arbustos, flores, enredaderas deco, algas, corales…).
-            if (s.Contains("grass") || s.Contains("bush") || s.Contains("flower") ||
-                s.Contains("fern") || s.Contains("vine") || s.Contains("seaweed") ||
-                s.Contains("plant") || s.Contains("foliage") || s.Contains("moss") ||
-                s.Contains("reef") || s.Contains("overgrown") || s.Contains("weed") ||
-                s.Contains("leaf") || s.Contains("flora") || s.Contains("lilypad") ||
-                s.Contains("root") || s.Contains("shell") || s.Contains("coral") ||
-                s.Contains("pop")) return "Vegetacion";
+            // ── ESTRUCTURAS (resto) ──
+            if (s.Contains("wall") || s.Contains("block")) return "Muros";
+            if (s.Contains("greenhouse") || s.Contains("house") || s.Contains("capsule") ||
+                s.Contains("building") || s.Contains("hut")) return "Edificios";
 
-            // Estructuras / construcciones (partes de edificio).
-            if (s.Contains("wall") || s.Contains("pillar") || s.Contains("greenhouse") ||
-                s.Contains("house") || s.Contains("platform") || s.Contains("capsule") ||
-                s.Contains("ramp") || s.Contains("door") || s.Contains("roof") ||
-                s.Contains("beam") || s.Contains("gate") || s.Contains("bridge") ||
-                s.Contains("column") || s.Contains("tunnel") || s.Contains("block") ||
-                s.Contains("drum") || s.Contains("pipe") || s.Contains("stair") ||
-                s.Contains("greenhouseblocks")) return "Estructuras";
-
-            // Suelos / terreno.
+            // ── TERRENO (suelos planos de verdad) ──
+            if (s.Contains("sand") || s.Contains("beach") || s.Contains("dune")) return "Arena";
             if (s.StartsWith("area") || s.Contains("ground") || s.Contains("plane") ||
-                s.Contains("hill") || s.Contains("mound") || s.Contains("sand") ||
-                s.Contains("terrain") || s.Contains("donut") || s.Contains("magmahill")) return "Suelos";
+                s.Contains("terrain") || s.Contains("donut")) return "Suelos";
 
             // Agua.
             if (s.Contains("water") || s.Contains("pond") || s.Contains("waterfall")) return "Agua";

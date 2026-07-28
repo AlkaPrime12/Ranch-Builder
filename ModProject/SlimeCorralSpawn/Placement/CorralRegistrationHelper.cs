@@ -194,6 +194,28 @@ namespace SlimeCorralSpawn.Placement
             return null;
         }
 
+        /// <summary>El PlortCollectorUpgrader del plot, buscado con tolerancia.
+        /// En el CORRAL de slimes está en el propio LandPlot; en el ESTANQUE (pond) cuelga del objeto adjunto,
+        /// así que un GetComponent estricto devolvía null y el recolector del estanque nunca se cableaba —
+        /// aunque sea EXACTAMENTE el mismo componente, solo que colocado en otro lado.</summary>
+        internal static Il2Cpp.PlortCollectorUpgrader ResolveUpgrader(Il2CppLandPlot lp)
+        {
+            if (lp == null) return null;
+            try { var u = lp.GetComponent<Il2Cpp.PlortCollectorUpgrader>(); if (u != null) return u; } catch { }
+            try { var u = lp.GetComponentInChildren<Il2Cpp.PlortCollectorUpgrader>(true); if (u != null) return u; } catch { }
+            try
+            {
+                var att = ReadAttachedObject(lp);
+                if (att != null)
+                {
+                    var u = att.GetComponentInChildren<Il2Cpp.PlortCollectorUpgrader>(true);
+                    if (u != null) return u;
+                }
+            }
+            catch { }
+            return null;
+        }
+
         private static Il2Cpp.PlortCollector FindCollectorComponent(Il2CppLandPlot lp)
         {
             try
@@ -201,6 +223,49 @@ namespace SlimeCorralSpawn.Placement
                 var arr = lp?.GetComponentsInChildren<Il2Cpp.PlortCollector>(true);
                 if (arr != null)
                     foreach (var pc in arr) if (pc != null) return pc;
+            }
+            catch { }
+
+            // El fallback se consulta desde el sifón (cada 0.25 s por plot). Sin cachear, la reflexión + el
+            // GetComponentsInChildren del árbol adjunto se pagarían en cada tick y en TODOS los plots que no
+            // tienen recolector (donde siempre falla).
+            int lpId; try { lpId = lp.GetInstanceID(); } catch { return null; }
+            if (_noAttachedCollector.Contains(lpId)) return null;
+
+            // FALLBACK (caso POND): el recolector es EXACTAMENTE el mismo componente que en el corral de slimes,
+            // pero en el estanque cuelga de LandPlot._attached (el objeto con el CONTENIDO del plot), no de los
+            // hijos del LandPlot → GetComponentsInChildren devolvía 0 y el estanque nunca chupaba. Es el mismo
+            // patrón que ya nos pasó con el SpawnResource del jardín.
+            try
+            {
+                var att = ReadAttachedObject(lp);
+                if (att != null)
+                {
+                    var arr2 = att.GetComponentsInChildren<Il2Cpp.PlortCollector>(true);
+                    if (arr2 != null)
+                        foreach (var pc in arr2) if (pc != null) return pc;
+                }
+            }
+            catch { }
+            _noAttachedCollector.Add(lpId);   // no hay: no volver a buscarlo en este plot
+            return null;
+        }
+        private static readonly System.Collections.Generic.HashSet<int> _noAttachedCollector = new System.Collections.Generic.HashSet<int>();
+
+        /// <summary>LandPlot._attached (privado en el binding Il2Cpp) por reflexión.</summary>
+        private static readonly string[] _attachedNames = { "_attached", "attached", "m_attached" };
+        private static GameObject ReadAttachedObject(Il2CppLandPlot lp)
+        {
+            if (lp == null) return null;
+            try
+            {
+                var t = lp.GetType();
+                foreach (var fn in _attachedNames)
+                {
+                    var f = t.GetField(fn, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+                    if (f == null) continue;
+                    if (f.GetValue(lp) is GameObject go && go != null) return go;
+                }
             }
             catch { }
             return null;

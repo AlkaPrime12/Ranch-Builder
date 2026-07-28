@@ -35,6 +35,8 @@ namespace SlimeCorralSpawn.Gadgets
         private static Vector3 _flyPos;
         private static float _flyYaw, _flyPitch;
         private static bool _airMode;
+        /// <summary>Si true, la cámara en modo libre siempre orbita (nunca suelta el cursor).</summary>
+        internal static bool _alwaysOrbit;
         /// <summary>Siempre el gadget bajo la mira (se actualiza cada frame incluso en estado bloqueado).</summary>
         private static GameObject _hoverAlways;
 
@@ -119,7 +121,9 @@ namespace SlimeCorralSpawn.Gadgets
                 bool blocked = _editing == null && (UI.PlotsMenuUI.IsVisible || GadgetPlacementHelper.IsPlacingGadget());
                 if (blocked)
                 {
-                    if (_freeCam) ExitFreeCam();
+                    // NO apagar la free cam si la posee el Scene Tool (su propio ciclo la maneja) — si no, el
+                    // chequeo de "menú visible" (que puede quedar true el frame en que se abre el editor) la mataba.
+                    if (_freeCam && !ExternalFreeCamOwned) ExitFreeCam();
                     if (!UI.PlotsMenuUI.IsVisible && GadgetPlacementHelper.IsPlacingGadget())
                         GadgetPlacementHelper.OnPlacementEnded();
                     return;
@@ -131,7 +135,7 @@ namespace SlimeCorralSpawn.Gadgets
                     if (InputHelper.GetKeyDown(KeyCode.F)) ToggleFreeCam();
                     if (_freeCam)
                     {
-                        if (InputHelper.GetMouseButtonDown(1)) { ExitFreeCam(); }
+                        if (InputHelper.GetMouseButtonDown(1) && !_alwaysOrbit) { ExitFreeCam(); }
                         else FreeCamUpdate();
                     }
                 }
@@ -256,10 +260,53 @@ namespace SlimeCorralSpawn.Gadgets
             FreezeGameInput(freeze);
         }
 
-        private static void ToggleFreeCam()
+        internal static bool IsCursorFreeOverride() => _alwaysOrbit;
+        internal static void ClearCursorOverride() { _alwaysOrbit = false; }
+        internal static void ExitFreeCamKeepPosition()
+        {
+            _freeCam = false;
+            if (_charCtrl != null)
+            {
+                try { _charCtrl.SetFreeze(false); } catch { }
+            }
+            _charCtrl = null;
+            _playerGo = null;
+        }
+
+        internal static void ToggleFreeCam()
         {
             if (_freeCam) ExitFreeCam();
             else EnterFreeCam();
+        }
+
+        // ── Free cam manejado desde AFUERA (Scene Tool) ──
+        // El Scene Tool posee la free cam mientras está abierto: la enciende al entrar, la maneja cada frame
+        // (con mouse-look condicionado a si el cursor está bloqueado) y la apaga al salir (teleport de regreso).
+        // GadgetEditor.Update NO la toca porque _editing == null durante el Scene Tool.
+        internal static bool ExternalFreeCamOwned;
+
+        internal static void BeginExternalFreeCam()
+        {
+            ExternalFreeCamOwned = true;
+            if (!_freeCam) EnterFreeCam();
+        }
+
+        internal static void EndExternalFreeCam()
+        {
+            ExternalFreeCamOwned = false;
+            _alwaysOrbit = false;
+            if (_freeCam) ExitFreeCam();   // teleporta de regreso a la pose previa a entrar
+        }
+
+        /// <summary>Un tick de vuelo manejado por el Scene Tool. mouseLook=false → no rota la cámara con el
+        /// mouse (para no pelear con el cursor libre de la GUI ni con el arrastre del gizmo). Devuelve false si
+        /// la free cam murió (el que llama debería dejar de manejarla).</summary>
+        internal static bool ExternalFreeCamTick(bool mouseLook)
+        {
+            if (!_freeCam) return false;
+            if (_charCtrl == null) { ExitFreeCam(); ExternalFreeCamOwned = false; return false; }
+            FreeCamMove(mouseLook);
+            return true;
         }
 
         private static void EnterFreeCam()
@@ -540,16 +587,21 @@ namespace SlimeCorralSpawn.Gadgets
 
         // ---- FreeCam = NOCLIP del jugador (volar) ----
 
-        private static void FreeCamUpdate()
+        private static void FreeCamUpdate() => FreeCamMove(true);
+
+        private static void FreeCamMove(bool mouseLook)
         {
             if (_charCtrl == null) { ExitFreeCam(); return; }
 
             // Mouse look: rotación del jugador (la cámara del juego lo sigue automáticamente).
-            Vector2 delta = InputHelper.GetMouseDelta();
-            _flyYaw += delta.x * 0.25f;
-            _flyPitch -= delta.y * 0.25f;
-            _flyPitch = Mathf.Clamp(_flyPitch, -89f, 89f);
-            try { _charCtrl.Rotation = Quaternion.Euler(_flyPitch, _flyYaw, 0f); } catch { }
+            if (mouseLook)
+            {
+                Vector2 delta = InputHelper.GetMouseDelta();
+                _flyYaw += delta.x * 0.25f;
+                _flyPitch -= delta.y * 0.25f;
+                _flyPitch = Mathf.Clamp(_flyPitch, -89f, 89f);
+                try { _charCtrl.Rotation = Quaternion.Euler(_flyPitch, _flyYaw, 0f); } catch { }
+            }
 
             // Dirección de vuelo relativa a la cámara del juego (que sigue al jugador rotado).
             Vector3 fwd = Vector3.forward, right = Vector3.right;
@@ -676,7 +728,9 @@ namespace SlimeCorralSpawn.Gadgets
                 }
                 if (_freeCam)
                 {
-                    if (!_hideUI)
+                    // Si el Scene Tool posee el free cam, NO dibujamos este HUD (el Scene Tool tiene su propia
+                    // barra abajo → si no, se superponían dos menús).
+                    if (!_hideUI && !ExternalFreeCamOwned)
                     {
                         float fy = Screen.height - 46f;
                         Rect fp = new Rect(cx - 260f, fy, 520f, 34f);
